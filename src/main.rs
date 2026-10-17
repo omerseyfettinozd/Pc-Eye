@@ -1,0 +1,423 @@
+pub mod daemon;
+pub mod director;
+pub mod eyes;
+pub mod mcp;
+pub mod protocol;
+pub mod web;
+
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+use serde_json::json;
+
+#[derive(Parser)]
+#[command(
+    name = "pc-eye",
+    version,
+    about = "PC-Eye V2: Tam Beyaz Kutu (Full White-Box) İşletim Sistemi Gözlemlenebilirlik ve Kontrol Çekirdeği"
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Sistem hazırlık ve yetenek tanılama raporu (Hyprland, Wayland protokolleri, AT-SPI2, PipeWire, grim)
+    Doctor,
+
+    /// Göz 1+3+4+5: Tek çağrıda tam masaüstü, sistem sağlığı (PSI/RAM/CPU), ses ve delta olay özeti
+    Context {
+        /// Sadece bu sıra numarasından sonraki olayları getir
+        #[arg(long)]
+        seq_since: Option<u64>,
+    },
+
+    /// Göz 2a: Hedef pencerenin AT-SPI2 semantik UI ağacını veya Terminal PTY durumunu okur
+    Ui {
+        /// Pencere adresi (ör. 0x55fd...). Boşsa aktif pencere
+        #[arg(long)]
+        window: Option<String>,
+        /// İsim veya rol filtresi
+        #[arg(long)]
+        query: Option<String>,
+        /// Maksimum eleman sayısı
+        #[arg(long, default_value_t = 60)]
+        max_elements: usize,
+    },
+
+    /// Göz 2b: Ekran, pencere, bölge veya zoom görüntüsü yakalar; dHash/pixel-diff ve Set-of-Marks üretir
+    Vision {
+        /// Hedef pencere adresi
+        #[arg(long)]
+        window: Option<String>,
+        /// Kırpma bölgesi: "x,y,w,h"
+        #[arg(long)]
+        region: Option<String>,
+        /// Yakınlaştırma merkezi: "x,y"
+        #[arg(long)]
+        zoom: Option<String>,
+        /// Tıklanabilir bölgelerin üzerine numaralı Set-of-Marks kutuları çiz
+        #[arg(long)]
+        marks: bool,
+    },
+
+    /// Göz 3: Pencerenin veya PID'nin arkasındaki tüm süreç soy ağacını, açık dosyaları ve ağ soketlerini röntgenler
+    Xray {
+        /// Pencere adresi
+        #[arg(long)]
+        window: Option<String>,
+        /// Kök süreç PID numarası
+        #[arg(long)]
+        pid: Option<i32>,
+    },
+
+    /// Göz 4: Sistem/kullanıcı journald loglarını ve uygulama hata çıktılarını filtreler
+    Logs {
+        /// Belirli bir PID için filtrele
+        #[arg(long)]
+        pid: Option<i32>,
+        /// Maksimum satır sayısı
+        #[arg(long, default_value_t = 30)]
+        limit: usize,
+    },
+
+    /// Göz 5: PipeWire ses grafiğini ve aktif ses/mikrofon akışlarını döner
+    Audio,
+
+    /// Semantik UI elemanına ismine veya Set-of-Marks numarasına göre doğrudan tıklar
+    ClickUi {
+        /// Pencere adresi
+        #[arg(long)]
+        window: Option<String>,
+        /// Kontrol adı
+        #[arg(long)]
+        name: Option<String>,
+        /// Set-of-Marks numarası
+        #[arg(long)]
+        mark: Option<usize>,
+        /// Fare düğmesi: left | right | middle
+        #[arg(long, default_value = "left")]
+        button: String,
+        /// Korumalı pencere kilidini aş
+        #[arg(long)]
+        allow_protected: bool,
+    },
+
+    /// Wayland yerel sanal fare ve dinamik XKB klavye enjeksiyonu
+    Input {
+        /// İşlem: click | move | drag | scroll | type | key
+        op: String,
+        #[arg(long)]
+        x: Option<i64>,
+        #[arg(long)]
+        y: Option<i64>,
+        #[arg(long)]
+        x2: Option<i64>,
+        #[arg(long)]
+        y2: Option<i64>,
+        #[arg(long, default_value_t = 0)]
+        dx: i32,
+        #[arg(long, default_value_t = -3)]
+        dy: i32,
+        #[arg(long, default_value = "left")]
+        button: String,
+        #[arg(long, default_value_t = 1)]
+        clicks: u32,
+        #[arg(long)]
+        text: Option<String>,
+        #[arg(long)]
+        keys: Option<String>,
+        #[arg(long)]
+        window: Option<String>,
+        #[arg(long)]
+        allow_protected: bool,
+    },
+
+    /// Hyprland IPC üzerinden pencere ve çalışma alanı yönetimi
+    Window {
+        /// İşlem: focus | close | workspace | movetoworkspace | fullscreen | float | move | resize
+        action: String,
+        #[arg(long)]
+        window: Option<String>,
+        #[arg(long)]
+        arg: Option<String>,
+    },
+
+    /// Uygulama başlatır, stdout/stderr logunu yakalar ve yeni pencerenin adresini döner
+    Launch {
+        #[arg(long)]
+        workspace: Option<String>,
+        #[arg(long, default_value_t = 3000)]
+        timeout_ms: u64,
+        #[arg(last = true, required = true)]
+        command: Vec<String>,
+    },
+
+    /// Hyprland .socket2.sock olayını deterministik olarak bekler
+    Wait {
+        #[arg(default_value = "activewindow")]
+        event: String,
+        #[arg(long)]
+        r#match: Option<String>,
+        #[arg(long, default_value_t = 5000)]
+        timeout_ms: u64,
+    },
+
+    /// Yönetmen kontrolleri: Watchdog korumalı freeze/thaw, sequence ve clipboard
+    Director {
+        /// İşlem: freeze | thaw | clipboard | sequence
+        op: String,
+        #[arg(long)]
+        pid: Option<i32>,
+        #[arg(long, default_value_t = 500)]
+        max_freeze_ms: u64,
+        #[arg(long)]
+        text: Option<String>,
+        #[arg(long)]
+        steps_json: Option<String>,
+        #[arg(long)]
+        allow_protected: bool,
+    },
+
+    /// Model Context Protocol (MCP) JSON-RPC 2.0 stdio sunucusunu başlatır
+    Mcp,
+
+    /// Canlı Web Gözlem Paneli ve HTTP API sunucusunu başlatır
+    Serve {
+        #[arg(long, default_value_t = 7777)]
+        port: u16,
+    },
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Doctor => {
+            let hypr_sock = eyes::compositor::resolve_hyprland_socket(".socket.sock").ok();
+            let hypr_event_sock = eyes::compositor::resolve_hyprland_socket(".socket2.sock").ok();
+            let a11y_enabled = eyes::ui_atspi::ensure_atspi_enabled();
+            let a11y_bus = eyes::ui_atspi::resolve_atspi_bus_address();
+            let grim_ok = std::process::Command::new("grim")
+                .arg("-h")
+                .output()
+                .is_ok();
+            let pw_ok = std::process::Command::new("pw-dump")
+                .arg("--version")
+                .output()
+                .is_ok();
+
+            let report = json!({
+                "status": "ready",
+                "version": env!("CARGO_PKG_VERSION"),
+                "hyprland_socket": hypr_sock,
+                "hyprland_event_socket": hypr_event_sock,
+                "atspi_enabled": a11y_enabled,
+                "atspi_bus_address": a11y_bus,
+                "grim_available": grim_ok,
+                "pipewire_available": pw_ok,
+                "runtime_dir": eyes::vision::runtime_dir(),
+            });
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        Commands::Context { seq_since } => {
+            let rep = daemon::server::build_context_report(seq_since)?;
+            println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Commands::Ui {
+            window,
+            query,
+            max_elements,
+        } => {
+            let rep =
+                eyes::ui_atspi::inspect_window_ui(window.as_deref(), query.as_deref(), max_elements)?;
+            println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Commands::Vision {
+            window,
+            region,
+            zoom,
+            marks,
+        } => {
+            let reg = region.as_deref().and_then(parse_four_ints);
+            let zm = zoom.as_deref().and_then(parse_two_ints);
+            let rep = eyes::vision::capture_vision(window.as_deref(), reg, zm, marks)?;
+            println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Commands::Xray { window, pid } => {
+            let rep = daemon::server::build_xray_for_target(window.as_deref(), pid)?;
+            println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Commands::Logs { pid, limit } => {
+            let pids = pid.map(|p| vec![p]);
+            let logs = eyes::logs_notify::query_recent_journal_logs(pids.as_deref(), limit)?;
+            println!("{}", serde_json::to_string_pretty(&logs)?);
+        }
+        Commands::Audio => {
+            let rep = eyes::audio_pipewire::capture_audio_report()?;
+            println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Commands::ClickUi {
+            window,
+            name,
+            mark,
+            button,
+            allow_protected,
+        } => {
+            let rec = director::input::click_ui_element(
+                window.as_deref(),
+                name.as_deref(),
+                mark,
+                &button,
+                allow_protected,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&rec)?);
+        }
+        Commands::Input {
+            op,
+            x,
+            y,
+            x2,
+            y2,
+            dx,
+            dy,
+            button,
+            clicks,
+            text,
+            keys,
+            window,
+            allow_protected,
+        } => {
+            let rec = match op.as_str() {
+                "click" => director::input::click_at(x, y, &button, clicks, allow_protected)?,
+                "move" => director::input::move_cursor(
+                    x.ok_or_else(|| anyhow::anyhow!("--x gerekli"))?,
+                    y.ok_or_else(|| anyhow::anyhow!("--y gerekli"))?,
+                )?,
+                "drag" => director::input::drag_mouse(
+                    x.ok_or_else(|| anyhow::anyhow!("--x gerekli"))?,
+                    y.ok_or_else(|| anyhow::anyhow!("--y gerekli"))?,
+                    x2.ok_or_else(|| anyhow::anyhow!("--x2 gerekli"))?,
+                    y2.ok_or_else(|| anyhow::anyhow!("--y2 gerekli"))?,
+                    &button,
+                    allow_protected,
+                )?,
+                "scroll" => director::input::scroll_wheel(x, y, dx, dy, allow_protected)?,
+                "type" => director::input::type_text(
+                    text.as_deref()
+                        .ok_or_else(|| anyhow::anyhow!("--text gerekli"))?,
+                    window.as_deref(),
+                    allow_protected,
+                )?,
+                "key" => director::input::press_key_combo(
+                    keys.as_deref()
+                        .or(text.as_deref())
+                        .ok_or_else(|| anyhow::anyhow!("--keys gerekli"))?,
+                    window.as_deref(),
+                    allow_protected,
+                )?,
+                other => return Err(anyhow::anyhow!("Bilinmeyen input işlemi: {}", other)),
+            };
+            println!("{}", serde_json::to_string_pretty(&rec)?);
+        }
+        Commands::Window {
+            action,
+            window,
+            arg,
+        } => {
+            let rec =
+                director::process_ctl::manage_window(&action, window.as_deref(), arg.as_deref())?;
+            println!("{}", serde_json::to_string_pretty(&rec)?);
+        }
+        Commands::Launch {
+            workspace,
+            timeout_ms,
+            command,
+        } => {
+            let rec = director::process_ctl::launch_application(
+                &command,
+                workspace.as_deref(),
+                timeout_ms,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&rec)?);
+        }
+        Commands::Wait {
+            event,
+            r#match,
+            timeout_ms,
+        } => {
+            let ev = eyes::compositor::wait_for_compositor_event(
+                &event,
+                r#match.as_deref(),
+                timeout_ms,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&ev)?);
+        }
+        Commands::Director {
+            op,
+            pid,
+            max_freeze_ms,
+            text,
+            steps_json,
+            allow_protected,
+        } => match op.as_str() {
+            "freeze" => {
+                let p = pid.ok_or_else(|| anyhow::anyhow!("--pid gerekli"))?;
+                let rec = director::process_ctl::freeze_process_safe(p, max_freeze_ms)?;
+                println!("{}", serde_json::to_string_pretty(&rec)?);
+            }
+            "thaw" => {
+                let p = pid.ok_or_else(|| anyhow::anyhow!("--pid gerekli"))?;
+                let rec = director::process_ctl::thaw_process(p)?;
+                println!("{}", serde_json::to_string_pretty(&rec)?);
+            }
+            "clipboard" => {
+                let rec = director::process_ctl::clipboard_action(text.as_deref())?;
+                println!("{}", serde_json::to_string_pretty(&rec)?);
+            }
+            "sequence" => {
+                let raw = steps_json
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("--steps-json gerekli"))?;
+                let steps: Vec<director::sequence::SequenceStep> = serde_json::from_str(raw)?;
+                let rep = director::sequence::execute_sequence(&steps, allow_protected)?;
+                println!("{}", serde_json::to_string_pretty(&rep)?);
+            }
+            other => return Err(anyhow::anyhow!("Bilinmeyen director işlemi: {}", other)),
+        },
+        Commands::Mcp => {
+            mcp::run_mcp_stdio_server()?;
+        }
+        Commands::Serve { port } => {
+            web::run_web_dashboard(port)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_four_ints(s: &str) -> Option<[i64; 4]> {
+    let parts: Vec<i64> = s
+        .split(|c: char| c == ',' || c == 'x' || c == ' ')
+        .filter(|p| !p.is_empty())
+        .filter_map(|p| p.parse::<i64>().ok())
+        .collect();
+    if parts.len() == 4 {
+        Some([parts[0], parts[1], parts[2], parts[3]])
+    } else {
+        None
+    }
+}
+
+fn parse_two_ints(s: &str) -> Option<[i64; 2]> {
+    let parts: Vec<i64> = s
+        .split(|c: char| c == ',' || c == ' ')
+        .filter(|p| !p.is_empty())
+        .filter_map(|p| p.parse::<i64>().ok())
+        .collect();
+    if parts.len() == 2 {
+        Some([parts[0], parts[1]])
+    } else {
+        None
+    }
+}

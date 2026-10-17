@@ -1,0 +1,19 @@
+[package]
+name = "pc-eye"
+version = "0.2.0"
+edition = "2021"
+description = "PC-Eye V2: Full White-Box OS Observability & Director Control Engine for AI Models (Hyprland/Wayland/Linux)"
+license = "MIT"
+
+[[bin]]
+name = "pc-eye"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+base64 = "0.22"
+clap = { version = "4.5", features = ["derive", "env"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

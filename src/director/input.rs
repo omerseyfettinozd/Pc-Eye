@@ -1,0 +1,716 @@
+use crate::director::guard::enforce_action_guard;
+use crate::eyes::compositor::{
+    capture_desktop_state, hypr_dispatch, normalize_window_address,
+};
+use crate::eyes::ui_atspi::inspect_window_ui;
+use crate::eyes::vision::load_persisted_marks;
+use crate::protocol::types::UiElement;
+use anyhow::{anyhow, Context, Result};
+use serde::{Deserialize, Serialize};
+use std::env;
+use std::ffi::CString;
+use std::io::{Read, Write};
+use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::net::UnixStream;
+use std::thread;
+use std::time::Duration;
+
+const BTN_LEFT: u32 = 0x110; // 272
+const BTN_RIGHT: u32 = 0x111; // 273
+const BTN_MIDDLE: u32 = 0x112; // 274
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionReceipt {
+    pub ok: bool,
+    pub action: String,
+    pub target: String,
+    pub coordinates: Option<[i64; 2]>,
+    pub details: String,
+}
+
+/// Fare düğmesi adını Linux evdev koduna çevirir.
+pub fn parse_mouse_button(btn: &str) -> u32 {
+    match btn.to_ascii_lowercase().as_str() {
+        "right" | "r" | "2" => BTN_RIGHT,
+        "middle" | "mid" | "m" | "3" => BTN_MIDDLE,
+        _ => BTN_LEFT,
+    }
+}
+
+/// İmleci Hyprland kompozitörünün kendi `movecursor` komutuyla tam küresel koordinata taşır.
+pub fn move_cursor(x: i64, y: i64) -> Result<ActionReceipt> {
+    enforce_action_guard(None, false)?;
+    hypr_dispatch(&format!("movecursor {} {}", x, y))?;
+    Ok(ActionReceipt {
+        ok: true,
+        action: "move_cursor".to_string(),
+        target: format!("{},{}", x, y),
+        coordinates: Some([x, y]),
+        details: format!("İmleç ({}, {}) konumuna taşındı", x, y),
+    })
+}
+
+/// Belirtilen koordinata (veya mevcut imleç konumuna) Wayland `zwlr_virtual_pointer_v1` üzerinden tıklar.
+pub fn click_at(
+    x: Option<i64>,
+    y: Option<i64>,
+    button: &str,
+    clicks: u32,
+    allow_protected: bool,
+) -> Result<ActionReceipt> {
+    enforce_action_guard(None, allow_protected)?;
+    if let (Some(cx), Some(cy)) = (x, y) {
+        hypr_dispatch(&format!("movecursor {} {}", cx, cy))?;
+        thread::sleep(Duration::from_millis(18));
+    }
+
+    let btn_code = parse_mouse_button(button);
+    let mut wl = WaylandVirtualInput::connect()?;
+    for i in 0..clicks.max(1) {
+        if i > 0 {
+            thread::sleep(Duration::from_millis(45));
+        }
+        wl.pointer_button(btn_code, 1)?;
+        thread::sleep(Duration::from_millis(20));
+        wl.pointer_button(btn_code, 0)?;
+    }
+
+    let desktop = capture_desktop_state()?;
+    let coords = [desktop.cursor_x, desktop.cursor_y];
+    Ok(ActionReceipt {
+        ok: true,
+        action: "click".to_string(),
+        target: format!("{} ({}x)", button, clicks.max(1)),
+        coordinates: Some(coords),
+        details: format!(
+            "({}, {}) konumuna {} tıklandı",
+            coords[0], coords[1], button
+        ),
+    })
+}
+
+/// Başlangıç `(x1, y1)` noktasından `(x2, y2)` noktasına yumuşak adımlarla sürükle-bırak yapar.
+pub fn drag_mouse(
+    x1: i64,
+    y1: i64,
+    x2: i64,
+    y2: i64,
+    button: &str,
+    allow_protected: bool,
+) -> Result<ActionReceipt> {
+    enforce_action_guard(None, allow_protected)?;
+    let btn_code = parse_mouse_button(button);
+    hypr_dispatch(&format!("movecursor {} {}", x1, y1))?;
+    thread::sleep(Duration::from_millis(25));
+
+    let mut wl = WaylandVirtualInput::connect()?;
+    wl.pointer_button(btn_code, 1)?;
+    thread::sleep(Duration::from_millis(25));
+
+    let steps = 12i64;
+    for s in 1..=steps {
+        let ix = x1 + (x2 - x1) * s / steps;
+        let iy = y1 + (y2 - y1) * s / steps;
+        hypr_dispatch(&format!("movecursor {} {}", ix, iy))?;
+        thread::sleep(Duration::from_millis(12));
+    }
+
+    wl.pointer_button(btn_code, 0)?;
+    Ok(ActionReceipt {
+        ok: true,
+        action: "drag".to_string(),
+        target: format!("({},{}) -> ({},{})", x1, y1, x2, y2),
+        coordinates: Some([x2, y2]),
+        details: "Sürükle-bırak tamamlandı".to_string(),
+    })
+}
+
+/// Fare tekerleği kaydırması (`dy`: pozitif aşağı, negatif yukarı; `dx`: yatay).
+pub fn scroll_wheel(
+    x: Option<i64>,
+    y: Option<i64>,
+    dx: i32,
+    dy: i32,
+    allow_protected: bool,
+) -> Result<ActionReceipt> {
+    enforce_action_guard(None, allow_protected)?;
+    if let (Some(cx), Some(cy)) = (x, y) {
+        hypr_dispatch(&format!("movecursor {} {}", cx, cy))?;
+        thread::sleep(Duration::from_millis(15));
+    }
+
+    let mut wl = WaylandVirtualInput::connect()?;
+    if dy != 0 {
+        wl.pointer_scroll(0, dy)?;
+    }
+    if dx != 0 {
+        wl.pointer_scroll(1, dx)?;
+    }
+
+    Ok(ActionReceipt {
+        ok: true,
+        action: "scroll".to_string(),
+        target: format!("dx={}, dy={}", dx, dy),
+        coordinates: x.zip(y).map(|(a, b)| [a, b]),
+        details: "Tekerlek kaydırma gönderildi".to_string(),
+    })
+}
+
+/// Semantik UI elemanına (`--name` veya Set-of-Marks `--mark` numarasına) doğrudan tıklar.
+pub fn click_ui_element(
+    window_addr: Option<&str>,
+    name_query: Option<&str>,
+    mark_id: Option<usize>,
+    button: &str,
+    allow_protected: bool,
+) -> Result<ActionReceipt> {
+    enforce_action_guard(window_addr, allow_protected)?;
+
+    let matched: UiElement = if let Some(m_id) = mark_id {
+        let marks = load_persisted_marks();
+        if let Some(found) = marks.into_iter().find(|e| e.mark == m_id) {
+            found
+        } else {
+            let ui = inspect_window_ui(window_addr, None, 80)?;
+            ui.elements
+                .into_iter()
+                .find(|e| e.mark == m_id)
+                .ok_or_else(|| anyhow!("Mark #{} bulunamadı", m_id))?
+        }
+    } else if let Some(q) = name_query {
+        let ui = inspect_window_ui(window_addr, Some(q), 80)?;
+        if ui.elements.is_empty() {
+            return Err(anyhow!(
+                "`{}` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın)",
+                q
+            ));
+        }
+        // Tam eşleşme varsa onu seç, yoksa ilk eşleşeni al
+        let q_lower = q.to_ascii_lowercase();
+        ui.elements
+            .iter()
+            .find(|e| e.name.to_ascii_lowercase() == q_lower)
+            .cloned()
+            .unwrap_or_else(|| ui.elements[0].clone())
+    } else {
+        return Err(anyhow!("`click-ui` için `--name` veya `--mark` belirtilmelidir"));
+    };
+
+    let [cx, cy] = matched.click_point;
+    click_at(Some(cx), Some(cy), button, 1, allow_protected)?;
+
+    Ok(ActionReceipt {
+        ok: true,
+        action: "click_ui".to_string(),
+        target: format!("[{}] {} ({})", matched.mark, matched.name, matched.role),
+        coordinates: Some([cx, cy]),
+        details: format!(
+            "UI elemanı `{}` [mark={}] ({}, {}) koordinatında tıklandı",
+            matched.name, matched.mark, cx, cy
+        ),
+    })
+}
+
+/// Unicode-güvenli metin yazma (`zwp_virtual_keyboard_v1` dinamik XKB keymap ile Türkçe karakterler dahil).
+pub fn type_text(
+    text: &str,
+    window_addr: Option<&str>,
+    allow_protected: bool,
+) -> Result<ActionReceipt> {
+    enforce_action_guard(window_addr, allow_protected)?;
+    if let Some(addr) = window_addr {
+        let norm = normalize_window_address(addr);
+        hypr_dispatch(&format!("focuswindow address:{}", norm))?;
+        thread::sleep(Duration::from_millis(30));
+    }
+
+    let mut wl = WaylandVirtualInput::connect()?;
+    wl.type_unicode_string(text)?;
+
+    Ok(ActionReceipt {
+        ok: true,
+        action: "type_text".to_string(),
+        target: window_addr.unwrap_or("focused").to_string(),
+        coordinates: None,
+        details: format!("{} karakter yazıldı", text.chars().count()),
+    })
+}
+
+/// Klavye kısayolu veya tuş kombinasyonu gönderir (`ctrl+l`, `Return`, `Escape`, `ctrl+shift+t` vb.).
+pub fn press_key_combo(
+    combo: &str,
+    window_addr: Option<&str>,
+    allow_protected: bool,
+) -> Result<ActionReceipt> {
+    enforce_action_guard(window_addr, allow_protected)?;
+    if let Some(addr) = window_addr {
+        let norm = normalize_window_address(addr);
+        hypr_dispatch(&format!("focuswindow address:{}", norm))?;
+        thread::sleep(Duration::from_millis(25));
+    }
+
+    let mut wl = WaylandVirtualInput::connect()?;
+    wl.send_key_combo(combo)?;
+
+    Ok(ActionReceipt {
+        ok: true,
+        action: "press_key".to_string(),
+        target: combo.to_string(),
+        coordinates: None,
+        details: format!("Tuş kombinasyonu gönderildi: {}", combo),
+    })
+}
+
+// ============================================================================
+// Saf Rust Wayland Wire Protokol İstemcisi (`zwlr_virtual_pointer_v1` & `zwp_virtual_keyboard_v1`)
+// ============================================================================
+
+struct WaylandVirtualInput {
+    stream: UnixStream,
+    ptr_id: u32,
+    kbd_id: u32,
+    next_id: u32,
+}
+
+impl WaylandVirtualInput {
+    fn connect() -> Result<Self> {
+        let runtime_dir =
+            env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/run/user/1000".to_string());
+        let display = env::var("WAYLAND_DISPLAY").unwrap_or_else(|_| "wayland-1".to_string());
+        let sock_path = format!("{}/{}", runtime_dir, display);
+
+        let mut stream = UnixStream::connect(&sock_path)
+            .with_context(|| format!("Wayland soketine bağlanılamadı: {}", sock_path))?;
+        stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+        stream.set_write_timeout(Some(Duration::from_secs(2)))?;
+
+        // 1. wl_display(1).get_registry(opcode=1, new_id=2) + wl_display(1).sync(opcode=0, new_id=3)
+        let mut init_pkt = Vec::new();
+        write_wl_msg(&mut init_pkt, 1, 1, &[2]);
+        write_wl_msg(&mut init_pkt, 1, 0, &[3]);
+        stream.write_all(&init_pkt)?;
+
+        let mut buf = vec![0u8; 65536];
+        let mut collected = Vec::new();
+        loop {
+            let n = stream.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            collected.extend_from_slice(&buf[..n]);
+            // wl_callback(3).done(opcode=0) gelene kadar oku
+            if contains_callback_done(&collected, 3) {
+                break;
+            }
+        }
+
+        let globals = parse_registry_globals(&collected);
+        let seat_global = globals
+            .iter()
+            .find(|g| g.interface == "wl_seat")
+            .ok_or_else(|| anyhow!("Wayland wl_seat bulunamadı"))?;
+        let ptr_global = globals
+            .iter()
+            .find(|g| g.interface == "zwlr_virtual_pointer_manager_v1")
+            .ok_or_else(|| anyhow!("Wayland zwlr_virtual_pointer_manager_v1 bulunamadı"))?;
+        let kbd_global = globals
+            .iter()
+            .find(|g| g.interface == "zwp_virtual_keyboard_manager_v1")
+            .ok_or_else(|| anyhow!("Wayland zwp_virtual_keyboard_manager_v1 bulunamadı"))?;
+
+        let seat_id = 4u32;
+        let ptr_mgr_id = 5u32;
+        let kbd_mgr_id = 6u32;
+        let ptr_id = 7u32;
+        let kbd_id = 8u32;
+        let sync_id = 9u32;
+
+        let mut bind_pkt = Vec::new();
+        write_registry_bind(
+            &mut bind_pkt,
+            2,
+            seat_global.name,
+            "wl_seat",
+            seat_global.version.min(7),
+            seat_id,
+        );
+        write_registry_bind(
+            &mut bind_pkt,
+            2,
+            ptr_global.name,
+            "zwlr_virtual_pointer_manager_v1",
+            ptr_global.version.min(2),
+            ptr_mgr_id,
+        );
+        write_registry_bind(
+            &mut bind_pkt,
+            2,
+            kbd_global.name,
+            "zwp_virtual_keyboard_manager_v1",
+            1,
+            kbd_mgr_id,
+        );
+
+        // create_virtual_pointer(seat_id, ptr_id) -> opcode 0
+        write_wl_msg(&mut bind_pkt, ptr_mgr_id, 0, &[seat_id, ptr_id]);
+        // create_virtual_keyboard(seat_id, kbd_id) -> opcode 0
+        write_wl_msg(&mut bind_pkt, kbd_mgr_id, 0, &[seat_id, kbd_id]);
+        // sync
+        write_wl_msg(&mut bind_pkt, 1, 0, &[sync_id]);
+
+        stream.write_all(&bind_pkt)?;
+        Self::wait_sync(&mut stream, sync_id)?;
+
+        Ok(Self {
+            stream,
+            ptr_id,
+            kbd_id,
+            next_id: 10,
+        })
+    }
+
+    fn wait_sync(stream: &mut UnixStream, sync_id: u32) -> Result<()> {
+        let mut buf = [0u8; 8192];
+        let mut acc = Vec::new();
+        loop {
+            let n = stream.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            acc.extend_from_slice(&buf[..n]);
+            if contains_callback_done(&acc, sync_id) {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn flush_sync(&mut self) -> Result<()> {
+        let sync_id = self.next_id;
+        self.next_id += 1;
+        let mut pkt = Vec::new();
+        write_wl_msg(&mut pkt, 1, 0, &[sync_id]);
+        self.stream.write_all(&pkt)?;
+        Self::wait_sync(&mut self.stream, sync_id)
+    }
+
+    fn pointer_button(&mut self, button: u32, state: u32) -> Result<()> {
+        let mut pkt = Vec::new();
+        // zwlr_virtual_pointer_v1.button (opcode 2): time, button, state
+        write_wl_msg(&mut pkt, self.ptr_id, 2, &[100, button, state]);
+        // zwlr_virtual_pointer_v1.frame (opcode 4)
+        write_wl_msg(&mut pkt, self.ptr_id, 4, &[]);
+        self.stream.write_all(&pkt)?;
+        self.flush_sync()
+    }
+
+    fn pointer_scroll(&mut self, axis: u32, discrete_steps: i32) -> Result<()> {
+        let mut pkt = Vec::new();
+        // axis_source (opcode 5): 0 (wheel)
+        write_wl_msg(&mut pkt, self.ptr_id, 5, &[0]);
+        // axis_discrete (opcode 7): time, axis, value (wl_fixed = steps * 15 * 256), discrete
+        let fixed_val = (discrete_steps * 15 * 256) as u32;
+        write_wl_msg(
+            &mut pkt,
+            self.ptr_id,
+            7,
+            &[100, axis, fixed_val, discrete_steps as u32],
+        );
+        // frame (opcode 4)
+        write_wl_msg(&mut pkt, self.ptr_id, 4, &[]);
+        self.stream.write_all(&pkt)?;
+        self.flush_sync()
+    }
+
+    fn type_unicode_string(&mut self, text: &str) -> Result<()> {
+        if text.is_empty() {
+            return Ok(());
+        }
+        // Metindeki benzersiz karakterler için dinamik XKB keymap oluştur
+        let mut unique_chars: Vec<char> = Vec::new();
+        for ch in text.chars() {
+            if !unique_chars.contains(&ch) {
+                unique_chars.push(ch);
+            }
+        }
+
+        let keymap_str = build_dynamic_xkb_keymap(&unique_chars, &[]);
+        self.upload_keymap(&keymap_str)?;
+
+        let mut pkt = Vec::new();
+        let mut t = 100u32;
+        for ch in text.chars() {
+            let idx = unique_chars.iter().position(|&c| c == ch).unwrap_or(0);
+            let evdev_keycode = (idx as u32) + 1; // XKB keycode = evdev + 8 -> 9 + idx
+            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 1]);
+            t += 5;
+            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 0]);
+            t += 5;
+        }
+        self.stream.write_all(&pkt)?;
+        self.flush_sync()
+    }
+
+    fn send_key_combo(&mut self, combo: &str) -> Result<()> {
+        let parts: Vec<&str> = combo.split('+').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+        let mut mods_mask = 0u32;
+        let mut keysyms: Vec<String> = Vec::new();
+
+        for part in parts {
+            match part.to_ascii_lowercase().as_str() {
+                "shift" => mods_mask |= 1,
+                "ctrl" | "control" => mods_mask |= 4,
+                "alt" | "mod1" => mods_mask |= 8,
+                "super" | "win" | "logo" | "mod4" => mods_mask |= 64,
+                other => keysyms.push(normalize_keysym_name(other)),
+            }
+        }
+
+        let keymap_str = build_dynamic_xkb_keymap(&[], &keysyms);
+        self.upload_keymap(&keymap_str)?;
+
+        let mut pkt = Vec::new();
+        // modifiers (opcode 2): depressed, latched, locked, group
+        if mods_mask != 0 {
+            write_wl_msg(&mut pkt, self.kbd_id, 2, &[mods_mask, 0, 0, 0]);
+        }
+        let mut t = 100u32;
+        for (idx, _) in keysyms.iter().enumerate() {
+            let evdev_keycode = (idx as u32) + 1;
+            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 1]);
+            t += 10;
+            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 0]);
+            t += 10;
+        }
+        if mods_mask != 0 {
+            write_wl_msg(&mut pkt, self.kbd_id, 2, &[0, 0, 0, 0]);
+        }
+        self.stream.write_all(&pkt)?;
+        self.flush_sync()
+    }
+
+    fn upload_keymap(&mut self, keymap_text: &str) -> Result<()> {
+        let mut bytes = keymap_text.as_bytes().to_vec();
+        bytes.push(0); // Null-terminated XKB string
+        let size = bytes.len() as u32;
+
+        let fd = create_memfd_with_bytes(&bytes)?;
+        // zwp_virtual_keyboard_v1.keymap (opcode 0): format=1 (XKB_V1), fd (ancillary), size
+        let mut msg = Vec::new();
+        write_wl_msg(&mut msg, self.kbd_id, 0, &[1, size]);
+        send_msg_with_fd(self.stream.as_raw_fd(), &msg, fd)?;
+        unsafe {
+            libc::close(fd);
+        }
+        self.flush_sync()
+    }
+}
+
+fn normalize_keysym_name(raw: &str) -> String {
+    match raw.to_ascii_lowercase().as_str() {
+        "enter" | "return" => "Return".to_string(),
+        "esc" | "escape" => "Escape".to_string(),
+        "tab" => "Tab".to_string(),
+        "space" => "space".to_string(),
+        "backspace" | "bs" => "BackSpace".to_string(),
+        "delete" | "del" => "Delete".to_string(),
+        "up" => "Up".to_string(),
+        "down" => "Down".to_string(),
+        "left" => "Left".to_string(),
+        "right" => "Right".to_string(),
+        "home" => "Home".to_string(),
+        "end" => "End".to_string(),
+        "pageup" | "pgup" => "Prior".to_string(),
+        "pagedown" | "pgdn" => "Next".to_string(),
+        s if s.starts_with('f') && s[1..].parse::<u8>().is_ok() => s.to_ascii_uppercase(),
+        _ => raw.to_string(),
+    }
+}
+
+fn char_to_xkb_keysym(ch: char) -> String {
+    match ch {
+        '\n' | '\r' => "Return".to_string(),
+        '\t' => "Tab".to_string(),
+        ' ' => "space".to_string(),
+        c => format!("U{:04X}", c as u32),
+    }
+}
+
+fn build_dynamic_xkb_keymap(chars: &[char], named_keysyms: &[String]) -> String {
+    let mut all_syms: Vec<String> = chars.iter().map(|&c| char_to_xkb_keysym(c)).collect();
+    all_syms.extend_from_slice(named_keysyms);
+    if all_syms.is_empty() {
+        all_syms.push("NoSymbol".to_string());
+    }
+
+    let max_kc = 8 + all_syms.len();
+    let mut keycode_lines = String::new();
+    let mut symbol_lines = String::new();
+
+    for (idx, sym) in all_syms.iter().enumerate() {
+        let kc = 9 + idx;
+        keycode_lines.push_str(&format!("        <K{}> = {};\n", idx, kc));
+        symbol_lines.push_str(&format!("        key <K{}> {{ [ {} ] }};\n", idx, sym));
+    }
+
+    format!(
+        "xkb_keymap {{\n\
+         xkb_keycodes \"pceye\" {{\n\
+             minimum = 8;\n\
+             maximum = {};\n\
+         {}\
+         }};\n\
+         xkb_types \"pceye\" {{\n\
+             virtual_modifiers NumLock;\n\
+             type \"ONE_LEVEL\" {{\n\
+                 modifiers = none;\n\
+                 level_name[Level1] = \"Any\";\n\
+             }};\n\
+         }};\n\
+         xkb_compatibility \"pceye\" {{\n\
+             interpret Any + AnyOf(all) {{ action = SetMods(modifiers=modMapMods); }};\n\
+         }};\n\
+         xkb_symbols \"pceye\" {{\n\
+         {}\
+         }};\n\
+         }};\n",
+        max_kc.max(9),
+        keycode_lines,
+        symbol_lines
+    )
+}
+
+fn create_memfd_with_bytes(bytes: &[u8]) -> Result<RawFd> {
+    let name = CString::new("pceye_keymap")?;
+    let fd = unsafe { libc::memfd_create(name.as_ptr(), libc::MFD_CLOEXEC) };
+    if fd < 0 {
+        return Err(anyhow!("memfd_create başarısız oldu"));
+    }
+    let written = unsafe { libc::write(fd, bytes.as_ptr() as *const libc::c_void, bytes.len()) };
+    if written < 0 || (written as usize) != bytes.len() {
+        unsafe { libc::close(fd) };
+        return Err(anyhow!("memfd yazma hatası"));
+    }
+    Ok(fd)
+}
+
+fn send_msg_with_fd(sock_fd: RawFd, data: &[u8], pass_fd: RawFd) -> Result<()> {
+    let mut iov = libc::iovec {
+        iov_base: data.as_ptr() as *mut libc::c_void,
+        iov_len: data.len(),
+    };
+
+    let cmsg_space = unsafe { libc::CMSG_SPACE(std::mem::size_of::<RawFd>() as u32) } as usize;
+    let mut cmsg_buf = vec![0u8; cmsg_space];
+
+    let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
+    msg.msg_iov = &mut iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = cmsg_buf.as_mut_ptr() as *mut libc::c_void;
+    msg.msg_controllen = cmsg_space;
+
+    unsafe {
+        let cmsg = libc::CMSG_FIRSTHDR(&msg);
+        (*cmsg).cmsg_level = libc::SOL_SOCKET;
+        (*cmsg).cmsg_type = libc::SCM_RIGHTS;
+        (*cmsg).cmsg_len = libc::CMSG_LEN(std::mem::size_of::<RawFd>() as u32) as usize;
+        let data_ptr = libc::CMSG_DATA(cmsg) as *mut RawFd;
+        std::ptr::write_unaligned(data_ptr, pass_fd);
+
+        let sent = libc::sendmsg(sock_fd, &msg, 0);
+        if sent < 0 {
+            return Err(anyhow!("sendmsg (SCM_RIGHTS) başarısız oldu"));
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+struct WlGlobal {
+    name: u32,
+    interface: String,
+    version: u32,
+}
+
+fn write_wl_msg(buf: &mut Vec<u8>, obj_id: u32, opcode: u16, args: &[u32]) {
+    let size = (8 + args.len() * 4) as u32;
+    buf.extend_from_slice(&obj_id.to_ne_bytes());
+    buf.extend_from_slice(&((size << 16) | (opcode as u32)).to_ne_bytes());
+    for &arg in args {
+        buf.extend_from_slice(&arg.to_ne_bytes());
+    }
+}
+
+fn write_registry_bind(
+    buf: &mut Vec<u8>,
+    registry_id: u32,
+    global_name: u32,
+    interface: &str,
+    version: u32,
+    new_id: u32,
+) {
+    let str_bytes = interface.as_bytes();
+    let str_len_with_nul = (str_bytes.len() + 1) as u32;
+    let padded_str_len = ((str_len_with_nul + 3) & !3) as usize;
+    let total_size = (8 + 4 + 4 + padded_str_len + 4 + 4) as u32;
+
+    buf.extend_from_slice(&registry_id.to_ne_bytes());
+    buf.extend_from_slice(&(total_size << 16).to_ne_bytes()); // opcode 0 = bind
+    buf.extend_from_slice(&global_name.to_ne_bytes());
+    buf.extend_from_slice(&str_len_with_nul.to_ne_bytes());
+    buf.extend_from_slice(str_bytes);
+    buf.resize(buf.len() + (padded_str_len - str_bytes.len()), 0);
+    buf.extend_from_slice(&version.to_ne_bytes());
+    buf.extend_from_slice(&new_id.to_ne_bytes());
+}
+
+fn contains_callback_done(buf: &[u8], callback_id: u32) -> bool {
+    let mut pos = 0;
+    while pos + 8 <= buf.len() {
+        let sender = u32::from_ne_bytes(buf[pos..pos + 4].try_into().unwrap());
+        let word2 = u32::from_ne_bytes(buf[pos + 4..pos + 8].try_into().unwrap());
+        let size = (word2 >> 16) as usize;
+        let opcode = (word2 & 0xFFFF) as u16;
+        if size < 8 || pos + size > buf.len() {
+            break;
+        }
+        if sender == callback_id && opcode == 0 {
+            return true;
+        }
+        pos += size;
+    }
+    false
+}
+
+fn parse_registry_globals(buf: &[u8]) -> Vec<WlGlobal> {
+    let mut res = Vec::new();
+    let mut pos = 0;
+    while pos + 8 <= buf.len() {
+        let sender = u32::from_ne_bytes(buf[pos..pos + 4].try_into().unwrap());
+        let word2 = u32::from_ne_bytes(buf[pos + 4..pos + 8].try_into().unwrap());
+        let size = (word2 >> 16) as usize;
+        let opcode = (word2 & 0xFFFF) as u16;
+        if size < 8 || pos + size > buf.len() {
+            break;
+        }
+        // wl_registry(2).global(opcode=0): name: uint, interface: string, version: uint
+        if sender == 2 && opcode == 0 && size >= 20 {
+            let name = u32::from_ne_bytes(buf[pos + 8..pos + 12].try_into().unwrap());
+            let str_len = u32::from_ne_bytes(buf[pos + 12..pos + 16].try_into().unwrap()) as usize;
+            let padded = (str_len + 3) & !3;
+            if pos + 16 + padded + 4 <= pos + size && str_len > 0 {
+                let s_bytes = &buf[pos + 16..pos + 16 + str_len - 1];
+                let iface = String::from_utf8_lossy(s_bytes).to_string();
+                let v_off = pos + 16 + padded;
+                let version = u32::from_ne_bytes(buf[v_off..v_off + 4].try_into().unwrap());
+                res.push(WlGlobal {
+                    name,
+                    interface: iface,
+                    version,
+                });
+            }
+        }
+        pos += size;
+    }
+    res
+}

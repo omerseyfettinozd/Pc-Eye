@@ -24,6 +24,14 @@ pub fn runtime_dir() -> PathBuf {
     dir
 }
 
+/// Linux VFS `rename(2)` garantisiyle yarış koşulsuz (lock-free atomic) dosya yazımı yapar.
+pub fn atomic_write_str(target: &std::path::Path, content: &str) {
+    let tmp = target.with_extension(format!("tmp.{}", std::process::id()));
+    if fs::write(&tmp, content).is_ok() {
+        let _ = fs::rename(&tmp, target);
+    }
+}
+
 pub fn load_persisted_marks() -> Vec<UiElement> {
     let p = runtime_dir().join("last_marks.json");
     fs::read_to_string(p)
@@ -35,7 +43,7 @@ pub fn load_persisted_marks() -> Vec<UiElement> {
 pub fn save_persisted_marks(marks: &[UiElement]) {
     let p = runtime_dir().join("last_marks.json");
     if let Ok(json) = serde_json::to_string_pretty(marks) {
-        let _ = fs::write(p, json);
+        atomic_write_str(&p, &json);
     }
 }
 
@@ -257,7 +265,7 @@ fn evaluate_and_store_frame_diff(
         desktop_geometry: geom,
     };
     if let Ok(json) = serde_json::to_string(&new_meta) {
-        let _ = fs::write(&meta_path, json);
+        atomic_write_str(&meta_path, &json);
     }
 
     if let Some(p) = prev {
@@ -271,8 +279,8 @@ fn evaluate_and_store_frame_diff(
     (None, true)
 }
 
-/// AT-SPI ağacı olmayan (Canvas/Electron/Oyun) pencerelerde yüksek kontrastlı buton/kontrol bölgelerini tespit eder.
-fn detect_visual_control_boxes(
+/// AT-SPI ağacı olmayan (Canvas/Electron/Oyun) pencerelerde yüksek kontrastlı buton/ikon/kontrol bölgelerini tespit eder.
+pub fn detect_visual_control_boxes(
     img: &RgbImage,
     geom: [i64; 4],
     start_mark: usize,
@@ -304,13 +312,13 @@ fn detect_visual_control_boxes(
                     let diff = (p1[0] as i32 - p2[0] as i32).unsigned_abs()
                         + (p1[1] as i32 - p2[1] as i32).unsigned_abs()
                         + (p1[0] as i32 - p3[0] as i32).unsigned_abs();
-                    if diff > 45 {
+                    if diff > 30 {
                         edge_score += diff as u64;
                     }
                 }
             }
-            if edge_score > 650 {
-                candidates.push((edge_score, cx0, cy0, cell_w * 2, cell_h));
+            if edge_score > 260 {
+                candidates.push((edge_score, cx0, cy0, cell_w, cell_h));
             }
         }
     }
@@ -336,11 +344,21 @@ fn detect_visual_control_boxes(
         let bh = rh.min(h - ry);
         selected.push([rx, ry, bw, bh]);
 
+        let eff_scale = if geom[2] > 0 && w > 0 {
+            (w as f64) / (geom[2] as f64)
+        } else {
+            1.0
+        };
+        let log_rx = ((rx as f64) / eff_scale).round() as i64;
+        let log_ry = ((ry as f64) / eff_scale).round() as i64;
+        let log_bw = (((bw as f64) / eff_scale).round() as i64).max(4);
+        let log_bh = (((bh as f64) / eff_scale).round() as i64).max(4);
+
         let mark = start_mark + elements.len();
-        let sx = geom[0] + rx;
-        let sy = geom[1] + ry;
-        let click_x = sx + bw / 2;
-        let click_y = sy + bh / 2;
+        let sx = geom[0] + log_rx;
+        let sy = geom[1] + log_ry;
+        let click_x = sx + log_bw / 2;
+        let click_y = sy + log_bh / 2;
 
         elements.push(UiElement {
             mark,
@@ -350,8 +368,8 @@ fn detect_visual_control_boxes(
             description: Some("Görsel kenar analizi ile tespit edilen etkileşim bölgesi".to_string()),
             states: vec!["visible".to_string()],
             actions: vec!["click".to_string()],
-            rel_bounds: [rx, ry, bw, bh],
-            screen_bounds: [sx, sy, bw, bh],
+            rel_bounds: [log_rx, log_ry, log_bw, log_bh],
+            screen_bounds: [sx, sy, log_bw, log_bh],
             click_point: [click_x, click_y],
             dbus_service: String::new(),
             dbus_path: String::new(),
@@ -374,12 +392,17 @@ fn detect_visual_control_boxes(
 pub fn draw_marks_overlay(img: &mut RgbImage, geom: [i64; 4], marks: &[UiElement]) {
     let img_w = img.width() as i64;
     let img_h = img.height() as i64;
+    let eff_scale = if geom[2] > 0 && img_w > 0 {
+        (img_w as f64) / (geom[2] as f64)
+    } else {
+        1.0
+    };
 
     for el in marks {
-        let rx = el.screen_bounds[0] - geom[0];
-        let ry = el.screen_bounds[1] - geom[1];
-        let rw = el.screen_bounds[2];
-        let rh = el.screen_bounds[3];
+        let rx = (((el.screen_bounds[0] - geom[0]) as f64) * eff_scale).round() as i64;
+        let ry = (((el.screen_bounds[1] - geom[1]) as f64) * eff_scale).round() as i64;
+        let rw = ((el.screen_bounds[2] as f64) * eff_scale).round() as i64;
+        let rh = ((el.screen_bounds[3] as f64) * eff_scale).round() as i64;
 
         if rx + rw <= 0 || ry + rh <= 0 || rx >= img_w || ry >= img_h {
             continue;
@@ -390,10 +413,10 @@ pub fn draw_marks_overlay(img: &mut RgbImage, geom: [i64; 4], marks: &[UiElement
         let x1 = (rx + rw - 1).clamp(0, img_w - 1) as u32;
         let y1 = (ry + rh - 1).clamp(0, img_h - 1) as u32;
 
-        let color = if el.role == "visual-region" {
-            Rgb([255, 180, 0]) // Kehribar (görsel tespit)
+        let color = if el.role == "visual-region" || el.role == "icon-button" {
+            Rgb([255, 180, 0]) // Kehribar (görsel / ikon tespit)
         } else {
-            Rgb([0, 230, 118]) // Zümrüt yeşili (AT-SPI semantik)
+            Rgb([0, 230, 118]) // Zümrüt yeşili (AT-SPI / OCR semantik)
         };
 
         // 2px kalınlığında çerçeve çiz

@@ -44,7 +44,7 @@ impl PersistedTelemetryState {
     pub fn save(&self) {
         let p = runtime_dir().join("telemetry_ring.json");
         if let Ok(json) = serde_json::to_string(self) {
-            let _ = fs::write(p, json);
+            crate::eyes::vision::atomic_write_str(&p, &json);
         }
     }
 

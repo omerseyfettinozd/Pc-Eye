@@ -69,7 +69,37 @@ pub fn ocr_region_elements(
     ocr_ppm_bytes_to_elements(&grim_out.stdout, region, query_filter, max_elements)
 }
 
-/// Bellek-içi `PPM` görüntü baytlarından `tesseract TSV` çıktısı üretir ve `UiElement` listesine dönüştürür.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct OcrCacheEntry {
+    pub dhash: u64,
+    pub region: [i64; 4],
+    pub elements: Vec<UiElement>,
+}
+
+fn load_ocr_cache(region: [i64; 4], dhash: u64) -> Option<Vec<UiElement>> {
+    let p = crate::eyes::vision::runtime_dir().join("ocr_cache.json");
+    let raw = std::fs::read_to_string(p).ok()?;
+    let entry: OcrCacheEntry = serde_json::from_str(&raw).ok()?;
+    if entry.region == region && entry.dhash == dhash && !entry.elements.is_empty() {
+        Some(entry.elements)
+    } else {
+        None
+    }
+}
+
+fn save_ocr_cache(region: [i64; 4], dhash: u64, elements: &[UiElement]) {
+    let p = crate::eyes::vision::runtime_dir().join("ocr_cache.json");
+    let entry = OcrCacheEntry {
+        dhash,
+        region,
+        elements: elements.to_vec(),
+    };
+    if let Ok(json) = serde_json::to_string(&entry) {
+        crate::eyes::vision::atomic_write_str(&p, &json);
+    }
+}
+
+/// Bellek-içi `PPM` görüntü baytlarından (`dHash` önbellekli) `tesseract TSV` + İkon Füzyonu ile `UiElement` listesi üretir.
 pub fn ocr_ppm_bytes_to_elements(
     ppm_bytes: &[u8],
     region: [i64; 4],
@@ -77,63 +107,136 @@ pub fn ocr_ppm_bytes_to_elements(
     max_elements: usize,
 ) -> Result<Vec<UiElement>> {
     let img = parse_ppm_p6(ppm_bytes)?;
-    let ppm_w = img.width();
-    let effective_scale = if region[2] > 0 && ppm_w > 0 {
-        (ppm_w as f64) / (region[2] as f64)
+    let dhash = crate::eyes::vision::compute_dhash64(&img);
+
+    // 1. Eğer pencere görüntüsü değişmemişse (dHash aynıysa) <0.5ms içinde önbellekten dön!
+    let all_elements = if let Some(cached) = load_ocr_cache(region, dhash) {
+        cached
     } else {
-        1.0
-    };
+        let ppm_w = img.width();
+        let effective_scale = if region[2] > 0 && ppm_w > 0 {
+            (ppm_w as f64) / (region[2] as f64)
+        } else {
+            1.0
+        };
 
-    let tsv = run_tesseract_tsv(ppm_bytes)?;
-    let words = parse_tesseract_tsv(&tsv, 35.0);
-    let phrases = group_words_into_phrases(&words, 32);
+        let tsv = run_tesseract_tsv(ppm_bytes)?;
+        let words = parse_tesseract_tsv(&tsv, 35.0);
+        let phrases = group_words_into_phrases(&words, 32);
 
-    let q_lower = query_filter.map(|q| q.to_lowercase());
-    let mut elements = Vec::new();
+        let mut built = Vec::new();
+        for phrase in phrases {
+            let rel_x = ((phrase.left as f64) / effective_scale).round() as i64;
+            let rel_y = ((phrase.top as f64) / effective_scale).round() as i64;
+            let log_w = (((phrase.width as f64) / effective_scale).round() as i64).max(4);
+            let log_h = (((phrase.height as f64) / effective_scale).round() as i64).max(4);
 
-    for phrase in phrases {
-        if let Some(ref q) = q_lower {
-            if !phrase.text.to_lowercase().contains(q) {
-                continue;
+            let gx = region[0] + rel_x;
+            let gy = region[1] + rel_y;
+            let cx = gx + log_w / 2;
+            let cy = gy + log_h / 2;
+
+            let mark = built.len() + 1;
+            built.push(UiElement {
+                mark,
+                role: "ocr-text".to_string(),
+                name: phrase.text.clone(),
+                value: Some(format!("conf:{:.0}%", phrase.conf)),
+                description: Some("Tesseract OCR metin bloğu".to_string()),
+                states: vec![
+                    "showing".to_string(),
+                    "visible".to_string(),
+                    "enabled".to_string(),
+                ],
+                actions: vec!["click".to_string()],
+                rel_bounds: [rel_x, rel_y, log_w, log_h],
+                screen_bounds: [gx, gy, log_w, log_h],
+                click_point: [cx, cy],
+                dbus_service: String::new(),
+                dbus_path: String::new(),
+            });
+        }
+
+        // 2. Yazısız İkon/Buton Füzyonu: OCR metinleriyle çakışmayan yüksek kontrastlı kompakt ikon bölgelerini ekle
+        let visual_boxes = crate::eyes::vision::detect_visual_control_boxes(
+            &img,
+            region,
+            built.len() + 1,
+            64,
+        );
+        for mut vbox in visual_boxes {
+            let overlaps_text = built.iter().any(|t| {
+                t.role == "ocr-text"
+                    && t.name.chars().count() > 2
+                    && boxes_overlap(t.screen_bounds, vbox.screen_bounds)
+            });
+            if !overlaps_text {
+                let pos_tag = semantic_position_label(vbox.rel_bounds, region[2], region[3]);
+                vbox.mark = built.len() + 1;
+                vbox.role = "icon-button".to_string();
+                vbox.name = format!("icon:{}#{}", pos_tag, vbox.mark);
+                built.push(vbox);
             }
         }
 
-        let rel_x = ((phrase.left as f64) / effective_scale).round() as i64;
-        let rel_y = ((phrase.top as f64) / effective_scale).round() as i64;
-        let log_w = (((phrase.width as f64) / effective_scale).round() as i64).max(4);
-        let log_h = (((phrase.height as f64) / effective_scale).round() as i64).max(4);
+        save_ocr_cache(region, dhash, &built);
+        built
+    };
 
-        let gx = region[0] + rel_x;
-        let gy = region[1] + rel_y;
-        let cx = gx + log_w / 2;
-        let cy = gy + log_h / 2;
-
-        let mark = elements.len() + 1;
-        elements.push(UiElement {
-            mark,
-            role: "ocr-text".to_string(),
-            name: phrase.text.clone(),
-            value: Some(format!("conf:{:.0}%", phrase.conf)),
-            description: Some("Tesseract OCR metin bloğu".to_string()),
-            states: vec![
-                "showing".to_string(),
-                "visible".to_string(),
-                "enabled".to_string(),
-            ],
-            actions: vec!["click".to_string()],
-            rel_bounds: [rel_x, rel_y, log_w, log_h],
-            screen_bounds: [gx, gy, log_w, log_h],
-            click_point: [cx, cy],
-            dbus_service: String::new(),
-            dbus_path: String::new(),
-        });
-
-        if elements.len() >= max_elements {
+    let q_lower = query_filter.map(|q| q.to_lowercase());
+    let mut filtered = Vec::new();
+    for mut el in all_elements {
+        if let Some(ref q) = q_lower {
+            if !el.name.to_lowercase().contains(q) && !el.role.to_lowercase().contains(q) {
+                continue;
+            }
+        }
+        el.mark = filtered.len() + 1;
+        filtered.push(el);
+        if filtered.len() >= max_elements {
             break;
         }
     }
 
-    Ok(elements)
+    Ok(filtered)
+}
+
+fn boxes_overlap(a: [i64; 4], b: [i64; 4]) -> bool {
+    let ax2 = a[0] + a[2];
+    let ay2 = a[1] + a[3];
+    let bx2 = b[0] + b[2];
+    let by2 = b[1] + b[3];
+    !(ax2 < b[0] || bx2 < a[0] || ay2 < b[1] || by2 < a[1])
+}
+
+fn semantic_position_label(rel: [i64; 4], win_w: i64, win_h: i64) -> &'static str {
+    let cx = rel[0] + rel[2] / 2;
+    let cy = rel[1] + rel[3] / 2;
+    let v = if cy < win_h / 6 {
+        "top"
+    } else if cy > (win_h * 5) / 6 {
+        "bottom"
+    } else {
+        "mid"
+    };
+    let h = if cx < win_w / 4 {
+        "left"
+    } else if cx > (win_w * 3) / 4 {
+        "right"
+    } else {
+        "center"
+    };
+    match (v, h) {
+        ("top", "left") => "top-left",
+        ("top", "right") => "top-right",
+        ("top", _) => "top-bar",
+        ("bottom", "left") => "bottom-left",
+        ("bottom", "right") => "bottom-right",
+        ("bottom", _) => "bottom-bar",
+        ("mid", "left") => "sidebar-left",
+        ("mid", "right") => "sidebar-right",
+        _ => "center",
+    }
 }
 
 /// Terminal veya metin pencereleri için görünür ekran satırlarını yukarıdan aşağıya düz metin olarak çıkarır.
@@ -158,7 +261,8 @@ pub fn ocr_region_lines(region: [i64; 4], max_lines: usize) -> Result<Vec<String
 
 fn run_tesseract_tsv(ppm_bytes: &[u8]) -> Result<String> {
     let mut cmd = Command::new("tesseract");
-    cmd.args(["stdin", "stdout"]);
+    cmd.env("OMP_THREAD_LIMIT", "1")
+        .args(["stdin", "stdout"]);
 
     if let Some(tess_dir) = resolve_tessdata_dir() {
         cmd.arg("--tessdata-dir").arg(&tess_dir);

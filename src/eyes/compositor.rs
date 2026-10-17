@@ -1,6 +1,7 @@
 use crate::daemon::ring_buffer::now_ms;
 use crate::protocol::types::{
-    CompositorEvent, DesktopState, LayerSurfaceInfo, MonitorInfo, WindowInfo, WorkspaceInfo,
+    CompositorEvent, DesktopState, KeybindInfo, LayerSurfaceInfo, MonitorInfo, WindowInfo,
+    WorkspaceInfo,
 };
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
@@ -34,13 +35,15 @@ const PROTECTED_WINDOW_KEYWORDS: &[&str] = &[
 pub fn resolve_hyprland_socket(socket_name: &str) -> Result<PathBuf> {
     let runtime_dir = env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/run/user/1000".to_string());
     if let Ok(sig) = env::var("HYPRLAND_INSTANCE_SIGNATURE") {
-        let p = PathBuf::from(&runtime_dir).join("hypr").join(&sig).join(socket_name);
+        let p = PathBuf::from(&runtime_dir)
+            .join("hypr")
+            .join(&sig)
+            .join(socket_name);
         if p.exists() {
             return Ok(p);
         }
     }
 
-    // Ortam değişkeni yoksa /run/user/<uid>/hypr altındaki en güncel örneği bul
     let hypr_dir = PathBuf::from(&runtime_dir).join("hypr");
     if hypr_dir.is_dir() {
         let mut entries: Vec<PathBuf> = std::fs::read_dir(&hypr_dir)?
@@ -119,6 +122,75 @@ pub fn normalize_window_address(addr: &str) -> String {
     }
 }
 
+/// Hyprland `j/binds` üzerinden kullanıcının tanımladığı tüm kısayolları çözümler.
+pub fn list_hyprland_binds() -> Result<Vec<KeybindInfo>> {
+    let val = hypr_query_json("binds")?;
+    let mut binds = Vec::new();
+    if let Some(arr) = val.as_array() {
+        for b in arr {
+            let modmask = b.get("modmask").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let key = b
+                .get("key")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if key.is_empty() {
+                continue;
+            }
+            let dispatcher = b
+                .get("dispatcher")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let arg = b
+                .get("arg")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let description = b
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let submap = b
+                .get("submap")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let combo = format_modmask_combo(modmask, &key);
+            binds.push(KeybindInfo {
+                combo,
+                modmask,
+                key,
+                dispatcher,
+                arg,
+                description,
+                submap,
+            });
+        }
+    }
+    Ok(binds)
+}
+
+pub fn format_modmask_combo(modmask: u32, key: &str) -> String {
+    let mut parts = Vec::new();
+    if modmask & 64 != 0 {
+        parts.push("SUPER");
+    }
+    if modmask & 4 != 0 {
+        parts.push("CTRL");
+    }
+    if modmask & 8 != 0 {
+        parts.push("ALT");
+    }
+    if modmask & 1 != 0 {
+        parts.push("SHIFT");
+    }
+    parts.push(key);
+    parts.join("+")
+}
+
 /// Göz 1: Tüm masaüstü, monitör, çalışma alanı, pencere ve katman durumunu tek seferde toplar.
 pub fn capture_desktop_state() -> Result<DesktopState> {
     let ts = now_ms();
@@ -149,7 +221,6 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
         .filter(|&p| p > 0)
         .map(|p| p as i32);
 
-    // Monitörler
     let monitors_val = hypr_query_json("monitors").unwrap_or(Value::Array(vec![]));
     let mut monitors = Vec::new();
     if let Some(arr) = monitors_val.as_array() {
@@ -182,7 +253,6 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
         }
     }
 
-    // Çalışma alanları
     let workspaces_val = hypr_query_json("workspaces").unwrap_or(Value::Array(vec![]));
     let mut workspaces = Vec::new();
     if let Some(arr) = workspaces_val.as_array() {
@@ -219,7 +289,6 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
     }
     workspaces.sort_by_key(|w| w.id);
 
-    // Pencereler (Clients)
     let clients_val = hypr_query_json("clients").unwrap_or(Value::Array(vec![]));
     let mut windows = Vec::new();
     let mut auth_guard_tripped = false;
@@ -307,7 +376,6 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
         }
     }
 
-    // Katman yüzeyleri (Layers)
     let layers_val = hypr_query_json("layers").unwrap_or(Value::Null);
     let mut layers = Vec::new();
     if let Some(mon_map) = layers_val.as_object() {

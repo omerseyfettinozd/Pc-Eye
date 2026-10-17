@@ -16,23 +16,27 @@ use serde_json::json;
     about = "PC-Eye V2: Tam Beyaz Kutu (Full White-Box) İşletim Sistemi Gözlemlenebilirlik ve Kontrol Çekirdeği"
 )]
 struct Cli {
+    /// Çıktı formatı (varsayılan olarak her zaman JSON döner, uyumluluk için kabul edilir)
+    #[arg(long, global = true)]
+    json: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Sistem hazırlık ve yetenek tanılama raporu (Hyprland, Wayland protokolleri, AT-SPI2, PipeWire, grim)
+    /// Sistem hazırlık ve yetenek tanılama raporu (Hyprland, Wayland protokolleri, AT-SPI2, PipeWire, GPU, grim)
     Doctor,
 
-    /// Göz 1+3+4+5: Tek çağrıda tam masaüstü, sistem sağlığı (PSI/RAM/CPU), ses ve delta olay özeti
+    /// Göz 1+3+4+5: Tek çağrıda tam masaüstü, sistem sağlığı (PSI/RAM/CPU/GPU), ses/MPRIS ve delta olay özeti
     Context {
         /// Sadece bu sıra numarasından sonraki olayları getir
         #[arg(long)]
         seq_since: Option<u64>,
     },
 
-    /// Göz 2a: Hedef pencerenin AT-SPI2 semantik UI ağacını veya Terminal PTY durumunu okur
+    /// Göz 2a: Hedef pencerenin AT-SPI2 semantik UI ağacını (states ve value dahil) veya Terminal PTY durumunu okur
     Ui {
         /// Pencere adresi (ör. 0x55fd...). Boşsa aktif pencere
         #[arg(long)]
@@ -71,7 +75,7 @@ enum Commands {
         pid: Option<i32>,
     },
 
-    /// Göz 4: Sistem/kullanıcı journald loglarını ve uygulama hata çıktılarını filtreler
+    /// Göz 4: Sistem journald loglarını, başlatılan uygulamaların stdout/stderr kayıtlarını ve masaüstü bildirimlerini döner
     Logs {
         /// Belirli bir PID için filtrele
         #[arg(long)]
@@ -81,10 +85,17 @@ enum Commands {
         limit: usize,
     },
 
-    /// Göz 5: PipeWire ses grafiğini ve aktif ses/mikrofon akışlarını döner
-    Audio,
+    /// Göz 5: PipeWire ses grafiğini, gerçek fiziksel PCM ses sinyalini (RMS/Peak dBFS) ve MPRIS medya/tarayıcı URL durumunu okur veya kontrol eder
+    Audio {
+        /// Kontrol işlemi: play | pause | play-pause | next | previous | stop | set-volume | mute | unmute
+        #[arg(long)]
+        op: Option<String>,
+        /// Kontrol argümanı (ör. 0.5 veya firefox)
+        #[arg(long)]
+        arg: Option<String>,
+    },
 
-    /// Semantik UI elemanına ismine veya Set-of-Marks numarasına göre doğrudan tıklar
+    /// Semantik UI elemanına ismine veya Set-of-Marks numarasına göre doğrudan tıklar, D-Bus DoAction tetikler veya içine metin yazar
     ClickUi {
         /// Pencere adresi
         #[arg(long)]
@@ -98,6 +109,12 @@ enum Commands {
         /// Fare düğmesi: left | right | middle
         #[arg(long, default_value = "left")]
         button: String,
+        /// Fareyi hareket ettirmeden doğrudan D-Bus DoAction(0) kullan
+        #[arg(long)]
+        prefer_dbus: bool,
+        /// Kontrol bir metin kutusuysa içine bu metni yaz
+        #[arg(long)]
+        set_text: Option<String>,
         /// Korumalı pencere kilidini aş
         #[arg(long)]
         allow_protected: bool,
@@ -153,19 +170,21 @@ enum Commands {
         command: Vec<String>,
     },
 
-    /// Hyprland .socket2.sock olayını deterministik olarak bekler
+    /// Çok-modlu deterministik senkronizasyon: visual_settle | log_match | ui_match | port_open | openwindow | closewindow | activewindow
     Wait {
-        #[arg(default_value = "activewindow")]
+        #[arg(default_value = "visual_settle")]
         event: String,
         #[arg(long)]
         r#match: Option<String>,
+        #[arg(long)]
+        window: Option<String>,
         #[arg(long, default_value_t = 5000)]
         timeout_ms: u64,
     },
 
-    /// Yönetmen kontrolleri: Watchdog korumalı freeze/thaw, sequence ve clipboard
+    /// Yönetmen kontrolleri: freeze | thaw | clipboard | binds | use-bind | sequence
     Director {
-        /// İşlem: freeze | thaw | clipboard | sequence
+        /// İşlem: freeze | thaw | clipboard | binds | use-bind | sequence
         op: String,
         #[arg(long)]
         pid: Option<i32>,
@@ -206,6 +225,7 @@ fn main() -> Result<()> {
                 .arg("--version")
                 .output()
                 .is_ok();
+            let gpus = eyes::process_xray::read_gpu_telemetry();
 
             let report = json!({
                 "status": "ready",
@@ -216,6 +236,7 @@ fn main() -> Result<()> {
                 "atspi_bus_address": a11y_bus,
                 "grim_available": grim_ok,
                 "pipewire_available": pw_ok,
+                "gpus_detected": gpus,
                 "runtime_dir": eyes::vision::runtime_dir(),
             });
             println!("{}", serde_json::to_string_pretty(&report)?);
@@ -229,8 +250,11 @@ fn main() -> Result<()> {
             query,
             max_elements,
         } => {
-            let rep =
-                eyes::ui_atspi::inspect_window_ui(window.as_deref(), query.as_deref(), max_elements)?;
+            let rep = eyes::ui_atspi::inspect_window_ui(
+                window.as_deref(),
+                query.as_deref(),
+                max_elements,
+            )?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
         }
         Commands::Vision {
@@ -253,22 +277,32 @@ fn main() -> Result<()> {
             let logs = eyes::logs_notify::query_recent_journal_logs(pids.as_deref(), limit)?;
             println!("{}", serde_json::to_string_pretty(&logs)?);
         }
-        Commands::Audio => {
-            let rep = eyes::audio_pipewire::capture_audio_report()?;
-            println!("{}", serde_json::to_string_pretty(&rep)?);
+        Commands::Audio { op, arg } => {
+            if let Some(operation) = op {
+                let rec =
+                    eyes::audio_pipewire::control_audio_and_media(&operation, arg.as_deref())?;
+                println!("{}", serde_json::to_string_pretty(&rec)?);
+            } else {
+                let rep = eyes::audio_pipewire::capture_audio_report()?;
+                println!("{}", serde_json::to_string_pretty(&rep)?);
+            }
         }
         Commands::ClickUi {
             window,
             name,
             mark,
             button,
+            prefer_dbus,
+            set_text,
             allow_protected,
         } => {
-            let rec = director::input::click_ui_element(
+            let rec = director::input::click_ui_element_ext(
                 window.as_deref(),
                 name.as_deref(),
                 mark,
                 &button,
+                prefer_dbus,
+                set_text.as_deref(),
                 allow_protected,
             )?;
             println!("{}", serde_json::to_string_pretty(&rec)?);
@@ -344,14 +378,16 @@ fn main() -> Result<()> {
         Commands::Wait {
             event,
             r#match,
+            window,
             timeout_ms,
         } => {
-            let ev = eyes::compositor::wait_for_compositor_event(
+            let rep = director::wait::wait_for_condition(
                 &event,
                 r#match.as_deref(),
+                window.as_deref(),
                 timeout_ms,
             )?;
-            println!("{}", serde_json::to_string_pretty(&ev)?);
+            println!("{}", serde_json::to_string_pretty(&rep)?);
         }
         Commands::Director {
             op,
@@ -373,6 +409,17 @@ fn main() -> Result<()> {
             }
             "clipboard" => {
                 let rec = director::process_ctl::clipboard_action(text.as_deref())?;
+                println!("{}", serde_json::to_string_pretty(&rec)?);
+            }
+            "binds" => {
+                let binds = eyes::compositor::list_hyprland_binds()?;
+                println!("{}", serde_json::to_string_pretty(&binds)?);
+            }
+            "use-bind" | "use_bind" => {
+                let combo = text.as_deref().ok_or_else(|| {
+                    anyhow::anyhow!("--text içinde kısayol adı gerekli (ör. SUPER+Return)")
+                })?;
+                let rec = director::process_ctl::trigger_hyprland_bind(combo)?;
                 println!("{}", serde_json::to_string_pretty(&rec)?);
             }
             "sequence" => {

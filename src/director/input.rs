@@ -164,6 +164,27 @@ pub fn click_ui_element(
     button: &str,
     allow_protected: bool,
 ) -> Result<ActionReceipt> {
+    click_ui_element_ext(
+        window_addr,
+        name_query,
+        mark_id,
+        button,
+        false,
+        None,
+        allow_protected,
+    )
+}
+
+/// Semantik UI elemanına tıklar, D-Bus `DoAction` tetikler veya `set_text` ile doğrudan içine metin yazar.
+pub fn click_ui_element_ext(
+    window_addr: Option<&str>,
+    name_query: Option<&str>,
+    mark_id: Option<usize>,
+    button: &str,
+    prefer_dbus: bool,
+    set_text: Option<&str>,
+    allow_protected: bool,
+) -> Result<ActionReceipt> {
     enforce_action_guard(window_addr, allow_protected)?;
 
     let matched: UiElement = if let Some(m_id) = mark_id {
@@ -185,7 +206,6 @@ pub fn click_ui_element(
                 q
             ));
         }
-        // Tam eşleşme varsa onu seç, yoksa ilk eşleşeni al
         let q_lower = q.to_ascii_lowercase();
         ui.elements
             .iter()
@@ -197,6 +217,55 @@ pub fn click_ui_element(
     };
 
     let [cx, cy] = matched.click_point;
+
+    if let Some(txt) = set_text {
+        if !matched.dbus_service.is_empty()
+            && crate::eyes::ui_atspi::atspi_set_editable_text(
+                &matched.dbus_service,
+                &matched.dbus_path,
+                txt,
+            )
+            .unwrap_or(false)
+        {
+            return Ok(ActionReceipt {
+                ok: true,
+                action: "set_ui_text_dbus".to_string(),
+                target: format!("[{}] {} ({})", matched.mark, matched.name, matched.role),
+                coordinates: Some([cx, cy]),
+                details: format!("D-Bus EditableText ile `{}` metni yazıldı", txt),
+            });
+        }
+        click_at(Some(cx), Some(cy), "left", 1, allow_protected)?;
+        thread::sleep(Duration::from_millis(25));
+        type_text(txt, window_addr, allow_protected)?;
+        return Ok(ActionReceipt {
+            ok: true,
+            action: "set_ui_text_pointer".to_string(),
+            target: format!("[{}] {} ({})", matched.mark, matched.name, matched.role),
+            coordinates: Some([cx, cy]),
+            details: format!("Kontrole tıklanıp `{}` metni yazıldı", txt),
+        });
+    }
+
+    if prefer_dbus && !matched.dbus_service.is_empty() {
+        if let Ok(true) = crate::eyes::ui_atspi::atspi_invoke_do_action(
+            &matched.dbus_service,
+            &matched.dbus_path,
+            0,
+        ) {
+            return Ok(ActionReceipt {
+                ok: true,
+                action: "click_ui_dbus".to_string(),
+                target: format!("[{}] {} ({})", matched.mark, matched.name, matched.role),
+                coordinates: Some([cx, cy]),
+                details: format!(
+                    "UI elemanı `{}` [mark={}] fare hareket ettirilmeden doğrudan D-Bus DoAction(0) ile tetiklendi",
+                    matched.name, matched.mark
+                ),
+            });
+        }
+    }
+
     click_at(Some(cx), Some(cy), button, 1, allow_protected)?;
 
     Ok(ActionReceipt {

@@ -16,6 +16,7 @@ const TERMINAL_CLASSES: &[&str] = &[
     "org.wezfurlong.wezterm",
     "ghostty",
     "konsole",
+    "org.kde.konsole",
     "gnome-terminal",
     "xterm",
     "urxvt",
@@ -70,7 +71,7 @@ pub fn is_terminal_window(class: &str) -> bool {
     TERMINAL_CLASSES.iter().any(|t| lower.contains(t))
 }
 
-/// Göz 2a: Hedef pencere (veya odaktaki pencere) için Semantik UI Ağacı + Koordinat Çözümlemesi + Terminal PTY Bağlamı üretir.
+/// Göz 2a: Hedef pencere (veya odaktaki pencere) için Semantik UI Ağacı + Durum/Değer + Koordinat Çözümlemesi + Terminal PTY Bağlamı üretir.
 pub fn inspect_window_ui(
     target_window_addr: Option<&str>,
     query_filter: Option<&str>,
@@ -99,7 +100,6 @@ pub fn inspect_window_ui(
 
     let win_geom = [win.x, win.y, win.width, win.height];
 
-    // K2 Kuralı: Terminal penceresiyse OCR veya boş AT-SPI yerine doğrudan PTY ve alt süreç durumunu çıkar
     let terminal_context = if is_terminal_window(&win.class) && win.pid > 0 {
         Some(extract_terminal_context(win.pid))
     } else {
@@ -126,7 +126,7 @@ pub fn inspect_window_ui(
 
     let hint = match perception_mode.as_str() {
         "at-spi2" => Some(
-            "Semantik UI elemanları hazır. `click-ui --mark <N>` veya `--name <AD>` ile doğrudan tıklayabilirsiniz."
+            "Semantik UI elemanları (states ve value dahil) hazır. `click-ui --mark <N>` veya `--name <AD>` (veya arka plan için `--dbus-action`) kullanabilirsiniz."
                 .to_string(),
         ),
         "terminal-pty" => Some(
@@ -134,7 +134,7 @@ pub fn inspect_window_ui(
                 .to_string(),
         ),
         _ => Some(
-            "Bu uygulama AT-SPI ağacı yayınlamıyor (veya Chromium/Electron `--force-renderer-accessibility` bayrağı olmadan başlatılmış). Görsel inceleme için `pc-eye vision --window <ADDR> --marks` kullanın."
+            "Bu uygulama AT-SPI ağacı yayınlamıyor. Görsel inceleme ve otomatik kutulama için `pc-eye vision --window <ADDR> --marks` kullanın."
                 .to_string(),
         ),
     };
@@ -155,7 +155,6 @@ pub fn inspect_window_ui(
     })
 }
 
-/// Terminal pencerelerinin içindeki kabuk, çalışma dizini (`cwd`), PTY ve alt süreçleri doğrudan `/proc` üzerinden okur.
 fn extract_terminal_context(term_pid: i32) -> TerminalContext {
     let (members, _) = collect_app_cluster(term_pid).unwrap_or_default();
     let mut foreground_pid = term_pid;
@@ -165,7 +164,6 @@ fn extract_terminal_context(term_pid: i32) -> TerminalContext {
     for m in &members {
         if m.pid != term_pid {
             recent_children.push(format!("PID {} ({}): {}", m.pid, m.state, m.cmdline));
-            // En derin (en son başlatılan) alt süreci ön plan süreci olarak seç
             if m.pid > foreground_pid {
                 foreground_pid = m.pid;
                 foreground_cmd = m.cmdline.clone();
@@ -201,7 +199,6 @@ fn collect_atspi_elements_for_window(
     query_filter: Option<&str>,
     max_elements: usize,
 ) -> Vec<UiElement> {
-    // 1. Kök kayıt defterinden tüm kayıtlı uygulamaları çek
     let Some(root_children) = atspi_get_children(
         bus_addr,
         "org.a11y.atspi.Registry",
@@ -210,7 +207,6 @@ fn collect_atspi_elements_for_window(
         return Vec::new();
     };
 
-    // Pencerenin ait olduğu PID kümesini (AppCluster) bul
     let cluster_pids: HashSet<i32> = collect_app_cluster(win.pid)
         .map(|(m, _)| m.into_iter().map(|p| p.pid).collect())
         .unwrap_or_else(|_| {
@@ -243,7 +239,6 @@ fn collect_atspi_elements_for_window(
     let filter_lower = query_filter.map(|q| q.to_ascii_lowercase());
 
     for (service, root_path) in matching_services {
-        // BFS ile erişilebilirlik ağacını tara (maksimum 80 düğüm ziyareti)
         let mut queue = VecDeque::new();
         let mut visited = HashSet::new();
         queue.push_back(root_path.clone());
@@ -251,7 +246,7 @@ fn collect_atspi_elements_for_window(
 
         let mut inspected_nodes = 0usize;
         while let Some(path) = queue.pop_front() {
-            if inspected_nodes >= 80 || elements.len() >= max_elements {
+            if inspected_nodes >= 85 || elements.len() >= max_elements {
                 break;
             }
             inspected_nodes += 1;
@@ -264,8 +259,6 @@ fn collect_atspi_elements_for_window(
             if let Some(extents) = atspi_get_extents(bus_addr, &service, &path) {
                 let [rx, ry, rw, rh] = extents;
                 if rw > 2 && rh > 2 && (!name.is_empty() || is_interactive_role(&role)) {
-                    // K1 Kuralı: Coordinate Space Resolver
-                    // Eğer AT-SPI koordinatları pencere içi göreli ise (ve pencere (0,0)'da değilse) Hyprland pencere ofsetini ekle
                     let (sx, sy) = resolve_screen_coordinates(rx, ry, rw, rh, win);
                     let matches_query = filter_lower
                         .as_ref()
@@ -276,6 +269,18 @@ fn collect_atspi_elements_for_window(
                         .unwrap_or(true);
 
                     if matches_query {
+                        let states = atspi_get_states(bus_addr, &service, &path);
+                        let value = if is_value_or_text_role(&role)
+                            || states.iter().any(|s| s == "editable")
+                        {
+                            atspi_get_text_or_value(bus_addr, &service, &path)
+                        } else {
+                            None
+                        };
+                        let description =
+                            atspi_get_string_prop(bus_addr, &service, &path, "Description")
+                                .filter(|d| !d.is_empty());
+
                         let mark = elements.len() + 1;
                         let cx = sx + rw / 2;
                         let cy = sy + rh / 2;
@@ -283,10 +288,10 @@ fn collect_atspi_elements_for_window(
                             mark,
                             role: role.clone(),
                             name: name.clone(),
-                            value: None,
-                            description: None,
-                            states: Vec::new(),
-                            actions: vec!["click".to_string()],
+                            value,
+                            description,
+                            states,
+                            actions: vec!["click".to_string(), "dbus_do_action".to_string()],
                             rel_bounds: [rx, ry, rw, rh],
                             screen_bounds: [sx, sy, rw, rh],
                             click_point: [cx, cy],
@@ -310,6 +315,64 @@ fn collect_atspi_elements_for_window(
     elements
 }
 
+/// Fareyi hareket ettirmeden doğrudan D-Bus `org.a11y.atspi.Action.DoAction(0)` ile kontrolü tetikler.
+pub fn atspi_invoke_do_action(service: &str, path: &str, action_index: i32) -> Result<bool> {
+    let bus_addr =
+        resolve_atspi_bus_address().ok_or_else(|| anyhow!("AT-SPI veri yolu bulunamadı"))?;
+    let out = Command::new("busctl")
+        .arg(format!("--address={}", bus_addr))
+        .args([
+            "call",
+            service,
+            path,
+            "org.a11y.atspi.Action",
+            "DoAction",
+            "i",
+            &action_index.to_string(),
+            "--json=short",
+        ])
+        .output()?;
+    if !out.status.success() {
+        return Err(anyhow!(
+            "AT-SPI DoAction başarısız: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    let val: Value = serde_json::from_slice(&out.stdout)?;
+    Ok(val
+        .get("data")
+        .and_then(|d| d.as_array())
+        .and_then(|a| a.first())
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true))
+}
+
+/// Düzenlenebilir bir AT-SPI metin kutusunun içeriğini doğrudan D-Bus (`EditableText.SetTextContents`) üzerinden değiştirir.
+pub fn atspi_set_editable_text(service: &str, path: &str, new_text: &str) -> Result<bool> {
+    let bus_addr =
+        resolve_atspi_bus_address().ok_or_else(|| anyhow!("AT-SPI veri yolu bulunamadı"))?;
+    let out = Command::new("busctl")
+        .arg(format!("--address={}", bus_addr))
+        .args([
+            "call",
+            service,
+            path,
+            "org.a11y.atspi.EditableText",
+            "SetTextContents",
+            "s",
+            new_text,
+            "--json=short",
+        ])
+        .output()?;
+    if !out.status.success() {
+        return Err(anyhow!(
+            "AT-SPI SetTextContents başarısız: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    Ok(true)
+}
+
 /// K1 Kuralı: Wayland pencere-içi `(rx, ry)` koordinatlarını Hyprland ekran `(sx, sy)` koordinatlarına dönüştürür.
 pub fn resolve_screen_coordinates(
     rx: i64,
@@ -318,8 +381,6 @@ pub fn resolve_screen_coordinates(
     rh: i64,
     win: &WindowInfo,
 ) -> (i64, i64) {
-    // Eğer rx, ry zaten pencerenin ekran sınırları içindeyse ve pencere (0,0)'dan uzaktaysa doğrudan kullan;
-    // aksi halde pencere-içi göreli koordinattır -> win.x + rx, win.y + ry uygula.
     let already_global = (win.x > 50 || win.y > 50)
         && rx >= win.x
         && ry >= win.y
@@ -331,6 +392,148 @@ pub fn resolve_screen_coordinates(
     } else {
         (win.x + rx, win.y + ry)
     }
+}
+
+/// 64-bit AT-SPI `StateSet` (`[low_u32, high_u32]`) bit maskesini okunabilir durum etiketlerine çevirir.
+pub fn decode_atspi_states(low: u32, high: u32) -> Vec<String> {
+    let bits = ((high as u64) << 32) | (low as u64);
+    let table: &[(u32, &str)] = &[
+        (1, "active"),
+        (2, "armed"),
+        (3, "busy"),
+        (4, "checked"),
+        (7, "editable"),
+        (8, "enabled"),
+        (9, "expandable"),
+        (10, "expanded"),
+        (12, "focused"),
+        (15, "indeterminate"),
+        (16, "modal"),
+        (20, "pressed"),
+        (23, "selected"),
+        (24, "sensitive"),
+        (25, "showing"),
+        (28, "visible"),
+        (36, "read_only"),
+    ];
+
+    let mut out = Vec::new();
+    for &(bit, label) in table {
+        if (bits >> bit) & 1 == 1 {
+            out.push(label.to_string());
+        }
+    }
+    out
+}
+
+fn atspi_get_states(bus_addr: &str, service: &str, path: &str) -> Vec<String> {
+    let Ok(out) = Command::new("busctl")
+        .arg(format!("--address={}", bus_addr))
+        .args([
+            "call",
+            service,
+            path,
+            "org.a11y.atspi.Accessible",
+            "GetState",
+            "--json=short",
+        ])
+        .output()
+    else {
+        return Vec::new();
+    };
+    if !out.status.success() {
+        return Vec::new();
+    }
+    let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) else {
+        return Vec::new();
+    };
+    let Some(arr) = val
+        .get("data")
+        .and_then(|d| d.as_array())
+        .and_then(|a| a.first())
+        .and_then(|a| a.as_array())
+    else {
+        return Vec::new();
+    };
+    if arr.len() >= 2 {
+        let low = arr[0].as_u64().unwrap_or(0) as u32;
+        let high = arr[1].as_u64().unwrap_or(0) as u32;
+        decode_atspi_states(low, high)
+    } else {
+        Vec::new()
+    }
+}
+
+fn atspi_get_text_or_value(bus_addr: &str, service: &str, path: &str) -> Option<String> {
+    // 1. Önce `org.a11y.atspi.Text.GetText(0, 500)` dene
+    if let Ok(out) = Command::new("busctl")
+        .arg(format!("--address={}", bus_addr))
+        .args([
+            "call",
+            service,
+            path,
+            "org.a11y.atspi.Text",
+            "GetText",
+            "ii",
+            "0",
+            "500",
+            "--json=short",
+        ])
+        .output()
+    {
+        if out.status.success() {
+            if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
+                if let Some(txt) = val
+                    .get("data")
+                    .and_then(|d| d.as_array())
+                    .and_then(|a| a.first())
+                    .and_then(|v| v.as_str())
+                {
+                    if !txt.is_empty() {
+                        return Some(txt.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Sayısal kontroller (slider/spin/progress) için `org.a11y.atspi.Value.CurrentValue` dene
+    if let Ok(out) = Command::new("busctl")
+        .arg(format!("--address={}", bus_addr))
+        .args([
+            "get-property",
+            service,
+            path,
+            "org.a11y.atspi.Value",
+            "CurrentValue",
+            "--json=short",
+        ])
+        .output()
+    {
+        if out.status.success() {
+            if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
+                if let Some(num) = val.get("data").and_then(|v| v.as_f64()) {
+                    return Some(format!("{:.2}", num));
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn is_value_or_text_role(role: &str) -> bool {
+    matches!(
+        role,
+        "text"
+            | "entry"
+            | "password text"
+            | "combo box"
+            | "slider"
+            | "spin button"
+            | "progress bar"
+            | "scroll bar"
+    )
 }
 
 fn is_interactive_role(role: &str) -> bool {
@@ -509,12 +712,21 @@ mod tests {
             protected_window: false,
         };
 
-        // Pencere içi (20, 30) koordinatı -> Ekran (420, 230) olmalı
         let (sx, sy) = resolve_screen_coordinates(20, 30, 80, 32, &win);
         assert_eq!((sx, sy), (420, 230));
 
-        // Zaten ekran koordinatıysa (450, 250) -> olduğu gibi (450, 250) kalmalı
         let (gx, gy) = resolve_screen_coordinates(450, 250, 80, 32, &win);
         assert_eq!((gx, gy), (450, 250));
+    }
+
+    #[test]
+    fn test_decode_atspi_states_bitmask() {
+        // Bit 4 (checked), Bit 7 (editable), Bit 8 (enabled), Bit 12 (focused)
+        let mask: u32 = (1 << 4) | (1 << 7) | (1 << 8) | (1 << 12);
+        let states = decode_atspi_states(mask, 0);
+        assert!(states.contains(&"checked".to_string()));
+        assert!(states.contains(&"editable".to_string()));
+        assert!(states.contains(&"enabled".to_string()));
+        assert!(states.contains(&"focused".to_string()));
     }
 }

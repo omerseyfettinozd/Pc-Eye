@@ -249,3 +249,36 @@ pub fn clipboard_action(write_text: Option<&str>) -> Result<ActionReceipt> {
         })
     }
 }
+
+/// Kullanıcının Hyprland yapılandırmasındaki bir kısayolu (`SUPER+Return`, `SUPER+D` vb.) doğrudan çalıştırır.
+pub fn trigger_hyprland_bind(combo: &str) -> Result<ActionReceipt> {
+    enforce_action_guard(None, false)?;
+    let binds = crate::eyes::compositor::list_hyprland_binds()?;
+    let target = binds
+        .into_iter()
+        .find(|b| b.combo.eq_ignore_ascii_case(combo.trim()))
+        .ok_or_else(|| anyhow!("Hyprland kısayolu bulunamadı: `{}`", combo))?;
+
+    if target.dispatcher.eq_ignore_ascii_case("lua") {
+        return Err(anyhow!(
+            "`{}` kısayolu anonim bir Lua kapanışıdır (hyprland.lua), IPC üzerinden tetiklenemez",
+            combo
+        ));
+    }
+
+    let dispatch_str = if target.arg.is_empty() {
+        target.dispatcher.clone()
+    } else {
+        format!("{} {}", target.dispatcher, target.arg)
+    };
+    hypr_dispatch(&dispatch_str)?;
+
+    Ok(ActionReceipt {
+        ok: true,
+        action: "use_bind".to_string(),
+        target: target.combo,
+        coordinates: None,
+        details: format!("Hyprland kısayolu çalıştırıldı: `dispatch {}`", dispatch_str),
+    })
+}
+

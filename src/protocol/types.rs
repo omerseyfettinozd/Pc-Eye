@@ -66,6 +66,18 @@ pub struct LayerSurfaceInfo {
     pub is_auth_or_lock: bool,
 }
 
+/// Hyprland kullanıcı kısayolu (`j/binds`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeybindInfo {
+    pub combo: String,
+    pub modmask: u32,
+    pub key: String,
+    pub dispatcher: String,
+    pub arg: String,
+    pub description: String,
+    pub submap: String,
+}
+
 /// Kompozitör canlı olayı (.socket2.sock).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompositorEvent {
@@ -91,7 +103,7 @@ pub struct DesktopState {
     pub layers: Vec<LayerSurfaceInfo>,
 }
 
-/// Göz 2a: Semantik UI Elemanı (AT-SPI2 + Hyprland Ofset Çözümlü).
+/// Göz 2a: Semantik UI Elemanı (AT-SPI2 + Hyprland Ofset Çözümlü + Durum & Değer).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiElement {
     pub mark: usize,
@@ -185,7 +197,17 @@ pub struct NetConnection {
     pub owner_pid: Option<i32>,
 }
 
-/// Göz 3: Sistem Basınç ve Yük Özeti (PSI + Mem + Load).
+/// Göz 3: GPU Telemetrisi (NVIDIA NVML/SMI + AMD/Intel DRM sysfs).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GpuTelemetry {
+    pub name: String,
+    pub utilization_pct: f64,
+    pub vram_used_mb: Option<u64>,
+    pub vram_total_mb: Option<u64>,
+    pub temperature_c: Option<f64>,
+}
+
+/// Göz 3: Sistem Basınç, GPU ve Yük Özeti (PSI + Mem + Load + GPU).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemHealthSummary {
     pub load_avg_1m: f64,
@@ -197,6 +219,7 @@ pub struct SystemHealthSummary {
     pub psi_cpu_some_avg10: f64,
     pub psi_mem_some_avg10: f64,
     pub psi_io_some_avg10: f64,
+    pub gpus: Vec<GpuTelemetry>,
     pub cpu_percent_stats: PercentileStats,
     pub mem_used_mb_stats: PercentileStats,
 }
@@ -221,11 +244,11 @@ pub struct ProcessXrayReport {
     pub recent_logs: Vec<LogEntry>,
 }
 
-/// Göz 4: Log, Hata ve Masaüstü Bildirim Kaydı.
+/// Göz 4: Log, Hata, Uygulama Çıktısı (`app_logs`) ve Masaüstü Bildirim (`dunst`/`mako`) Kaydı.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogEntry {
     pub timestamp_ms: u64,
-    pub source: String, // "journald" | "dmesg" | "stderr" | "stdout" | "dbus-notify"
+    pub source: String, // "journald" | "app-stderr" | "desktop-notify"
     pub level: String,  // "emerg" | "alert" | "crit" | "err" | "warn" | "info"
     pub pid: Option<i32>,
     pub unit_or_app: String,
@@ -239,13 +262,36 @@ pub struct AudioStreamNode {
     pub name: String,
     pub app_name: Option<String>,
     pub pid: Option<i32>,
-    pub media_class: String, // "Stream/Output/Audio" | "Stream/Input/Audio" | "Audio/Sink" | "Audio/Source"
-    pub state: String,       // "running" | "idle" | "suspended"
+    pub media_class: String,
+    pub state: String,
     pub volume: Option<f64>,
     pub muted: bool,
 }
 
-/// Göz 5: Ses ve Medya Gözlemlenebilirlik Raporu.
+/// Göz 5: Gerçek Fiziksel PCM Ses Sinyali Ölçümü (RMS / Peak dBFS).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PcmSignalMetrics {
+    pub sample_count: usize,
+    pub rms_norm: f64,
+    pub peak_norm: f64,
+    pub rms_dbfs: f64,
+    pub peak_dbfs: f64,
+    pub audible_signal: bool,
+}
+
+/// Göz 5: D-Bus MPRIS Medya ve Tarayıcı Sekme/Video Telemetrisi.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MprisMediaInfo {
+    pub service: String,
+    pub player_name: String,
+    pub playback_status: String, // "Playing" | "Paused" | "Stopped"
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub url: Option<String>,
+    pub length_sec: Option<f64>,
+}
+
+/// Göz 5: Ses, Fiziksel PCM Sinyali ve Medya Gözlemlenebilirlik Raporu.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioReport {
     pub timestamp_ms: u64,
@@ -253,7 +299,18 @@ pub struct AudioReport {
     pub default_sink_muted: bool,
     pub active_playback_streams: usize,
     pub active_recording_streams: usize,
+    pub pcm_signal: Option<PcmSignalMetrics>,
+    pub media_players: Vec<MprisMediaInfo>,
     pub nodes: Vec<AudioStreamNode>,
+}
+
+/// Çok-Modlu Deterministik Bekleme (`pc_eye_wait`) Sonucu.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaitReport {
+    pub condition: String,
+    pub matched: bool,
+    pub elapsed_ms: u64,
+    pub details: String,
 }
 
 /// Birleşik Beyaz-Kutu Sistem Bağlamı (`pc_eye_context`).

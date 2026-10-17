@@ -2,14 +2,17 @@ use crate::daemon::server::{
     build_context_report, build_xray_for_target, spawn_background_collectors,
 };
 use crate::director::input::{
-    click_at, click_ui_element, drag_mouse, move_cursor, press_key_combo, scroll_wheel, type_text,
+    click_at, click_ui_element_ext, drag_mouse, move_cursor, press_key_combo, scroll_wheel,
+    type_text,
 };
 use crate::director::process_ctl::{
     clipboard_action, freeze_process_safe, launch_application, manage_window, thaw_process,
+    trigger_hyprland_bind,
 };
 use crate::director::sequence::{execute_sequence, SequenceStep};
-use crate::eyes::audio_pipewire::capture_audio_report;
-use crate::eyes::compositor::wait_for_compositor_event;
+use crate::director::wait::wait_for_condition;
+use crate::eyes::audio_pipewire::{capture_audio_report, control_audio_and_media};
+use crate::eyes::compositor::list_hyprland_binds;
 use crate::eyes::logs_notify::query_recent_journal_logs;
 use crate::eyes::ui_atspi::inspect_window_ui;
 use crate::eyes::vision::capture_vision;
@@ -46,7 +49,6 @@ pub fn handle_mcp_request(req: &Value) -> Option<Value> {
     let method = req.get("method").and_then(|v| v.as_str()).unwrap_or("");
     let id = req.get("id").cloned();
 
-    // Bildirimler (id olmayan çağrılar) yanıt beklemez
     if id.is_none() || method.starts_with("notifications/") {
         return None;
     }
@@ -197,19 +199,38 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&logs)? })]
         }
         "pc_eye_audio" => {
-            let rep = capture_audio_report()?;
-            vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
+            if let Some(op) = args.get("op").and_then(|v| v.as_str()) {
+                let arg = args.get("arg").and_then(|v| v.as_str());
+                let rec = control_audio_and_media(op, arg)?;
+                vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
+            } else {
+                let rep = capture_audio_report()?;
+                vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
+            }
         }
         "pc_eye_click_ui" => {
             let win = args.get("window").and_then(|v| v.as_str());
             let name_q = args.get("name").and_then(|v| v.as_str());
             let mark = args.get("mark").and_then(|v| v.as_u64()).map(|n| n as usize);
             let btn = args.get("button").and_then(|v| v.as_str()).unwrap_or("left");
+            let prefer_dbus = args
+                .get("prefer_dbus")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let set_text = args.get("set_text").and_then(|v| v.as_str());
             let allow_prot = args
                 .get("allow_protected")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
-            let rec = click_ui_element(win, name_q, mark, btn, allow_prot)?;
+            let rec = click_ui_element_ext(
+                win,
+                name_q,
+                mark,
+                btn,
+                prefer_dbus,
+                set_text,
+                allow_prot,
+            )?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
         "pc_eye_input" => {
@@ -314,11 +335,12 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             let event = args
                 .get("event")
                 .and_then(|v| v.as_str())
-                .unwrap_or("activewindow");
+                .unwrap_or("visual_settle");
             let match_str = args.get("match").and_then(|v| v.as_str());
+            let win = args.get("window").and_then(|v| v.as_str());
             let timeout = args.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(5000);
-            let ev = wait_for_compositor_event(event, match_str, timeout)?;
-            vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&ev)? })]
+            let rep = wait_for_condition(event, match_str, win, timeout)?;
+            vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
         }
         "pc_eye_director" => {
             let op = args
@@ -353,6 +375,18 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                     let rec = clipboard_action(text)?;
                     vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
                 }
+                "binds" => {
+                    let binds = list_hyprland_binds()?;
+                    vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&binds)? })]
+                }
+                "use_bind" => {
+                    let combo = args
+                        .get("text")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| anyhow::anyhow!("text içinde kısayol adı gerekli (ör. SUPER+Return)"))?;
+                    let rec = trigger_hyprland_bind(combo)?;
+                    vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
+                }
                 "sequence" => {
                     let steps_val = args
                         .get("steps")
@@ -372,7 +406,6 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
         other => return Err(anyhow::anyhow!("Bilinmeyen MCP aracı: {}", other)),
     };
 
-    // Tek çağrıda Aksiyon + Gözlem Birleştirme (`then=`)
     match then_mode {
         "context" => {
             if let Ok(ctx) = build_context_report(None) {
@@ -408,7 +441,7 @@ fn mcp_tools_schema() -> Value {
     json!([
         {
             "name": "pc_eye_context",
-            "description": "Tek çağrıda tam Beyaz-Kutu masaüstü + sistem yükü (PSI/RAM/CPU p50/p95/p99) + ses akışları + son olay/log delta özeti döner.",
+            "description": "Tek çağrıda tam Beyaz-Kutu masaüstü + sistem yükü (PSI/RAM/CPU/GPU p50/p95/p99) + ses/MPRIS medya/tarayıcı URL + son olay/log/bildirim delta özeti döner.",
             "annotations": { "readOnlyHint": true },
             "inputSchema": {
                 "type": "object",
@@ -419,7 +452,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_ui",
-            "description": "Hedef pencerenin AT-SPI2 erişilebilirlik ağacını (ekran koordinatları çözümlenmiş olarak) veya terminal ise doğrudan PTY/kabuk durumunu okur.",
+            "description": "Hedef pencerenin AT-SPI2 erişilebilirlik ağacını (ekran koordinatları, checked/focused/editable durumları ve metin/değer içerikleriyle) veya terminal ise doğrudan PTY/kabuk durumunu okur.",
             "annotations": { "readOnlyHint": true },
             "inputSchema": {
                 "type": "object",
@@ -459,7 +492,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_logs",
-            "description": "Sistem/kullanıcı journald loglarını ve uygulama hata çıktılarını filtreleyerek döner.",
+            "description": "Sistem/kullanıcı journald loglarını, başlatılan uygulamaların stdout/stderr kayıtlarını ve masaüstü bildirimlerini (dunst) birleştirerek döner.",
             "annotations": { "readOnlyHint": true },
             "inputSchema": {
                 "type": "object",
@@ -471,13 +504,19 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_audio",
-            "description": "PipeWire ses grafiğini, varsayılan ses seviyesini ve o an hangi uygulamaların ses çaldığını veya mikrofon kullandığını döner.",
-            "annotations": { "readOnlyHint": true },
-            "inputSchema": { "type": "object", "properties": {} }
+            "description": "PipeWire ses grafiğini, gerçek fiziksel PCM ses sinyalini (RMS/Peak dBFS), D-Bus MPRIS medya/tarayıcı URL durumunu okur veya ses/medya kontrolü (play/pause/volume/mute) yapar.",
+            "annotations": { "readOnlyHint": false },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "op": { "type": "string", "description": "Boş bırakılırsa rapor döner. Kontrol için: play | pause | play-pause | next | previous | stop | set-volume | mute | unmute | toggle-mute" },
+                    "arg": { "type": "string", "description": "set-volume için seviye (ör. 0.5) veya medya oynatıcı filtresi (ör. firefox)." }
+                }
+            }
         },
         {
             "name": "pc_eye_click_ui",
-            "description": "Piksel tahmini yapmadan doğrudan UI elemanının adına veya Set-of-Marks numarasına tıklar.",
+            "description": "Piksel tahmini yapmadan doğrudan UI elemanının adına veya Set-of-Marks numarasına tıklar, D-Bus DoAction tetikler veya içine metin yazar.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": {
                 "type": "object",
@@ -486,6 +525,8 @@ fn mcp_tools_schema() -> Value {
                     "name": { "type": "string", "description": "Tıklanacak kontrolün adı." },
                     "mark": { "type": "integer", "description": "Set-of-Marks numarası." },
                     "button": { "type": "string", "description": "left | right | middle" },
+                    "prefer_dbus": { "type": "boolean", "description": "Fareyi hareket ettirmeden doğrudan D-Bus DoAction(0) kullan." },
+                    "set_text": { "type": "string", "description": "Kontrol bir metin kutusuysa içine bu metni yaz." },
                     "then": { "type": "string", "description": "context | ui | vision | xray" }
                 }
             }
@@ -546,26 +587,27 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_wait",
-            "description": "Hyprland .socket2.sock üzerinde belirli bir pencere/çalışma alanı olayını deterministik olarak bekler.",
+            "description": "Çok-modlu deterministik senkronizasyon bariyeri: visual_settle (ekran durulması), log_match (logda metin), ui_match (UI elemanı belirmesi), port_open (TCP port açılması) veya Hyprland soket olaylarını bekler.",
             "annotations": { "readOnlyHint": true },
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "event": { "type": "string", "description": "openwindow | closewindow | activewindow | workspace" },
-                    "match": { "type": "string" },
+                    "event": { "type": "string", "description": "visual_settle | log_match | ui_match | port_open | openwindow | closewindow | activewindow | workspace" },
+                    "match": { "type": "string", "description": "Aranan metin, UI eleman adı veya TCP port numarası." },
+                    "window": { "type": "string", "description": "visual_settle veya ui_match için hedef pencere adresi." },
                     "timeout_ms": { "type": "integer" }
                 }
             }
         },
         {
             "name": "pc_eye_director",
-            "description": "Watchdog korumalı süreç dondurma/çözme (freeze/thaw), çok-adımlı atomik sequence yürütme ve Wayland pano (clipboard) yönetimi.",
+            "description": "Watchdog korumalı süreç dondurma/çözme (freeze/thaw), çok-adımlı atomik sequence yürütme, Hyprland kısayollarını listeleme/çalıştırma (binds/use_bind) ve Wayland pano (clipboard) yönetimi.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": {
                 "type": "object",
                 "required": ["op"],
                 "properties": {
-                    "op": { "type": "string", "description": "freeze | thaw | clipboard | sequence" },
+                    "op": { "type": "string", "description": "freeze | thaw | clipboard | binds | use_bind | sequence" },
                     "pid": { "type": "integer" },
                     "max_freeze_ms": { "type": "integer" },
                     "text": { "type": "string" },

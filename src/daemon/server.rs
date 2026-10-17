@@ -160,6 +160,8 @@ pub fn build_context_report(seq_since: Option<u64>) -> Result<SystemContextRepor
         default_sink_muted: false,
         active_playback_streams: 0,
         active_recording_streams: 0,
+        pcm_signal: None,
+        media_players: Vec::new(),
         nodes: Vec::new(),
     });
 

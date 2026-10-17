@@ -1,13 +1,14 @@
 use crate::daemon::ring_buffer::{now_ms, PercentileStats};
 use crate::eyes::logs_notify::query_recent_journal_logs;
 use crate::protocol::types::{
-    NetConnection, ProcessMember, ProcessXrayReport, SystemHealthSummary,
+    GpuTelemetry, NetConnection, ProcessMember, ProcessXrayReport, SystemHealthSummary,
 };
 use anyhow::{anyhow, Result};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::Path;
+use std::process::Command;
 
 /// Verilen `root_pid` sürecinden türeyen tüm alt süreçleri (children/descendants)
 /// ve aynı cgroup içindeki kardeş süreçleri bulur (K3 Kuralı: AppCluster).
@@ -36,7 +37,6 @@ pub fn collect_app_cluster(root_pid: i32) -> Result<(Vec<ProcessMember>, Option<
         }
     }
 
-    // BFS ile root_pid altındaki tüm soy ağacını topla
     let mut visited = HashSet::new();
     let mut queue = VecDeque::new();
     queue.push_back(root_pid);
@@ -77,7 +77,6 @@ fn read_cgroup_path(pid: i32) -> Option<String> {
 
 fn read_process_member(pid: i32) -> Option<ProcessMember> {
     let stat_str = fs::read_to_string(format!("/proc/{}/stat", pid)).ok()?;
-    // /proc/<pid>/stat format: pid (comm) state ppid ...
     let open_paren = stat_str.find('(')?;
     let close_paren = stat_str.rfind(')')?;
     let name = stat_str[open_paren + 1..close_paren].to_string();
@@ -283,7 +282,69 @@ fn decode_tcp_state(hex_state: &str) -> String {
     .to_string()
 }
 
-/// Sistem geneli yük, bellek ve Linux PSI (Pressure Stall Information) özetini okur.
+/// Sistemdeki NVIDIA (`nvidia-smi`) ve AMD/Intel (`/sys/class/drm`) GPU kullanımını okur.
+pub fn read_gpu_telemetry() -> Vec<GpuTelemetry> {
+    let mut gpus = Vec::new();
+
+    // 1. NVIDIA GPU (`nvidia-smi`)
+    if let Ok(out) = Command::new("nvidia-smi")
+        .args([
+            "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
+            "--format=csv,noheader,nounits",
+        ])
+        .output()
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            for line in s.lines() {
+                let parts: Vec<&str> = line.split(',').map(|p| p.trim()).collect();
+                if parts.len() >= 5 {
+                    gpus.push(GpuTelemetry {
+                        name: parts[0].to_string(),
+                        utilization_pct: parts[1].parse::<f64>().unwrap_or(0.0),
+                        vram_used_mb: parts[2].parse::<u64>().ok(),
+                        vram_total_mb: parts[3].parse::<u64>().ok(),
+                        temperature_c: parts[4].parse::<f64>().ok(),
+                    });
+                }
+            }
+        }
+    }
+
+    // 2. AMD / Intel DRM sysfs (`gpu_busy_percent`)
+    if let Ok(entries) = fs::read_dir("/sys/class/drm") {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !name.starts_with("card") || name.contains('-') {
+                continue;
+            }
+            let busy_path = entry.path().join("device").join("gpu_busy_percent");
+            if let Ok(busy_str) = fs::read_to_string(&busy_path) {
+                if let Ok(util) = busy_str.trim().parse::<f64>() {
+                    let vram_used = fs::read_to_string(entry.path().join("device/mem_info_vram_used"))
+                        .ok()
+                        .and_then(|v| v.trim().parse::<u64>().ok())
+                        .map(|b| b / (1024 * 1024));
+                    let vram_total = fs::read_to_string(entry.path().join("device/mem_info_vram_total"))
+                        .ok()
+                        .and_then(|v| v.trim().parse::<u64>().ok())
+                        .map(|b| b / (1024 * 1024));
+                    gpus.push(GpuTelemetry {
+                        name: format!("DRM {} (iGPU/AMD)", name),
+                        utilization_pct: util,
+                        vram_used_mb: vram_used,
+                        vram_total_mb: vram_total,
+                        temperature_c: None,
+                    });
+                }
+            }
+        }
+    }
+
+    gpus
+}
+
+/// Sistem geneli yük, bellek, GPU ve Linux PSI (Pressure Stall Information) özetini okur.
 pub fn read_system_health_summary(
     cpu_history: &[f64],
     mem_history: &[f64],
@@ -353,6 +414,7 @@ pub fn read_system_health_summary(
         psi_cpu_some_avg10,
         psi_mem_some_avg10,
         psi_io_some_avg10,
+        gpus: read_gpu_telemetry(),
         cpu_percent_stats: PercentileStats::from_slice(&cpu_samples, 2.5),
         mem_used_mb_stats: PercentileStats::from_slice(&mem_samples, 1.5),
     }
@@ -379,6 +441,30 @@ fn read_psi_avg10(path: &str) -> f64 {
         }
     }
     0.0
+}
+
+/// Sistemde belirli bir TCP portunun açık (LISTEN veya ESTABLISHED) olup olmadığını kontrol eder.
+pub fn is_tcp_port_open(port: u16) -> Option<String> {
+    let port_hex = format!(":{:04X}", port);
+    for (path, proto, is_v6) in [
+        ("/proc/net/tcp", "tcp", false),
+        ("/proc/net/tcp6", "tcp6", true),
+    ] {
+        if let Ok(content) = fs::read_to_string(path) {
+            for line in content.lines().skip(1) {
+                let cols: Vec<&str> = line.split_whitespace().collect();
+                if cols.len() >= 4
+                    && (cols[1].ends_with(&port_hex) || cols[2].ends_with(&port_hex))
+                {
+                    let local = decode_hex_endpoint(cols[1], is_v6);
+                    let remote = decode_hex_endpoint(cols[2], is_v6);
+                    let state = decode_tcp_state(cols[3]);
+                    return Some(format!("{} {} -> {} ({})", proto, local, remote, state));
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Göz 3: Bir pencere veya kök PID için tam kapsamlı AppCluster Röntgeni üretir.
@@ -446,7 +532,6 @@ mod tests {
 
     #[test]
     fn test_hex_endpoint_decoding() {
-        // 0100007F:1F90 -> 127.0.0.1:8080
         assert_eq!(decode_hex_endpoint("0100007F:1F90", false), "127.0.0.1:8080");
         assert_eq!(decode_tcp_state("0A"), "LISTEN");
         assert_eq!(decode_tcp_state("01"), "ESTABLISHED");

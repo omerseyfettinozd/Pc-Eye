@@ -214,6 +214,178 @@ pub fn thaw_process(pid: i32) -> Result<ActionReceipt> {
     })
 }
 
+/// Zengin Çok-Formatlı Pano Gözlemi (`MIME` türleri, metin, tarayıcı `source_url`, görsel varlığı ve `cliphist` geçmişi).
+pub fn inspect_clipboard_rich() -> Result<crate::protocol::types::ClipboardReport> {
+    let ts = crate::daemon::ring_buffer::now_ms();
+    let types_out = Command::new("wl-paste").arg("--list-types").output().ok();
+    let mime_types: Vec<String> = types_out
+        .filter(|o| o.status.success())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let has_image = mime_types.iter().any(|m| m.starts_with("image/"));
+
+    let source_url = if mime_types.iter().any(|m| m == "chromium/x-source-url") {
+        Command::new("wl-paste")
+            .args(["--no-newline", "--type", "chromium/x-source-url"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .filter(|s| !s.is_empty())
+    } else {
+        None
+    };
+
+    let current_text = if mime_types
+        .iter()
+        .any(|m| m.starts_with("text/plain") || m == "UTF8_STRING" || m == "TEXT")
+    {
+        Command::new("wl-paste")
+            .arg("--no-newline")
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+    } else {
+        None
+    };
+
+    let mut history = Vec::new();
+    if let Ok(ch_out) = Command::new("cliphist").arg("list").output() {
+        if ch_out.status.success() {
+            let stdout = String::from_utf8_lossy(&ch_out.stdout);
+            for line in stdout.lines().take(15) {
+                if let Some((id, preview)) = line.split_once('\t') {
+                    let prev_trim = preview.trim().to_string();
+                    let is_binary = prev_trim.starts_with("[[ binary data");
+                    history.push(crate::protocol::types::ClipboardHistoryItem {
+                        id: id.trim().to_string(),
+                        preview: prev_trim,
+                        is_binary,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(crate::protocol::types::ClipboardReport {
+        timestamp_ms: ts,
+        mime_types,
+        current_text,
+        source_url,
+        has_image,
+        history,
+    })
+}
+
+/// Zengin pano kontrolü: metin yazma, görsel/dosya (`image/png` veya `text/uri-list`) kopyalama, `cliphist` ID geri yükleme veya zengin okuma.
+pub fn clipboard_action_ext(
+    write_text: Option<&str>,
+    file_path: Option<&str>,
+    restore_id: Option<&str>,
+) -> Result<serde_json::Value> {
+    if let Some(id) = restore_id {
+        let dec = Command::new("cliphist")
+            .args(["decode", id.trim()])
+            .output()
+            .context("cliphist decode çalıştırılamadı")?;
+        if !dec.status.success() {
+            return Err(anyhow!("cliphist ID bulunamadı: {}", id));
+        }
+        let mut child = Command::new("wl-copy")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()?;
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(&dec.stdout)?;
+        }
+        thread::sleep(Duration::from_millis(20));
+        return Ok(serde_json::to_value(ActionReceipt {
+            ok: true,
+            action: "clipboard_restore".to_string(),
+            target: format!("cliphist:{}", id),
+            coordinates: None,
+            details: format!("cliphist #{} öğesi panoya geri yüklendi", id),
+        })?);
+    }
+
+    if let Some(fp) = file_path {
+        let path = std::path::Path::new(fp);
+        if !path.exists() {
+            return Err(anyhow!("Panoya kopyalanacak dosya bulunamadı: {}", fp));
+        }
+        let abs = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let ext = abs
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+
+        if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" {
+            let mime = if ext == "png" {
+                "image/png"
+            } else if ext == "webp" {
+                "image/webp"
+            } else {
+                "image/jpeg"
+            };
+            let bytes = std::fs::read(&abs)?;
+            let mut child = Command::new("wl-copy")
+                .args(["--type", mime])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()?;
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(&bytes)?;
+            }
+            thread::sleep(Duration::from_millis(25));
+            return Ok(serde_json::to_value(ActionReceipt {
+                ok: true,
+                action: "clipboard_copy_image".to_string(),
+                target: abs.to_string_lossy().to_string(),
+                coordinates: None,
+                details: format!("Görsel ({}, {} bayt) panoya kopyalandı", mime, bytes.len()),
+            })?);
+        } else {
+            let uri = format!("file://{}\r\n", abs.to_string_lossy());
+            let mut child = Command::new("wl-copy")
+                .args(["--type", "text/uri-list"])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()?;
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(uri.as_bytes())?;
+            }
+            thread::sleep(Duration::from_millis(20));
+            return Ok(serde_json::to_value(ActionReceipt {
+                ok: true,
+                action: "clipboard_copy_file_uri".to_string(),
+                target: abs.to_string_lossy().to_string(),
+                coordinates: None,
+                details: format!("Dosya URI (`text/uri-list`) panoya kopyalandı: {}", uri.trim()),
+            })?);
+        }
+    }
+
+    if let Some(txt) = write_text {
+        let rec = clipboard_action(Some(txt))?;
+        return Ok(serde_json::to_value(rec)?);
+    }
+
+    let rep = inspect_clipboard_rich()?;
+    Ok(serde_json::to_value(rep)?)
+}
+
 /// Wayland panosunu (`wl-paste` / `wl-copy`) okur veya yazar.
 pub fn clipboard_action(write_text: Option<&str>) -> Result<ActionReceipt> {
     if let Some(txt) = write_text {
@@ -235,17 +407,13 @@ pub fn clipboard_action(write_text: Option<&str>) -> Result<ActionReceipt> {
             details: format!("Panoya {} bayt yazıldı", txt.len()),
         })
     } else {
-        let out = Command::new("wl-paste")
-            .arg("--no-newline")
-            .output()
-            .context("wl-paste çalıştırılamadı")?;
-        let content = String::from_utf8_lossy(&out.stdout).to_string();
+        let rep = inspect_clipboard_rich()?;
         Ok(ActionReceipt {
             ok: true,
             action: "clipboard_read".to_string(),
             target: "wayland_clipboard".to_string(),
             coordinates: None,
-            details: content,
+            details: serde_json::to_string(&rep).unwrap_or_default(),
         })
     }
 }

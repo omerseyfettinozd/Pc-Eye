@@ -6,7 +6,7 @@ use crate::director::input::{
     type_text,
 };
 use crate::director::process_ctl::{
-    clipboard_action, freeze_process_safe, launch_application, manage_window, thaw_process,
+    clipboard_action_ext, freeze_process_safe, launch_application, manage_window, thaw_process,
     trigger_hyprland_bind,
 };
 use crate::director::sequence::{execute_sequence, SequenceStep};
@@ -372,8 +372,10 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 }
                 "clipboard" => {
                     let text = args.get("text").and_then(|v| v.as_str());
-                    let rec = clipboard_action(text)?;
-                    vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
+                    let file = args.get("file").and_then(|v| v.as_str());
+                    let restore_id = args.get("restore_id").and_then(|v| v.as_str());
+                    let val = clipboard_action_ext(text, file, restore_id)?;
+                    vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&val)? })]
                 }
                 "binds" => {
                     let binds = list_hyprland_binds()?;
@@ -504,25 +506,25 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_audio",
-            "description": "PipeWire ses grafiğini, gerçek fiziksel PCM ses sinyalini (RMS/Peak dBFS), D-Bus MPRIS medya/tarayıcı URL durumunu okur veya ses/medya kontrolü (play/pause/volume/mute) yapar.",
+            "description": "PipeWire ses grafiğini, gerçek fiziksel PCM ses sinyalini (RMS/Peak dBFS), D-Bus MPRIS medya/tarayıcı URL durumunu okur, masaüstü sesini WAV olarak kaydeder (op=record) veya ses/medya kontrolü (play/pause/volume/mute) yapar.",
             "annotations": { "readOnlyHint": false },
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "op": { "type": "string", "description": "Boş bırakılırsa rapor döner. Kontrol için: play | pause | play-pause | next | previous | stop | set-volume | mute | unmute | toggle-mute" },
-                    "arg": { "type": "string", "description": "set-volume için seviye (ör. 0.5) veya medya oynatıcı filtresi (ör. firefox)." }
+                    "op": { "type": "string", "description": "Boş bırakılırsa rapor döner. Kontrol için: play | pause | play-pause | next | previous | stop | set-volume | mute | unmute | toggle-mute | record" },
+                    "arg": { "type": "string", "description": "set-volume için seviye (ör. 0.5), record için süre ms (ör. 2000) veya medya oynatıcı filtresi (ör. firefox)." }
                 }
             }
         },
         {
             "name": "pc_eye_click_ui",
-            "description": "Piksel tahmini yapmadan doğrudan UI elemanının adına veya Set-of-Marks numarasına tıklar, D-Bus DoAction tetikler veya içine metin yazar.",
+            "description": "Piksel tahmini yapmadan doğrudan UI elemanının adına veya Set-of-Marks numarasına tıklar (AT-SPI2 ve otomatik bellek-içi OCR destekli), D-Bus DoAction tetikler veya içine metin yazar.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "window": { "type": "string" },
-                    "name": { "type": "string", "description": "Tıklanacak kontrolün adı." },
+                    "name": { "type": "string", "description": "Tıklanacak kontrolün veya ekrandaki OCR metninin adı." },
                     "mark": { "type": "integer", "description": "Set-of-Marks numarası." },
                     "button": { "type": "string", "description": "left | right | middle" },
                     "prefer_dbus": { "type": "boolean", "description": "Fareyi hareket ettirmeden doğrudan D-Bus DoAction(0) kullan." },
@@ -587,13 +589,13 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_wait",
-            "description": "Çok-modlu deterministik senkronizasyon bariyeri: visual_settle (ekran durulması), log_match (logda metin), ui_match (UI elemanı belirmesi), port_open (TCP port açılması) veya Hyprland soket olaylarını bekler.",
+            "description": "Çok-modlu deterministik senkronizasyon bariyeri: visual_settle (ekran durulması), log_match (logda metin), ui_match (UI veya OCR metni belirmesi), port_open (TCP port açılması) veya Hyprland soket olaylarını bekler.",
             "annotations": { "readOnlyHint": true },
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "event": { "type": "string", "description": "visual_settle | log_match | ui_match | port_open | openwindow | closewindow | activewindow | workspace" },
-                    "match": { "type": "string", "description": "Aranan metin, UI eleman adı veya TCP port numarası." },
+                    "match": { "type": "string", "description": "Aranan metin, UI/OCR eleman adı veya TCP port numarası." },
                     "window": { "type": "string", "description": "visual_settle veya ui_match için hedef pencere adresi." },
                     "timeout_ms": { "type": "integer" }
                 }
@@ -601,7 +603,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_director",
-            "description": "Watchdog korumalı süreç dondurma/çözme (freeze/thaw), çok-adımlı atomik sequence yürütme, Hyprland kısayollarını listeleme/çalıştırma (binds/use_bind) ve Wayland pano (clipboard) yönetimi.",
+            "description": "Watchdog korumalı süreç dondurma/çözme (freeze/thaw), çok-adımlı atomik sequence yürütme, Hyprland kısayollarını listeleme/çalıştırma (binds/use_bind) ve zengin çok-formatlı Wayland pano (clipboard: MIME, source_url, cliphist geçmişi, görsel/dosya kopyalama) yönetimi.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": {
                 "type": "object",
@@ -611,6 +613,8 @@ fn mcp_tools_schema() -> Value {
                     "pid": { "type": "integer" },
                     "max_freeze_ms": { "type": "integer" },
                     "text": { "type": "string" },
+                    "file": { "type": "string", "description": "clipboard için panoya kopyalanacak görsel (PNG/JPG) veya dosya yolu." },
+                    "restore_id": { "type": "string", "description": "clipboard için cliphist geçmişinden geri yüklenecek ID." },
                     "steps": { "type": "array", "items": { "type": "object" } },
                     "then": { "type": "string" }
                 }

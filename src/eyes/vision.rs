@@ -32,7 +32,7 @@ pub fn load_persisted_marks() -> Vec<UiElement> {
         .unwrap_or_default()
 }
 
-fn save_persisted_marks(marks: &[UiElement]) {
+pub fn save_persisted_marks(marks: &[UiElement]) {
     let p = runtime_dir().join("last_marks.json");
     if let Ok(json) = serde_json::to_string_pretty(marks) {
         let _ = fs::write(p, json);

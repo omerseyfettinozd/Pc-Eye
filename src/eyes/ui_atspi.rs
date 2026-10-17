@@ -101,12 +101,13 @@ pub fn inspect_window_ui(
     let win_geom = [win.x, win.y, win.width, win.height];
 
     let terminal_context = if is_terminal_window(&win.class) && win.pid > 0 {
-        Some(extract_terminal_context(win.pid))
+        Some(extract_terminal_context(win.pid, win_geom))
     } else {
         None
     };
 
     let mut elements = Vec::new();
+    let mut used_ocr = false;
     if let Some(bus_addr) = resolve_atspi_bus_address() {
         elements = collect_atspi_elements_for_window(
             &bus_addr,
@@ -116,8 +117,25 @@ pub fn inspect_window_ui(
         );
     }
 
-    let perception_mode = if !elements.is_empty() {
+    // V3 Yükseltmesi: AT-SPI2 ağacı boşsa (Electron, oyun, Canvas, PDF vb.) veya aranan metin AT-SPI'da yoksa
+    // otomatik olarak Sıfır-Disk Bellek-İçi OCR (Tesseract TSV eng+tur) ile metinleri ve koordinatlarını çıkar!
+    if elements.is_empty() && (!is_terminal_window(&win.class) || query_filter.is_some()) {
+        if let Ok(ocr_els) = crate::eyes::ocr::ocr_region_elements(
+            win_geom,
+            query_filter,
+            max_elements.max(10),
+        ) {
+            if !ocr_els.is_empty() {
+                elements = ocr_els;
+                used_ocr = true;
+            }
+        }
+    }
+
+    let perception_mode = if !elements.is_empty() && !used_ocr {
         "at-spi2".to_string()
+    } else if used_ocr {
+        "ocr-semantic".to_string()
     } else if terminal_context.is_some() {
         "terminal-pty".to_string()
     } else {
@@ -129,8 +147,12 @@ pub fn inspect_window_ui(
             "Semantik UI elemanları (states ve value dahil) hazır. `click-ui --mark <N>` veya `--name <AD>` (veya arka plan için `--dbus-action`) kullanabilirsiniz."
                 .to_string(),
         ),
+        "ocr-semantic" => Some(
+            "AT-SPI2 ağacı boş olduğu için Sıfır-Disk Bellek-İçi OCR (eng+tur) ile penceredeki tüm metinler ve tıklama koordinatları çıkarıldı. `click-ui --name <METİN>` veya `--mark <N>` ile doğrudan tıklayabilirsiniz."
+                .to_string(),
+        ),
         "terminal-pty" => Some(
-            "Bu pencere bir terminal emülatörüdür. Ön plandaki kabuk/süreç durumu `terminal_context` altında verilmiştir."
+            "Bu pencere bir terminal emülatörüdür. Ön plandaki kabuk/süreç durumu ve ekrandaki görünür metin satırları (`visible_lines`) `terminal_context` altında verilmiştir."
                 .to_string(),
         ),
         _ => Some(
@@ -138,6 +160,10 @@ pub fn inspect_window_ui(
                 .to_string(),
         ),
     };
+
+    if !elements.is_empty() {
+        crate::eyes::vision::save_persisted_marks(&elements);
+    }
 
     Ok(UiTreeReport {
         timestamp_ms: ts,
@@ -155,7 +181,7 @@ pub fn inspect_window_ui(
     })
 }
 
-fn extract_terminal_context(term_pid: i32) -> TerminalContext {
+fn extract_terminal_context(term_pid: i32, win_geom: [i64; 4]) -> TerminalContext {
     let (members, _) = collect_app_cluster(term_pid).unwrap_or_default();
     let mut foreground_pid = term_pid;
     let mut foreground_cmd = String::new();
@@ -183,6 +209,13 @@ fn extract_terminal_context(term_pid: i32) -> TerminalContext {
         .map(|p| p.to_string_lossy().to_string())
         .filter(|s| s.contains("/dev/pts/"));
 
+    // Katman 1: Kitty uzaktan kontrol soketi varsa doğrudan metni oku
+    let mut visible_lines = read_kitty_socket_lines(term_pid);
+    // Katman 2: Soket yoksa terminal penceresinin bellek-içi OCR satırlarını çıkar
+    if visible_lines.is_empty() {
+        visible_lines = crate::eyes::ocr::ocr_region_lines(win_geom, 35).unwrap_or_default();
+    }
+
     TerminalContext {
         terminal_pid: term_pid,
         foreground_pid,
@@ -190,7 +223,36 @@ fn extract_terminal_context(term_pid: i32) -> TerminalContext {
         cwd,
         pty_path,
         recent_child_processes: recent_children,
+        visible_lines,
     }
+}
+
+fn read_kitty_socket_lines(term_pid: i32) -> Vec<String> {
+    let candidates = [
+        format!("/tmp/kitty-{}", term_pid),
+        format!("/run/user/1000/kitty-{}", term_pid),
+        "/tmp/mykitty".to_string(),
+    ];
+    for sock in &candidates {
+        if std::path::Path::new(sock).exists() {
+            if let Ok(out) = Command::new("kitty")
+                .args(["@", "--to", &format!("unix:{}", sock), "get-text"])
+                .output()
+            {
+                if out.status.success() {
+                    let text = String::from_utf8_lossy(&out.stdout);
+                    let lines: Vec<String> = text
+                        .lines()
+                        .map(|l| l.trim_end().to_string())
+                        .filter(|l| !l.trim().is_empty())
+                        .collect();
+                    let skip = lines.len().saturating_sub(40);
+                    return lines.into_iter().skip(skip).collect();
+                }
+            }
+        }
+    }
+    Vec::new()
 }
 
 fn collect_atspi_elements_for_window(

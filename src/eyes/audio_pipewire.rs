@@ -400,6 +400,41 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                 details: format!("Ses mute durumu `{}` yapıldı", mode),
             })
         }
+        "record" | "record-wav" => {
+            let duration_ms = arg
+                .and_then(|s| s.trim_end_matches("ms").parse::<u64>().ok())
+                .unwrap_or(2000)
+                .clamp(100, 15000);
+            let out_path = crate::eyes::vision::runtime_dir().join("audio_capture.wav");
+            let _ = std::fs::remove_file(&out_path);
+            let secs = format!("{:.2}", (duration_ms as f64) / 1000.0);
+            let cmd_str = format!(
+                "timeout {}s pw-record --target @DEFAULT_AUDIO_SINK@ --rate 16000 --channels 1 --format s16 '{}' >/dev/null 2>&1 || true",
+                secs,
+                out_path.display()
+            );
+            let _ = Command::new("sh").arg("-c").arg(&cmd_str).status();
+            let bytes = std::fs::read(&out_path).unwrap_or_default();
+            let pcm_slice = if bytes.len() > 44 { &bytes[44..] } else { &[] };
+            let sig = compute_pcm_s16le_metrics(pcm_slice);
+            let sig_info = format!(
+                "rms_dbfs={:.1}, peak_dbfs={:.1}, audible={}",
+                sig.rms_dbfs, sig.peak_dbfs, sig.audible_signal
+            );
+
+            Ok(ActionReceipt {
+                ok: bytes.len() > 44,
+                action: "audio_record_wav".to_string(),
+                target: out_path.to_string_lossy().to_string(),
+                coordinates: None,
+                details: format!(
+                    "{} ms masaüstü sesi kaydedildi ({} bayt, {})",
+                    duration_ms,
+                    bytes.len(),
+                    sig_info
+                ),
+            })
+        }
         other => Err(anyhow!("Bilinmeyen ses/medya komutu: {}", other)),
     }
 }

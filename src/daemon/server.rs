@@ -89,11 +89,61 @@ impl LiveDaemonState {
     }
 }
 
-/// Arka plan toplayıcı iş parçacıklarını (Hyprland `.socket2.sock` olay akışı + 500ms sistem telemetri halka belleği) başlatır.
+/// Arka planda `pc-eye daemon` sürecinin aktif olup olmadığını `/run/user/1000/pc-eye/daemon.pid` üzerinden kontrol eder.
+pub fn is_daemon_running() -> bool {
+    let pid_file = runtime_dir().join("daemon.pid");
+    let Some(pid_str) = fs::read_to_string(pid_file).ok() else {
+        return false;
+    };
+    let Some(pid) = pid_str.trim().parse::<i32>().ok() else {
+        return false;
+    };
+    if pid <= 1 {
+        return false;
+    }
+    let comm_path = format!("/proc/{}/comm", pid);
+    fs::read_to_string(comm_path)
+        .map(|c| c.contains("pc-eye"))
+        .unwrap_or(false)
+}
+
+/// Arka planda `pc-eye daemon` çalışmıyorsa otomatik olarak sessizce başlatır.
+pub fn ensure_background_daemon() -> bool {
+    if is_daemon_running() {
+        return true;
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        let exe_str = exe.to_string_lossy();
+        // Debug/test binary'si içindeyken arka plan daemon başlatma
+        if exe_str.contains("/deps/") || exe_str.contains("target/debug") {
+            return false;
+        }
+        let _ = std::process::Command::new(exe)
+            .arg("daemon")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+        thread::sleep(Duration::from_millis(30));
+    }
+    is_daemon_running()
+}
+
+/// `pc-eye daemon` komutu için kesintisiz arka plan Kara Kutu (Flight Recorder) döngüsü.
+pub fn run_daemon_forever() -> Result<()> {
+    let pid_file = runtime_dir().join("daemon.pid");
+    let _ = fs::write(&pid_file, std::process::id().to_string());
+    let _state = spawn_background_collectors();
+    loop {
+        thread::sleep(Duration::from_secs(3600));
+    }
+}
+
+/// Arka plan toplayıcı iş parçacıklarını (Hyprland `.socket2.sock` olay akışı + 1000ms sistem telemetri halka belleği) başlatır.
 pub fn spawn_background_collectors() -> Arc<Mutex<LiveDaemonState>> {
     let state = Arc::new(Mutex::new(LiveDaemonState::new()));
 
-    // 1. Hyprland .socket2.sock gerçek zamanlı olay dinleyicisi
+    // 1. Hyprland .socket2.sock gerçek zamanlı olay dinleyicisi (her olayı anında diske de yazar)
     let state_ev = Arc::clone(&state);
     thread::spawn(move || loop {
         if let Ok(sock_path) = resolve_hyprland_socket(".socket2.sock") {
@@ -109,6 +159,7 @@ pub fn spawn_background_collectors() -> Arc<Mutex<LiveDaemonState>> {
                         if let Ok(mut guard) = state_ev.lock() {
                             let seq = guard.event_ring.push(ev.clone());
                             let ts = now_ms();
+                            guard.telemetry.next_seq = guard.telemetry.next_seq.max(seq);
                             guard.telemetry.recent_events.push(SeqItem {
                                 seq,
                                 timestamp_ms: ts,
@@ -117,6 +168,7 @@ pub fn spawn_background_collectors() -> Arc<Mutex<LiveDaemonState>> {
                             if guard.telemetry.recent_events.len() > 128 {
                                 guard.telemetry.recent_events.remove(0);
                             }
+                            guard.telemetry.save();
                         }
                     }
                 }
@@ -144,6 +196,7 @@ pub fn spawn_background_collectors() -> Arc<Mutex<LiveDaemonState>> {
 /// Tek çağrıda birleşik `SystemContextReport` (`pc_eye_context`) üretir.
 pub fn build_context_report(seq_since: Option<u64>) -> Result<SystemContextReport> {
     let ts = now_ms();
+    let daemon_running = ensure_background_daemon();
     let desktop = capture_desktop_state()?;
     let mut telemetry = PersistedTelemetryState::load();
 
@@ -198,6 +251,7 @@ pub fn build_context_report(seq_since: Option<u64>) -> Result<SystemContextRepor
     Ok(SystemContextReport {
         seq: telemetry.next_seq,
         timestamp_ms: ts,
+        daemon_running,
         desktop,
         system_health,
         audio_summary,

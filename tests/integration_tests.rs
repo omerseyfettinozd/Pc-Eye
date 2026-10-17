@@ -156,7 +156,7 @@ fn test_mcp_context_and_binds_and_safety_denylist() {
 }
 
 #[test]
-fn test_cli_doctor_and_logs_with_json_flag() {
+fn test_cli_doctor_logs_and_rich_clipboard() {
     let out = Command::new(bin_path())
         .args(["doctor", "--json"])
         .output()
@@ -164,14 +164,24 @@ fn test_cli_doctor_and_logs_with_json_flag() {
     assert!(out.status.success());
     let doc: Value = serde_json::from_slice(&out.stdout).expect("Valid doctor JSON");
     assert_eq!(doc["status"].as_str(), Some("ready"));
+    assert_eq!(doc["ocr_available"].as_bool(), Some(true));
     assert!(doc.get("hyprland_socket").is_some());
     assert!(doc.get("gpus_detected").is_some());
 
     let logs_out = Command::new(bin_path())
-        .args(["logs", "--limit", "6", "--json"])
+        .args(["logs", "--limit", "8", "--json"])
         .output()
-        .expect("Failed to run pc-eye logs --limit 6 --json");
+        .expect("Failed to run pc-eye logs --limit 8 --json");
     assert!(logs_out.status.success());
     let logs: Value = serde_json::from_slice(&logs_out.stdout).expect("Valid logs JSON");
     assert!(logs.is_array());
+
+    let clip_out = Command::new(bin_path())
+        .args(["director", "clipboard", "--json"])
+        .output()
+        .expect("Failed to run pc-eye director clipboard --json");
+    assert!(clip_out.status.success());
+    let clip: Value = serde_json::from_slice(&clip_out.stdout).expect("Valid clipboard JSON");
+    assert!(clip.get("mime_types").and_then(|m| m.as_array()).is_some());
+    assert!(clip.get("history").and_then(|h| h.as_array()).is_some());
 }

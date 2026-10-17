@@ -26,10 +26,16 @@ pub fn query_recent_journal_logs(
 
     // 3. Masaüstü Bildirimleri (`dunstctl history`)
     if filter_pids.is_none() {
-        let notify_quota = (limit / 3).clamp(1, 5);
+        let notify_quota = (limit / 3).clamp(1, 4);
         if let Ok(mut notify_logs) = read_dunst_notifications(notify_quota) {
             entries.append(&mut notify_logs);
         }
+    }
+
+    // 4. Çöken Süreçler (`coredumpctl list --json=short`)
+    let crash_quota = (limit / 4).clamp(1, 3);
+    if let Ok(mut crash_logs) = read_coredump_entries(filter_pids, crash_quota) {
+        entries.append(&mut crash_logs);
     }
 
     entries.sort_by_key(|e| e.timestamp_ms);
@@ -38,6 +44,74 @@ pub fn query_recent_journal_logs(
         entries = entries.into_iter().skip(skip).collect();
     }
 
+    Ok(entries)
+}
+
+/// `coredumpctl list --json=short` üzerinden sistemde çöken (SIGSEGV, SIGABRT vb.) süreçleri okur.
+pub fn read_coredump_entries(filter_pids: Option<&[i32]>, limit: usize) -> Result<Vec<LogEntry>> {
+    let out = Command::new("coredumpctl")
+        .args(["list", "--json=short", "-n", "15", "--no-pager"])
+        .output()?;
+    if !out.status.success() || out.stdout.is_empty() {
+        return Ok(Vec::new());
+    }
+    let items: Vec<Value> = serde_json::from_slice(&out.stdout).unwrap_or_default();
+    let mut entries = Vec::new();
+
+    for item in items.into_iter().rev() {
+        let pid = item.get("pid").and_then(|v| v.as_i64()).map(|n| n as i32);
+        if let Some(pids) = filter_pids {
+            if let Some(p) = pid {
+                if !pids.contains(&p) {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+        }
+        let ts_usec = item
+            .get("time")
+            .and_then(|v| v.as_u64())
+            .unwrap_or_else(|| now_ms() * 1000);
+        let sig = item.get("sig").and_then(|v| v.as_i64()).unwrap_or(0);
+        let sig_name = match sig {
+            4 => "SIGILL",
+            5 => "SIGTRAP",
+            6 => "SIGABRT",
+            7 => "SIGBUS",
+            8 => "SIGFPE",
+            11 => "SIGSEGV",
+            _ => "SIGNAL",
+        };
+        let exe = item
+            .get("exe")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let app_name = std::path::Path::new(exe)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or(exe)
+            .to_string();
+        let corefile = item
+            .get("corefile")
+            .and_then(|v| v.as_str())
+            .unwrap_or("none");
+
+        entries.push(LogEntry {
+            timestamp_ms: ts_usec / 1000,
+            source: "coredump".to_string(),
+            level: "crit".to_string(),
+            pid,
+            unit_or_app: app_name,
+            message: format!(
+                "PROCESS CRASHED ({} / sig={}): exe={} [core={}]",
+                sig_name, sig, exe, corefile
+            ),
+        });
+        if entries.len() >= limit {
+            break;
+        }
+    }
     Ok(entries)
 }
 

@@ -140,7 +140,7 @@ pub struct UiTreeReport {
     pub hint: Option<String>,
 }
 
-/// Terminal pencereleri için OCR-sız doğrudan PTY / Kabuk durumu.
+/// Terminal pencereleri için doğrudan PTY / Kabuk ve görünür ekran metni durumu.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalContext {
     pub terminal_pid: i32,
@@ -149,6 +149,8 @@ pub struct TerminalContext {
     pub cwd: String,
     pub pty_path: Option<String>,
     pub recent_child_processes: Vec<String>,
+    #[serde(default)]
+    pub visible_lines: Vec<String>,
 }
 
 /// Göz 2b: Görsel Göz (Vision + Set-of-Marks + Pixel-Diff) Raporu.
@@ -244,11 +246,11 @@ pub struct ProcessXrayReport {
     pub recent_logs: Vec<LogEntry>,
 }
 
-/// Göz 4: Log, Hata, Uygulama Çıktısı (`app_logs`) ve Masaüstü Bildirim (`dunst`/`mako`) Kaydı.
+/// Göz 4: Log, Hata, Uygulama Çıktısı (`app_logs`), Çökme (`coredump`) ve Masaüstü Bildirim (`dunst`) Kaydı.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogEntry {
     pub timestamp_ms: u64,
-    pub source: String, // "journald" | "app-stderr" | "desktop-notify"
+    pub source: String, // "journald" | "app-stderr" | "desktop-notify" | "coredump"
     pub level: String,  // "emerg" | "alert" | "crit" | "err" | "warn" | "info"
     pub pid: Option<i32>,
     pub unit_or_app: String,
@@ -304,6 +306,25 @@ pub struct AudioReport {
     pub nodes: Vec<AudioStreamNode>,
 }
 
+/// Zengin Pano Geçmişi Öğesi (`cliphist`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClipboardHistoryItem {
+    pub id: String,
+    pub preview: String,
+    pub is_binary: bool,
+}
+
+/// Zengin Çok-Formatlı Pano Raporu (`pc_eye_director` -> `clipboard`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClipboardReport {
+    pub timestamp_ms: u64,
+    pub mime_types: Vec<String>,
+    pub current_text: Option<String>,
+    pub source_url: Option<String>,
+    pub has_image: bool,
+    pub history: Vec<ClipboardHistoryItem>,
+}
+
 /// Çok-Modlu Deterministik Bekleme (`pc_eye_wait`) Sonucu.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaitReport {
@@ -318,6 +339,7 @@ pub struct WaitReport {
 pub struct SystemContextReport {
     pub seq: u64,
     pub timestamp_ms: u64,
+    pub daemon_running: bool,
     pub desktop: DesktopState,
     pub system_health: SystemHealthSummary,
     pub audio_summary: AudioReport,

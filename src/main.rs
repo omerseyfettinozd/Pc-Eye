@@ -192,11 +192,20 @@ enum Commands {
         max_freeze_ms: u64,
         #[arg(long)]
         text: Option<String>,
+        /// Panoya görsel (`image/png`) veya dosya (`text/uri-list`) kopyalamak için dosya yolu
+        #[arg(long)]
+        file: Option<String>,
+        /// `cliphist` geçmişindeki bir öğeyi ID ile panoya geri yükle
+        #[arg(long)]
+        restore_id: Option<String>,
         #[arg(long)]
         steps_json: Option<String>,
         #[arg(long)]
         allow_protected: bool,
     },
+
+    /// Kesintisiz arka plan Kara Kutu (Flight Recorder) olay ve telemetri servisi
+    Daemon,
 
     /// Model Context Protocol (MCP) JSON-RPC 2.0 stdio sunucusunu başlatır
     Mcp,
@@ -225,15 +234,21 @@ fn main() -> Result<()> {
                 .arg("--version")
                 .output()
                 .is_ok();
+            let ocr_ok = eyes::ocr::is_ocr_available();
+            let tess_dir = eyes::ocr::resolve_tessdata_dir();
+            let daemon_ok = daemon::server::ensure_background_daemon();
             let gpus = eyes::process_xray::read_gpu_telemetry();
 
             let report = json!({
                 "status": "ready",
                 "version": env!("CARGO_PKG_VERSION"),
+                "daemon_running": daemon_ok,
                 "hyprland_socket": hypr_sock,
                 "hyprland_event_socket": hypr_event_sock,
                 "atspi_enabled": a11y_enabled,
                 "atspi_bus_address": a11y_bus,
+                "ocr_available": ocr_ok,
+                "tessdata_dir": tess_dir,
                 "grim_available": grim_ok,
                 "pipewire_available": pw_ok,
                 "gpus_detected": gpus,
@@ -394,6 +409,8 @@ fn main() -> Result<()> {
             pid,
             max_freeze_ms,
             text,
+            file,
+            restore_id,
             steps_json,
             allow_protected,
         } => match op.as_str() {
@@ -408,8 +425,12 @@ fn main() -> Result<()> {
                 println!("{}", serde_json::to_string_pretty(&rec)?);
             }
             "clipboard" => {
-                let rec = director::process_ctl::clipboard_action(text.as_deref())?;
-                println!("{}", serde_json::to_string_pretty(&rec)?);
+                let val = director::process_ctl::clipboard_action_ext(
+                    text.as_deref(),
+                    file.as_deref(),
+                    restore_id.as_deref(),
+                )?;
+                println!("{}", serde_json::to_string_pretty(&val)?);
             }
             "binds" => {
                 let binds = eyes::compositor::list_hyprland_binds()?;
@@ -432,6 +453,9 @@ fn main() -> Result<()> {
             }
             other => return Err(anyhow::anyhow!("Bilinmeyen director işlemi: {}", other)),
         },
+        Commands::Daemon => {
+            daemon::server::run_daemon_forever()?;
+        }
         Commands::Mcp => {
             mcp::run_mcp_stdio_server()?;
         }

@@ -1,8 +1,8 @@
 [package]
 name = "pc-eye"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
-description = "PC-Eye V2: Full White-Box OS Observability & Director Control Engine for AI Models (Hyprland/Wayland/Linux)"
+description = "PC-Eye V3: Full White-Box OS Observability & Deterministic Director Engine for AI Models (Hyprland/Wayland/Linux)"
 license = "MIT"
 
 [[bin]]

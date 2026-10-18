@@ -302,6 +302,9 @@ pub struct AudioReport {
     pub active_playback_streams: usize,
     pub active_recording_streams: usize,
     pub pcm_signal: Option<PcmSignalMetrics>,
+    /// `pcm_signal` boşsa nedeni (sink çözülemedi, sink boşta, süre doldu vb.).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pcm_signal_note: Option<String>,
     pub media_players: Vec<MprisMediaInfo>,
     pub nodes: Vec<AudioStreamNode>,
 }

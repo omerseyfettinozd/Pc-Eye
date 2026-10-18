@@ -20,6 +20,13 @@ use anyhow::Result;
 use base64::Engine;
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
+use std::sync::mpsc;
+use std::time::Duration;
+
+/// Her MCP araç çağrısının varsayılan üst süresi; `PC_EYE_TOOL_TIMEOUT_MS` ile değiştirilebilir.
+const DEFAULT_TOOL_TIMEOUT_MS: u64 = 45_000;
+/// Kendi `timeout_ms` argümanı olan araçlar (wait, launch) için bu argümanın üstüne eklenen pay.
+const TOOL_TIMEOUT_SLACK_MS: u64 = 10_000;
 
 /// Standart Model Context Protocol (MCP) JSON-RPC 2.0 stdio sunucusunu çalıştırır.
 pub fn run_mcp_stdio_server() -> Result<()> {
@@ -84,9 +91,12 @@ pub fn handle_mcp_request(req: &Value) -> Option<Value> {
         "tools/call" => {
             let params = req.get("params").cloned().unwrap_or(Value::Null);
             let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
-            let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+            let args = params
+                .get("arguments")
+                .cloned()
+                .unwrap_or_else(|| json!({}));
 
-            match dispatch_tool_call(name, &args) {
+            match dispatch_tool_call_bounded(name, &args) {
                 Ok(content_items) => Some(json!({
                     "jsonrpc": "2.0",
                     "id": id_val,
@@ -116,6 +126,55 @@ pub fn handle_mcp_request(req: &Value) -> Option<Value> {
                 "message": format!("Method not found: {}", method)
             }
         })),
+    }
+}
+
+/// Araç çağrısının üst süresi: varsayılan (ya da ortam değişkeni) ile aracın kendi `timeout_ms`'i + payın büyüğü.
+fn tool_call_budget(args: &Value) -> Duration {
+    let base = std::env::var("PC_EYE_TOOL_TIMEOUT_MS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .filter(|&ms| ms > 0)
+        .unwrap_or(DEFAULT_TOOL_TIMEOUT_MS);
+    let own = args
+        .get("timeout_ms")
+        .and_then(|v| v.as_u64())
+        .map(|ms| ms.saturating_add(TOOL_TIMEOUT_SLACK_MS))
+        .unwrap_or(0);
+    Duration::from_millis(base.max(own))
+}
+
+/// `dispatch_tool_call`'ı ayrı bir iş parçacığında çalıştırır; üst süre dolarsa istemciye hata döner,
+/// böylece takılan tek bir araç MCP oturumunu kilitlemez. Takılan iş parçacığı arkada kendi
+/// alt süreç zaman aşımlarıyla sonlanır.
+fn dispatch_tool_call_bounded(name: &str, args: &Value) -> Result<Vec<Value>> {
+    let (owned_name, owned_args) = (name.to_string(), args.clone());
+    run_with_deadline(name, tool_call_budget(args), move || {
+        dispatch_tool_call(&owned_name, &owned_args)
+    })
+}
+
+fn run_with_deadline<T, F>(name: &str, budget: Duration, work: F) -> Result<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T> + Send + 'static,
+{
+    let (tx, rx) = mpsc::channel();
+    std::thread::Builder::new()
+        .name(format!("mcp-{}", name))
+        .spawn(move || {
+            let _ = tx.send(work());
+        })?;
+    match rx.recv_timeout(budget) {
+        Ok(result) => result,
+        Err(mpsc::RecvTimeoutError::Timeout) => Err(anyhow::anyhow!(
+            "`{}` aracı {} ms üst süreyi aştı; çağrı iptal edildi",
+            name,
+            budget.as_millis()
+        )),
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            Err(anyhow::anyhow!("`{}` aracı sonuç vermeden çöktü", name))
+        }
     }
 }
 
@@ -160,16 +219,13 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                         None
                     }
                 });
-            let zoom = args
-                .get("zoom")
-                .and_then(|v| v.as_array())
-                .and_then(|arr| {
-                    if arr.len() == 2 {
-                        Some([arr[0].as_i64()?, arr[1].as_i64()?])
-                    } else {
-                        None
-                    }
-                });
+            let zoom = args.get("zoom").and_then(|v| v.as_array()).and_then(|arr| {
+                if arr.len() == 2 {
+                    Some([arr[0].as_i64()?, arr[1].as_i64()?])
+                } else {
+                    None
+                }
+            });
             let rep = capture_vision(win, region, zoom, marks)?;
             let mut out =
                 vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })];
@@ -211,8 +267,14 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
         "pc_eye_click_ui" => {
             let win = args.get("window").and_then(|v| v.as_str());
             let name_q = args.get("name").and_then(|v| v.as_str());
-            let mark = args.get("mark").and_then(|v| v.as_u64()).map(|n| n as usize);
-            let btn = args.get("button").and_then(|v| v.as_str()).unwrap_or("left");
+            let mark = args
+                .get("mark")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as usize);
+            let btn = args
+                .get("button")
+                .and_then(|v| v.as_str())
+                .unwrap_or("left");
             let prefer_dbus = args
                 .get("prefer_dbus")
                 .and_then(|v| v.as_bool())
@@ -222,22 +284,12 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 .get("allow_protected")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
-            let rec = click_ui_element_ext(
-                win,
-                name_q,
-                mark,
-                btn,
-                prefer_dbus,
-                set_text,
-                allow_prot,
-            )?;
+            let rec =
+                click_ui_element_ext(win, name_q, mark, btn, prefer_dbus, set_text, allow_prot)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
         "pc_eye_input" => {
-            let op = args
-                .get("op")
-                .and_then(|v| v.as_str())
-                .unwrap_or("click");
+            let op = args.get("op").and_then(|v| v.as_str()).unwrap_or("click");
             let allow_prot = args
                 .get("allow_protected")
                 .and_then(|v| v.as_bool())
@@ -247,7 +299,10 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 "click" => {
                     let x = args.get("x").and_then(|v| v.as_i64());
                     let y = args.get("y").and_then(|v| v.as_i64());
-                    let btn = args.get("button").and_then(|v| v.as_str()).unwrap_or("left");
+                    let btn = args
+                        .get("button")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("left");
                     let clicks = args.get("clicks").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
                     click_at(x, y, btn, clicks, allow_prot)?
                 }
@@ -327,7 +382,10 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 })
                 .unwrap_or_default();
             let ws = args.get("workspace").and_then(|v| v.as_str());
-            let timeout = args.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(3000);
+            let timeout = args
+                .get("timeout_ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(3000);
             let rec = launch_application(&cmd_arr, ws, timeout)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
@@ -338,7 +396,10 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 .unwrap_or("visual_settle");
             let match_str = args.get("match").and_then(|v| v.as_str());
             let win = args.get("window").and_then(|v| v.as_str());
-            let timeout = args.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(5000);
+            let timeout = args
+                .get("timeout_ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(5000);
             let rep = wait_for_condition(event, match_str, win, timeout)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
         }
@@ -382,10 +443,9 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                     vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&binds)? })]
                 }
                 "use_bind" => {
-                    let combo = args
-                        .get("text")
-                        .and_then(|v| v.as_str())
-                        .ok_or_else(|| anyhow::anyhow!("text içinde kısayol adı gerekli (ör. SUPER+Return)"))?;
+                    let combo = args.get("text").and_then(|v| v.as_str()).ok_or_else(|| {
+                        anyhow::anyhow!("text içinde kısayol adı gerekli (ör. SUPER+Return)")
+                    })?;
                     let rec = trigger_hyprland_bind(combo)?;
                     vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
                 }
@@ -621,4 +681,34 @@ fn mcp_tools_schema() -> Value {
             }
         }
     ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+
+    #[test]
+    fn test_run_with_deadline_returns_error_when_tool_hangs() {
+        let started = Instant::now();
+        let res: Result<()> = run_with_deadline("slow", Duration::from_millis(100), || {
+            std::thread::sleep(Duration::from_secs(5));
+            Ok(())
+        });
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(res.unwrap_err().to_string().contains("üst süreyi aştı"));
+    }
+
+    #[test]
+    fn test_run_with_deadline_passes_through_fast_result() {
+        let res = run_with_deadline("fast", Duration::from_secs(1), || Ok(42));
+        assert_eq!(res.unwrap(), 42);
+    }
+
+    #[test]
+    fn test_tool_call_budget_respects_own_timeout() {
+        assert!(tool_call_budget(&json!({})) >= Duration::from_millis(1));
+        let long = tool_call_budget(&json!({ "timeout_ms": 120_000 }));
+        assert_eq!(long, Duration::from_millis(120_000 + TOOL_TIMEOUT_SLACK_MS));
+    }
 }

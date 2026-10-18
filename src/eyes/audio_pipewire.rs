@@ -1,12 +1,12 @@
 use crate::daemon::ring_buffer::now_ms;
 use crate::director::input::ActionReceipt;
-use crate::protocol::types::{
-    AudioReport, AudioStreamNode, MprisMediaInfo, PcmSignalMetrics,
-};
+use crate::protocol::types::{AudioReport, AudioStreamNode, MprisMediaInfo, PcmSignalMetrics};
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 use std::io::Read;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 /// Göz 5: PipeWire ses grafiğini (`pw-dump`), gerçek fiziksel PCM sinyal seviyesini (`RMS`/`Peak` dBFS)
 /// ve D-Bus `MPRIS` medya/tarayıcı URL durumunu tek raporda toplar.
@@ -14,16 +14,19 @@ pub fn capture_audio_report() -> Result<AudioReport> {
     let ts = now_ms();
     let (default_sink_volume, default_sink_muted) = read_default_sink_volume();
     let media_players = collect_mpris_media_players();
+    let mut default_sink = resolve_default_sink();
 
     let output = Command::new("pw-dump").output()?;
     if !output.status.success() {
+        let pcm = measure_sink_pcm_signal(default_sink.as_ref());
         return Ok(AudioReport {
             timestamp_ms: ts,
             default_sink_volume,
             default_sink_muted,
             active_playback_streams: 0,
             active_recording_streams: 0,
-            pcm_signal: None,
+            pcm_signal_note: pcm.as_ref().err().cloned(),
+            pcm_signal: pcm.ok(),
             media_players,
             nodes: Vec::new(),
         });
@@ -78,6 +81,12 @@ pub fn capture_audio_report() -> Result<AudioReport> {
                 .or_else(|| v.as_str().and_then(|s| s.parse::<i32>().ok()))
         });
 
+        if let Some(sink) = default_sink.as_mut() {
+            if media_class == "Audio/Sink" && sink.node_name == name {
+                sink.state = Some(state.clone());
+            }
+        }
+
         if state == "running" {
             if media_class == "Stream/Output/Audio" {
                 active_playback_streams += 1;
@@ -98,7 +107,7 @@ pub fn capture_audio_report() -> Result<AudioReport> {
         });
     }
 
-    let pcm_signal = measure_sink_pcm_signal();
+    let pcm = measure_sink_pcm_signal(default_sink.as_ref());
 
     Ok(AudioReport {
         timestamp_ms: ts,
@@ -106,52 +115,230 @@ pub fn capture_audio_report() -> Result<AudioReport> {
         default_sink_muted,
         active_playback_streams,
         active_recording_streams,
-        pcm_signal,
+        pcm_signal_note: pcm.as_ref().err().cloned(),
+        pcm_signal: pcm.ok(),
         media_players,
         nodes,
     })
 }
 
-/// PipeWire varsayılan ses çıkışından ~45ms'lik gerçek 16-bit PCM kesiti okuyup RMS ve Peak (dBFS) hesaplar.
-pub fn measure_sink_pcm_signal() -> Option<PcmSignalMetrics> {
-    let mut child = Command::new("pw-record")
-        .args([
-            "--target",
-            "@DEFAULT_AUDIO_SINK@",
-            "--rate",
-            "16000",
-            "--channels",
-            "1",
-            "--format",
-            "s16",
-            "-",
-        ])
+/// PCM örneklemesinin katı süre bütçesi: sink saati dursa ya da hiç veri gelmese bile çağrı bu sürede döner.
+const PCM_SAMPLE_TIMEOUT: Duration = Duration::from_millis(700);
+/// 800 örnek (50ms @ 16kHz, s16 mono, ham PCM).
+const PCM_SAMPLE_BYTES: usize = 1600;
+/// `wpctl inspect` gibi yardımcı sorgular için üst süre.
+const PROBE_CMD_TIMEOUT: Duration = Duration::from_millis(1500);
+/// pw-record akışının mikrofona değil, hedef sink'in monitör portlarına bağlanmasını sağlar;
+/// hedef kaybolursa başka bir düğüme (ör. varsayılan kaynağa) yeniden bağlanmaz.
+const SINK_MONITOR_PROPS: &str = "{ stream.capture.sink=true node.dont-reconnect=true }";
+
+/// Varsayılan ses çıkışının monitöründen ~50ms'lik gerçek 16-bit PCM kesiti okuyup RMS ve Peak (dBFS) hesaplar.
+/// Sinyal alınamazsa gerekçeyi `Err` olarak döner; asla mikrofona bağlanmaz ve `PCM_SAMPLE_TIMEOUT`'u aşmaz.
+pub fn measure_sink_pcm_signal(
+    sink: Option<&DefaultSink>,
+) -> std::result::Result<PcmSignalMetrics, String> {
+    let sink = sink.ok_or_else(|| {
+        "varsayılan sink çözülemedi; mikrofona düşmemek için örnekleme atlandı".to_string()
+    })?;
+    if let Some(state) = sink.state.as_deref() {
+        if state != "running" {
+            return Err(format!(
+                "sink `{}` durumu `{}`; çalan ses yok",
+                sink.node_name, state
+            ));
+        }
+    }
+
+    let mut cmd = sink_monitor_record_command(&sink.node_name, "-", true);
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    let child = cmd
+        .spawn()
+        .map_err(|e| format!("pw-record başlatılamadı: {}", e))?;
+
+    let (bytes, timed_out) = read_child_stdout_bounded(child, PCM_SAMPLE_BYTES, PCM_SAMPLE_TIMEOUT);
+    if bytes.len() < 2 {
+        return Err(if timed_out {
+            format!(
+                "sink `{}` monitöründen {} ms içinde PCM gelmedi (sink saati durmuş veya askıda olabilir)",
+                sink.node_name,
+                PCM_SAMPLE_TIMEOUT.as_millis()
+            )
+        } else {
+            format!(
+                "pw-record sink `{}` için veri vermeden kapandı",
+                sink.node_name
+            )
+        });
+    }
+    Ok(compute_pcm_s16le_metrics(&bytes))
+}
+
+/// Varsayılan sink'in kimliği. `@DEFAULT_AUDIO_SINK@` yalnız wpctl'nin anladığı bir takma addır;
+/// pw-record'a doğrudan verilirse varsayılan kaynağa, yani mikrofona bağlanır.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DefaultSink {
+    pub node_name: String,
+    /// pw-dump'tan gelen düğüm durumu (running | idle | suspended); bilinmiyorsa `None`.
+    pub state: Option<String>,
+}
+
+/// `wpctl inspect @DEFAULT_AUDIO_SINK@` çıktısından `node.name` değerini çözer.
+pub fn resolve_default_sink() -> Option<DefaultSink> {
+    let mut cmd = Command::new("wpctl");
+    cmd.args(["inspect", "@DEFAULT_AUDIO_SINK@"]);
+    let out = output_with_timeout(cmd, PROBE_CMD_TIMEOUT)?;
+    if !out.status.success() {
+        return None;
+    }
+    let node_name = parse_sink_node_name(&String::from_utf8_lossy(&out.stdout))?;
+    Some(DefaultSink {
+        node_name,
+        state: None,
+    })
+}
+
+/// `wpctl inspect` çıktısındaki `node.name` değerini döner; düğüm bir `Audio/Sink` değilse `None`.
+pub fn parse_sink_node_name(inspect_output: &str) -> Option<String> {
+    let prop = |key: &str| {
+        inspect_output.lines().find_map(|line| {
+            let l = line.trim_start().trim_start_matches('*').trim();
+            let v = l.strip_prefix(key)?.trim_start().strip_prefix('=')?.trim();
+            Some(v.trim_matches('"').to_string())
+        })
+    };
+    if prop("media.class")? != "Audio/Sink" {
+        return None;
+    }
+    prop("node.name").filter(|n| !n.is_empty())
+}
+
+/// Hedef sink'in monitörünü kaydeden pw-record komutu. `raw` ise başlıksız s16le PCM yazar.
+fn sink_monitor_record_command(sink_node_name: &str, out: &str, raw: bool) -> Command {
+    let mut cmd = Command::new("pw-record");
+    if raw {
+        cmd.arg("--raw");
+    }
+    cmd.args([
+        "--target",
+        sink_node_name,
+        "-P",
+        SINK_MONITOR_PROPS,
+        "--latency",
+        "20ms",
+        "--rate",
+        "16000",
+        "--channels",
+        "1",
+        "--format",
+        "s16",
+        out,
+    ]);
+    cmd
+}
+
+/// Çocuğun stdout'undan en çok `budget` bayt okur; `timeout` dolunca bırakır.
+/// Her durumda çocuğu öldürür ve bekler (zombi/yetim kalmaz). Dönüş: (okunan baytlar, süre doldu mu).
+fn read_child_stdout_bounded(
+    mut child: Child,
+    budget: usize,
+    timeout: Duration,
+) -> (Vec<u8>, bool) {
+    let deadline = Instant::now() + timeout;
+    let mut buf = Vec::with_capacity(budget);
+    let mut timed_out = false;
+
+    if let Some(mut stdout) = child.stdout.take() {
+        let (tx, rx) = mpsc::channel::<Vec<u8>>();
+        // Okuyucu, çocuk öldürülüp boru kapanınca EOF alır ve kendiliğinden biter.
+        let _ = std::thread::Builder::new()
+            .name("pc-eye-pcm-reader".into())
+            .spawn(move || {
+                let mut chunk = [0u8; 4096];
+                loop {
+                    match stdout.read(&mut chunk) {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => {
+                            if tx.send(chunk[..n].to_vec()).is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+
+        while buf.len() < budget {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                timed_out = true;
+                break;
+            }
+            match rx.recv_timeout(remaining) {
+                Ok(chunk) => buf.extend_from_slice(&chunk),
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    timed_out = true;
+                    break;
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+    }
+
+    let _ = child.kill();
+    let _ = child.wait();
+    buf.truncate(budget - budget % 2);
+    (buf, timed_out)
+}
+
+/// `Command::output()` eşdeğeri, ama `timeout` dolunca çocuğu öldürüp `None` döner.
+fn output_with_timeout(mut cmd: Command, timeout: Duration) -> Option<Output> {
+    let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
         .ok()?;
-
-    let mut buf = vec![0u8; 1644]; // 44 bayt WAV başlığı + 800 örnek (50ms @ 16kHz)
-    let mut read_total = 0usize;
-    if let Some(mut stdout) = child.stdout.take() {
-        while read_total < buf.len() {
-            match stdout.read(&mut buf[read_total..]) {
-                Ok(0) => break,
-                Ok(n) => read_total += n,
-                Err(_) => break,
+    let mut stdout = child.stdout.take()?;
+    let reader = std::thread::spawn(move || {
+        let mut v = Vec::new();
+        let _ = stdout.read_to_end(&mut v);
+        v
+    });
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(10)),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
             }
         }
+    };
+    let stdout = reader.join().unwrap_or_default();
+    Some(Output {
+        status,
+        stdout,
+        stderr: Vec::new(),
+    })
+}
+
+/// SIGTERM ile nazikçe durdurur (pw-record WAV başlığını kapatabilsin), `grace` içinde çıkmazsa SIGKILL.
+fn terminate_child(child: &mut Child, grace: Duration) {
+    unsafe {
+        libc::kill(child.id() as i32, libc::SIGTERM);
+    }
+    let deadline = Instant::now() + grace;
+    while Instant::now() < deadline {
+        if let Ok(Some(_)) = child.try_wait() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(10));
     }
     let _ = child.kill();
     let _ = child.wait();
-
-    if read_total <= 64 {
-        return None;
-    }
-
-    let pcm_bytes = &buf[44..read_total];
-    Some(compute_pcm_s16le_metrics(pcm_bytes))
 }
 
 pub fn compute_pcm_s16le_metrics(pcm_bytes: &[u8]) -> PcmSignalMetrics {
@@ -226,8 +413,8 @@ pub fn collect_mpris_media_players() -> Vec<MprisMediaInfo> {
             .unwrap_or(&srv)
             .to_string();
 
-        let playback_status = mpris_get_string(&srv, "PlaybackStatus")
-            .unwrap_or_else(|| "Stopped".to_string());
+        let playback_status =
+            mpris_get_string(&srv, "PlaybackStatus").unwrap_or_else(|| "Stopped".to_string());
         let (title, artist, url, length_sec) = mpris_get_metadata(&srv);
 
         players.push(MprisMediaInfo {
@@ -407,13 +594,18 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                 .clamp(100, 15000);
             let out_path = crate::eyes::vision::runtime_dir().join("audio_capture.wav");
             let _ = std::fs::remove_file(&out_path);
-            let secs = format!("{:.2}", (duration_ms as f64) / 1000.0);
-            let cmd_str = format!(
-                "timeout {}s pw-record --target @DEFAULT_AUDIO_SINK@ --rate 16000 --channels 1 --format s16 '{}' >/dev/null 2>&1 || true",
-                secs,
-                out_path.display()
-            );
-            let _ = Command::new("sh").arg("-c").arg(&cmd_str).status();
+            let sink = resolve_default_sink().ok_or_else(|| {
+                anyhow!("Varsayılan sink çözülemedi; mikrofona düşmemek için kayıt yapılmadı")
+            })?;
+            let mut cmd =
+                sink_monitor_record_command(&sink.node_name, &out_path.to_string_lossy(), false);
+            let mut child = cmd
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()?;
+            std::thread::sleep(Duration::from_millis(duration_ms));
+            terminate_child(&mut child, Duration::from_millis(1000));
             let bytes = std::fs::read(&out_path).unwrap_or_default();
             let pcm_slice = if bytes.len() > 44 { &bytes[44..] } else { &[] };
             let sig = compute_pcm_s16le_metrics(pcm_slice);
@@ -427,12 +619,20 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                 action: "audio_record_wav".to_string(),
                 target: out_path.to_string_lossy().to_string(),
                 coordinates: None,
-                details: format!(
-                    "{} ms masaüstü sesi kaydedildi ({} bayt, {})",
-                    duration_ms,
-                    bytes.len(),
-                    sig_info
-                ),
+                details: if bytes.len() > 44 {
+                    format!(
+                        "{} ms masaüstü sesi `{}` monitöründen kaydedildi ({} bayt, {})",
+                        duration_ms,
+                        sink.node_name,
+                        bytes.len(),
+                        sig_info
+                    )
+                } else {
+                    format!(
+                        "`{}` monitöründen {} ms içinde PCM gelmedi (sink saati durmuş veya askıda olabilir)",
+                        sink.node_name, duration_ms
+                    )
+                },
             })
         }
         other => Err(anyhow!("Bilinmeyen ses/medya komutu: {}", other)),
@@ -479,5 +679,77 @@ mod tests {
         let m_loud = compute_pcm_s16le_metrics(&loud);
         assert!(m_loud.rms_dbfs > -7.0 && m_loud.rms_dbfs < -5.5);
         assert!(m_loud.audible_signal);
+    }
+
+    #[test]
+    fn test_parse_sink_node_name_accepts_only_sinks() {
+        let sink = "id 57, type PipeWire:Interface:Node\n    media.class = \"Audio/Sink\"\n  * node.name = \"alsa_output.pci-0000_07_00.6.analog-stereo\"\n";
+        assert_eq!(
+            parse_sink_node_name(sink).as_deref(),
+            Some("alsa_output.pci-0000_07_00.6.analog-stereo")
+        );
+        // Kaynak (mikrofon) düğümü asla hedef olarak döndürülmemeli.
+        let source = "    media.class = \"Audio/Source\"\n  * node.name = \"alsa_input.pci-0000_07_00.6.analog-stereo\"\n";
+        assert_eq!(parse_sink_node_name(source), None);
+        assert_eq!(parse_sink_node_name("  * node.name = \"x\"\n"), None);
+    }
+
+    #[test]
+    fn test_sink_monitor_command_never_uses_wpctl_alias() {
+        let cmd = sink_monitor_record_command("alsa_output.test", "-", true);
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(!args.iter().any(|a| a.contains("@DEFAULT_AUDIO")));
+        let t = args.iter().position(|a| a == "--target").unwrap();
+        assert_eq!(args[t + 1], "alsa_output.test");
+        assert!(args.iter().any(|a| a.contains("stream.capture.sink=true")));
+        assert!(args.iter().any(|a| a == "--raw"));
+    }
+
+    #[test]
+    fn test_bounded_read_kills_silent_child_within_timeout() {
+        // Hiç çıktı vermeyen çocuk: sink saati durmuş pw-record'u taklit eder.
+        let child = Command::new("sleep")
+            .arg("30")
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let pid = child.id() as i32;
+        let started = Instant::now();
+        let (bytes, timed_out) =
+            read_child_stdout_bounded(child, PCM_SAMPLE_BYTES, Duration::from_millis(150));
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert!(timed_out);
+        assert!(bytes.is_empty());
+        // Çocuk öldürülüp beklendi: PID artık yok (zombi de değil).
+        assert_ne!(unsafe { libc::kill(pid, 0) }, 0);
+    }
+
+    #[test]
+    fn test_bounded_read_stops_at_byte_budget() {
+        let child = Command::new("cat")
+            .arg("/dev/zero")
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let (bytes, timed_out) =
+            read_child_stdout_bounded(child, PCM_SAMPLE_BYTES, Duration::from_secs(2));
+        assert!(!timed_out);
+        assert_eq!(bytes.len(), PCM_SAMPLE_BYTES);
+        assert!(!compute_pcm_s16le_metrics(&bytes).audible_signal);
+    }
+
+    #[test]
+    fn test_unknown_sink_is_not_sampled() {
+        assert!(measure_sink_pcm_signal(None).is_err());
+        let idle = DefaultSink {
+            node_name: "alsa_output.test".into(),
+            state: Some("suspended".into()),
+        };
+        assert!(measure_sink_pcm_signal(Some(&idle))
+            .unwrap_err()
+            .contains("suspended"));
     }
 }

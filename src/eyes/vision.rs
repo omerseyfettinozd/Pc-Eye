@@ -65,26 +65,46 @@ pub fn capture_vision(
     }
 
     let primary_mon = desktop.monitors.first().cloned();
-    let mon_w = primary_mon.as_ref().map(|m| m.width).unwrap_or(2560);
-    let mon_h = primary_mon.as_ref().map(|m| m.height).unwrap_or(1600);
     let scale = primary_mon.as_ref().map(|m| m.scale).unwrap_or(1.0);
+    // Monitör boyutları fiziksel pikseldir; grim/Hyprland yerleşimi mantıksal (ölçeklenmiş) koordinattır.
+    let logical = |m: &crate::protocol::types::MonitorInfo| -> [i64; 4] {
+        let sc = if m.scale > 0.0 { m.scale } else { 1.0 };
+        [
+            m.x,
+            m.y,
+            ((m.width as f64) / sc).round() as i64,
+            ((m.height as f64) / sc).round() as i64,
+        ]
+    };
+    // Tüm çıkışların birleşik sınırı: ikincil/headless çıkışlardaki pencereler kırpılmasın.
+    let (bx0, by0, bx1, by1) = if desktop.monitors.is_empty() {
+        (0, 0, 2560, 1600)
+    } else {
+        desktop.monitors.iter().map(logical).fold(
+            (i64::MAX, i64::MAX, i64::MIN, i64::MIN),
+            |(x0, y0, x1, y1), r| (x0.min(r[0]), y0.min(r[1]), x1.max(r[0] + r[2]), y1.max(r[1] + r[3])),
+        )
+    };
+    let clamp_rect = |x: i64, y: i64, w: i64, h: i64| -> [i64; 4] {
+        let x = x.clamp(bx0, (bx1 - 10).max(bx0));
+        let y = y.clamp(by0, (by1 - 10).max(by0));
+        let w = w.clamp(10, (bx1 - x).max(10));
+        let h = h.clamp(10, (by1 - y).max(10));
+        [x, y, w, h]
+    };
 
     let (capture_mode, target_window, geom) = if let Some([zx, zy]) = zoom_point {
         let zw = 480i64;
         let zh = 320i64;
-        let x = (zx - zw / 2).clamp(0, (mon_w - zw).max(0));
-        let y = (zy - zh / 2).clamp(0, (mon_h - zh).max(0));
+        let x = (zx - zw / 2).clamp(bx0, (bx1 - zw).max(bx0));
+        let y = (zy - zh / 2).clamp(by0, (by1 - zh).max(by0));
         (
             "zoom".to_string(),
             window_addr.map(normalize_window_address),
             [x, y, zw, zh],
         )
     } else if let Some(r) = region {
-        let x = r[0].clamp(0, (mon_w - 10).max(0));
-        let y = r[1].clamp(0, (mon_h - 10).max(0));
-        let w = r[2].clamp(10, (mon_w - x).max(10));
-        let h = r[3].clamp(10, (mon_h - y).max(10));
-        ("region".to_string(), None, [x, y, w, h])
+        ("region".to_string(), None, clamp_rect(r[0], r[1], r[2], r[3]))
     } else if let Some(addr) = window_addr {
         let norm = normalize_window_address(addr);
         let win = desktop
@@ -92,13 +112,10 @@ pub fn capture_vision(
             .iter()
             .find(|w| w.address == norm)
             .ok_or_else(|| anyhow!("Pencere bulunamadı: {}", norm))?;
-        let x = win.x.clamp(0, (mon_w - 10).max(0));
-        let y = win.y.clamp(0, (mon_h - 10).max(0));
-        let w = win.width.clamp(10, (mon_w - x).max(10));
-        let h = win.height.clamp(10, (mon_h - y).max(10));
-        ("window".to_string(), Some(norm), [x, y, w, h])
+        ("window".to_string(), Some(norm), clamp_rect(win.x, win.y, win.width, win.height))
     } else {
-        ("monitor".to_string(), None, [0, 0, mon_w, mon_h])
+        let g = primary_mon.as_ref().map(logical).unwrap_or([0, 0, 2560, 1600]);
+        ("monitor".to_string(), None, g)
     };
 
     // In-memory PPM yakalama (grim -t ppm -) -> Sıfır disk I/O

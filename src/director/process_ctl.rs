@@ -12,6 +12,16 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
+/// Pencerenin (çıkış, çalışma alanı) konumu.
+fn window_place(addr: &str) -> Option<(i64, i64)> {
+    capture_desktop_state()
+        .ok()?
+        .windows
+        .into_iter()
+        .find(|w| w.address == addr)
+        .map(|w| (w.monitor, w.workspace_id))
+}
+
 /// Pencere ve çalışma alanı yönetimi (Hyprland IPC).
 pub fn manage_window(action: &str, target: Option<&str>, arg: Option<&str>) -> Result<ActionReceipt> {
     enforce_action_guard(target, false)?;
@@ -50,17 +60,57 @@ pub fn manage_window(action: &str, target: Option<&str>, arg: Option<&str>) -> R
                 HyprDispatch::ToggleFloat(None)
             }
         }
-        "move" => {
-            let coords = arg
-                .or(target)
-                .ok_or_else(|| anyhow!("move için `X Y` koordinatı gerekli"))?;
-            HyprDispatch::MoveActiveExact(coords.to_string())
-        }
-        "resize" => {
-            let dims = arg
-                .or(target)
-                .ok_or_else(|| anyhow!("resize için `W H` boyutu gerekli"))?;
-            HyprDispatch::ResizeActiveExact(dims.to_string())
+        "move" | "resize" => {
+            let is_move = action.eq_ignore_ascii_case("move");
+            // `--arg` koordinatı taşır; `--window` hedef pencereyi seçer. Yalnız tek değer varsa o koordinattır.
+            let (coords, win_addr) = match (arg, target) {
+                (Some(a), Some(t)) => (a.to_string(), Some(normalize_window_address(t))),
+                (Some(a), None) => (a.to_string(), None),
+                (None, Some(t)) => (t.to_string(), None),
+                (None, None) => {
+                    return Err(anyhow!(
+                        "{} için `{}` gerekli",
+                        action,
+                        if is_move { "X Y koordinatı" } else { "W H boyutu" }
+                    ))
+                }
+            };
+            // Hedef verilmediyse aktif pencerenin adresini çöz ki öncesi/sonrası çıkış doğrulanabilsin.
+            let win_addr = win_addr.or_else(|| {
+                capture_desktop_state()
+                    .ok()
+                    .and_then(|d| d.windows.into_iter().find(|w| w.focused).map(|w| w.address))
+            });
+            let before = win_addr.as_ref().and_then(|a| window_place(a));
+            let d = if is_move {
+                HyprDispatch::MoveExact { coords, window: win_addr.clone() }
+            } else {
+                HyprDispatch::ResizeExact { coords, window: win_addr.clone() }
+            };
+            hypr_dispatch_cmd(&d)?;
+            // Pencere başka çıkışa/çalışma alanına kaymışsa geri al (kullanıcının ekranına taşmasın).
+            if let (Some(addr), Some((mon0, ws0))) = (win_addr, before) {
+                thread::sleep(Duration::from_millis(60));
+                if let Some((mon1, _)) = window_place(&addr) {
+                    if mon1 != mon0 && !is_move {
+                        let _ = hypr_dispatch_cmd(&HyprDispatch::MoveToWorkspaceSilent {
+                            workspace: ws0.to_string(),
+                            address: addr.clone(),
+                        });
+                        return Err(anyhow!(
+                            "resize pencereyi çıkış {} -> {} taşıdı; çalışma alanı {} geri yüklendi",
+                            mon0, mon1, ws0
+                        ));
+                    }
+                }
+            }
+            return Ok(ActionReceipt {
+                ok: true,
+                action: format!("window_{}", action.to_ascii_lowercase()),
+                target: target.unwrap_or("active").to_string(),
+                coordinates: None,
+                details: format!("Hyprland dispatch çalıştırıldı: `{}`", d.lua()),
+            });
         }
         other => return Err(anyhow!("Bilinmeyen pencere aksiyonu: {}", other)),
     };

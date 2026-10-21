@@ -51,6 +51,42 @@ pub fn move_cursor(x: i64, y: i64) -> Result<ActionReceipt> {
     })
 }
 
+/// (x, y) noktasındaki görünür pencereyi bulur; odakta değilse odaklar ve `activewindow` eşleşene dek bekler.
+fn focus_window_at(x: i64, y: i64) {
+    let Ok(desk) = capture_desktop_state() else { return };
+    let active_ws: Vec<i64> = desk.monitors.iter().map(|m| m.active_workspace_id).collect();
+    let target = desk
+        .windows
+        .iter()
+        .filter(|w| {
+            w.mapped
+                && !w.hidden
+                && active_ws.contains(&w.workspace_id)
+                && x >= w.x
+                && x < w.x + w.width
+                && y >= w.y
+                && y < w.y + w.height
+        })
+        .min_by_key(|w| (!w.focused, !w.floating, w.width * w.height));
+    let Some(win) = target else { return };
+    if win.focused {
+        return;
+    }
+    if hypr_dispatch_cmd(&HyprDispatch::FocusWindow(win.address.clone())).is_err() {
+        return;
+    }
+    for _ in 0..25 {
+        let cur = crate::eyes::compositor::hypr_query_json("activewindow")
+            .ok()
+            .and_then(|v| v.get("address").and_then(|a| a.as_str().map(String::from)));
+        if cur.as_deref() == Some(win.address.as_str()) {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    thread::sleep(Duration::from_millis(40));
+}
+
 /// Belirtilen koordinata (veya mevcut imleç konumuna) Wayland `zwlr_virtual_pointer_v1` üzerinden tıklar.
 pub fn click_at(
     x: Option<i64>,
@@ -61,8 +97,14 @@ pub fn click_at(
 ) -> Result<ActionReceipt> {
     enforce_action_guard(None, allow_protected)?;
     if let (Some(cx), Some(cy)) = (x, y) {
+        // Yeni açılmış (özellikle XWayland) pencerede ilk tık odak tıkı olarak yutulur:
+        // önce hedef pencereyi odakla, odak oturana kadar bekle, sonra imleci gerçek konuma götür.
+        focus_window_at(cx, cy);
+        // Ön hareket: imleç girişini (enter) istemciye kaydettir, sonra asıl noktaya otur.
+        hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx + 1, y: cy })?;
+        thread::sleep(Duration::from_millis(15));
         hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
-        thread::sleep(Duration::from_millis(18));
+        thread::sleep(Duration::from_millis(30));
     }
 
     let btn_code = parse_mouse_button(button);
@@ -537,39 +579,67 @@ impl WaylandVirtualInput {
         self.flush_sync()
     }
 
+    /// Kısayol gönderir. SDL3/oyun istemcileri tuşları evdev scancode'undan okur ve modifier'ları
+    /// gerçek tuş olaylarından izler; bu yüzden her tuş fiziksel evdev koduyla, modifier'lar da
+    /// gerçek Ctrl/Shift/Alt/Super tuş basışlarıyla gönderilir (`modifiers` isteği kullanılmaz).
     fn send_key_combo(&mut self, combo: &str) -> Result<()> {
         let parts: Vec<&str> = combo.split('+').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-        let mut mods_mask = 0u32;
-        let mut keysyms: Vec<String> = Vec::new();
-
+        // (keysym adı, evdev kodu)
+        let mut mods: Vec<(String, u32)> = Vec::new();
+        let mut keys: Vec<(String, u32)> = Vec::new();
+        let mut fallback = 200u32;
+        let add_mod = |mods: &mut Vec<(String, u32)>, name: &str, code: u32| {
+            if !mods.iter().any(|(n, _)| n == name) {
+                mods.push((name.to_string(), code));
+            }
+        };
         for part in parts {
             match part.to_ascii_lowercase().as_str() {
-                "shift" => mods_mask |= 1,
-                "ctrl" | "control" => mods_mask |= 4,
-                "alt" | "mod1" => mods_mask |= 8,
-                "super" | "win" | "logo" | "mod4" => mods_mask |= 64,
-                other => keysyms.push(normalize_keysym_name(other)),
+                "shift" => add_mod(&mut mods, "Shift_L", 42),
+                "ctrl" | "control" => add_mod(&mut mods, "Control_L", 29),
+                "alt" | "mod1" => add_mod(&mut mods, "Alt_L", 56),
+                "super" | "win" | "logo" | "mod4" => add_mod(&mut mods, "Super_L", 125),
+                _ => {
+                    let mut name = normalize_keysym_name(part);
+                    let mut chars = name.chars();
+                    if let (Some(c), None) = (chars.next(), chars.next()) {
+                        if c.is_ascii_uppercase() {
+                            add_mod(&mut mods, "Shift_L", 42);
+                            name = c.to_ascii_lowercase().to_string();
+                        }
+                    }
+                    let code = evdev_for_keysym_name(&name).unwrap_or_else(|| {
+                        fallback += 1;
+                        fallback
+                    });
+                    keys.push((name, code));
+                }
             }
         }
+        if keys.is_empty() {
+            return Err(anyhow!("Kombinasyonda tuş yok: `{}`", combo));
+        }
 
-        let keymap_str = build_dynamic_xkb_keymap(&[], &keysyms);
+        let mut entries: Vec<(String, u32)> = mods.clone();
+        entries.extend(keys.iter().cloned());
+        let keymap_str = build_evdev_xkb_keymap(&entries);
         self.upload_keymap(&keymap_str)?;
 
         let mut pkt = Vec::new();
-        // modifiers (opcode 2): depressed, latched, locked, group
-        if mods_mask != 0 {
-            write_wl_msg(&mut pkt, self.kbd_id, 2, &[mods_mask, 0, 0, 0]);
-        }
         let mut t = 100u32;
-        for (idx, _) in keysyms.iter().enumerate() {
-            let evdev_keycode = (idx as u32) + 1;
-            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 1]);
-            t += 10;
-            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 0]);
+        for (_, code) in &mods {
+            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, *code, 1]);
             t += 10;
         }
-        if mods_mask != 0 {
-            write_wl_msg(&mut pkt, self.kbd_id, 2, &[0, 0, 0, 0]);
+        for (_, code) in &keys {
+            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, *code, 1]);
+            t += 30;
+            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, *code, 0]);
+            t += 10;
+        }
+        for (_, code) in mods.iter().rev() {
+            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, *code, 0]);
+            t += 10;
         }
         self.stream.write_all(&pkt)?;
         self.flush_sync()
@@ -590,6 +660,122 @@ impl WaylandVirtualInput {
         }
         self.flush_sync()
     }
+}
+
+/// Keysym adının ABD QWERTY düzenindeki fiziksel evdev kodu (SDL scancode eşlemesi için).
+fn evdev_for_keysym_name(name: &str) -> Option<u32> {
+    let code = match name {
+        "Escape" => 1,
+        "BackSpace" => 14,
+        "Tab" => 15,
+        "Return" => 28,
+        "space" => 57,
+        "Delete" => 111,
+        "Insert" => 110,
+        "Home" => 102,
+        "End" => 107,
+        "Prior" => 104,
+        "Next" => 109,
+        "Up" => 103,
+        "Left" => 105,
+        "Right" => 106,
+        "Down" => 108,
+        "F11" => 87,
+        "F12" => 88,
+        "-" => 12,
+        "=" => 13,
+        "[" => 26,
+        "]" => 27,
+        ";" => 39,
+        "'" => 40,
+        "`" => 41,
+        "\\" => 43,
+        "," => 51,
+        "." => 52,
+        "/" => 53,
+        n if n.len() >= 2 && n.starts_with('F') => match n[1..].parse::<u32>() {
+            Ok(k @ 1..=10) => 58 + k,
+            _ => return None,
+        },
+        n if n.len() == 1 => {
+            let c = n.chars().next().unwrap();
+            match c {
+                '1'..='9' => 2 + (c as u32 - '1' as u32),
+                '0' => 11,
+                'a'..='z' => {
+                    const ROWS: &str = "qwertyuiop";
+                    const ROW2: &str = "asdfghjkl";
+                    const ROW3: &str = "zxcvbnm";
+                    if let Some(i) = ROWS.find(c) {
+                        16 + i as u32
+                    } else if let Some(i) = ROW2.find(c) {
+                        30 + i as u32
+                    } else {
+                        44 + ROW3.find(c)? as u32
+                    }
+                }
+                _ => return None,
+            }
+        }
+        _ => return None,
+    };
+    Some(code)
+}
+
+/// Her girdiyi kendi evdev koduna (xkb kodu = evdev + 8) bağlayan, modifier_map'li dinamik keymap.
+fn build_evdev_xkb_keymap(entries: &[(String, u32)]) -> String {
+    let mut keycodes = String::new();
+    let mut symbols = String::new();
+    let mut modmap = String::new();
+    let mut max_kc = 9;
+    for (idx, (sym, code)) in entries.iter().enumerate() {
+        let kc = code + 8;
+        max_kc = max_kc.max(kc);
+        keycodes.push_str(&format!("        <K{}> = {};\n", idx, kc));
+        let sym_name = if sym.chars().count() == 1 && !sym.chars().next().unwrap().is_ascii_alphanumeric() {
+            char_to_xkb_keysym(sym.chars().next().unwrap())
+        } else {
+            sym.clone()
+        };
+        symbols.push_str(&format!("        key <K{}> {{ [ {} ] }};\n", idx, sym_name));
+        let m = match sym.as_str() {
+            "Shift_L" => Some("Shift"),
+            "Control_L" => Some("Control"),
+            "Alt_L" => Some("Mod1"),
+            "Super_L" => Some("Mod4"),
+            _ => None,
+        };
+        if let Some(m) = m {
+            modmap.push_str(&format!("        modifier_map {} {{ <K{}> }};\n", m, idx));
+        }
+    }
+    format!(
+        "xkb_keymap {{\n\
+         xkb_keycodes \"pceye\" {{\n\
+             minimum = 8;\n\
+             maximum = {};\n\
+         {}\
+         }};\n\
+         xkb_types \"pceye\" {{\n\
+             virtual_modifiers NumLock;\n\
+             type \"ONE_LEVEL\" {{\n\
+                 modifiers = none;\n\
+                 level_name[Level1] = \"Any\";\n\
+             }};\n\
+         }};\n\
+         xkb_compatibility \"pceye\" {{\n\
+             interpret Any + AnyOf(all) {{ action = SetMods(modifiers=modMapMods); }};\n\
+         }};\n\
+         xkb_symbols \"pceye\" {{\n\
+         {}\
+         {}\
+         }};\n\
+         }};\n",
+        max_kc,
+        keycodes,
+        symbols,
+        modmap
+    )
 }
 
 fn normalize_keysym_name(raw: &str) -> String {
@@ -799,4 +985,27 @@ fn parse_registry_globals(buf: &[u8]) -> Vec<WlGlobal> {
         pos += size;
     }
     res
+}
+
+#[cfg(test)]
+mod evdev_tests {
+    use super::*;
+
+    #[test]
+    fn evdev_codes_match_us_qwerty() {
+        assert_eq!(evdev_for_keysym_name("s"), Some(31));
+        assert_eq!(evdev_for_keysym_name("q"), Some(16));
+        assert_eq!(evdev_for_keysym_name("m"), Some(50));
+        assert_eq!(evdev_for_keysym_name("Return"), Some(28));
+        assert_eq!(evdev_for_keysym_name("F5"), Some(63));
+        assert_eq!(evdev_for_keysym_name("0"), Some(11));
+        assert_eq!(evdev_for_keysym_name("Bogus"), None);
+    }
+
+    #[test]
+    fn keymap_binds_real_codes_and_modifier_map() {
+        let km = build_evdev_xkb_keymap(&[("Control_L".into(), 29), ("s".into(), 31)]);
+        assert!(km.contains("<K0> = 37;") && km.contains("<K1> = 39;"));
+        assert!(km.contains("modifier_map Control { <K0> };"));
+    }
 }

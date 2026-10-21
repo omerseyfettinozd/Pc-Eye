@@ -115,8 +115,10 @@ pub enum HyprDispatch {
     MoveToWorkspaceSilent { workspace: String, address: String },
     ToggleFloat(Option<String>),
     Fullscreen,
-    MoveActiveExact(String),
-    ResizeActiveExact(String),
+    /// `X Y` mutlak konum; hedef pencere adresi (yoksa aktif pencere).
+    MoveExact { coords: String, window: Option<String> },
+    /// `W H` mutlak boyut; hedef pencere adresi (yoksa aktif pencere).
+    ResizeExact { coords: String, window: Option<String> },
 }
 
 fn lua_str(s: &str) -> String {
@@ -157,14 +159,20 @@ impl HyprDispatch {
                 format!("hl.dsp.window.float({{action=\"toggle\", window={}}})", win(a))
             }
             Self::Fullscreen => "hl.dsp.window.fullscreen({})".to_string(),
-            Self::MoveActiveExact(c) => match two_nums(c) {
-                Some((x, y)) => format!("hl.dsp.window.move({{x={}, y={}}})", x, y),
-                None => format!("hl.dsp.window.move({{x={}}})", lua_str(c)),
-            },
-            Self::ResizeActiveExact(c) => match two_nums(c) {
-                Some((x, y)) => format!("hl.dsp.window.resize({{x={}, y={}}})", x, y),
-                None => format!("hl.dsp.window.resize({{x={}}})", lua_str(c)),
-            },
+            Self::MoveExact { coords, window } => {
+                let w = window.as_deref().map(|a| format!(", window={}", win(a))).unwrap_or_default();
+                match two_nums(coords) {
+                    Some((x, y)) => format!("hl.dsp.window.move({{x={}, y={}{}}})", x, y, w),
+                    None => format!("hl.dsp.window.move({{x={}{}}})", lua_str(coords), w),
+                }
+            }
+            Self::ResizeExact { coords, window } => {
+                let w = window.as_deref().map(|a| format!(", window={}", win(a))).unwrap_or_default();
+                match two_nums(coords) {
+                    Some((x, y)) => format!("hl.dsp.window.resize({{x={}, y={}{}}})", x, y, w),
+                    None => format!("hl.dsp.window.resize({{x={}{}}})", lua_str(coords), w),
+                }
+            }
         }
     }
 
@@ -181,8 +189,14 @@ impl HyprDispatch {
             Self::ToggleFloat(None) => "togglefloating".to_string(),
             Self::ToggleFloat(Some(a)) => format!("togglefloating address:{}", a),
             Self::Fullscreen => "fullscreen 0".to_string(),
-            Self::MoveActiveExact(c) => format!("moveactive exact {}", c),
-            Self::ResizeActiveExact(c) => format!("resizeactive exact {}", c),
+            Self::MoveExact { coords, window: None } => format!("moveactive exact {}", coords),
+            Self::MoveExact { coords, window: Some(a) } => {
+                format!("movewindowpixel exact {},address:{}", coords, a)
+            }
+            Self::ResizeExact { coords, window: None } => format!("resizeactive exact {}", coords),
+            Self::ResizeExact { coords, window: Some(a) } => {
+                format!("resizewindowpixel exact {},address:{}", coords, a)
+            }
         }
     }
 }

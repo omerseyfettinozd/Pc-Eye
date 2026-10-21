@@ -1,7 +1,7 @@
 use crate::director::guard::{enforce_action_guard, verify_freeze_target_safe};
 use crate::director::input::ActionReceipt;
 use crate::eyes::compositor::{
-    capture_desktop_state, hypr_dispatch, normalize_window_address, wait_for_compositor_event,
+    capture_desktop_state, hypr_dispatch, hypr_dispatch_cmd, normalize_window_address, HyprDispatch, wait_for_compositor_event,
 };
 use crate::eyes::process_xray::collect_app_cluster;
 use crate::eyes::vision::runtime_dir;
@@ -16,56 +16,56 @@ use std::time::Duration;
 pub fn manage_window(action: &str, target: Option<&str>, arg: Option<&str>) -> Result<ActionReceipt> {
     enforce_action_guard(target, false)?;
 
-    let dispatch_cmd = match action.to_ascii_lowercase().as_str() {
+    let dispatch_cmd: HyprDispatch = match action.to_ascii_lowercase().as_str() {
         "focus" => {
             let addr = normalize_window_address(
                 target.ok_or_else(|| anyhow!("focus için pencere adresi gerekli"))?,
             );
-            format!("focuswindow address:{}", addr)
+            HyprDispatch::FocusWindow(addr)
         }
         "close" => {
             let addr = normalize_window_address(
                 target.ok_or_else(|| anyhow!("close için pencere adresi gerekli"))?,
             );
-            format!("closewindow address:{}", addr)
+            HyprDispatch::CloseWindow(addr)
         }
         "workspace" => {
             let ws = target
                 .or(arg)
                 .ok_or_else(|| anyhow!("workspace numarası/adı gerekli"))?;
-            format!("workspace {}", ws)
+            HyprDispatch::FocusWorkspace(ws.to_string())
         }
         "movetoworkspace" => {
             let addr = normalize_window_address(
                 target.ok_or_else(|| anyhow!("pencere adresi gerekli"))?,
             );
             let ws = arg.ok_or_else(|| anyhow!("hedef workspace gerekli"))?;
-            format!("movetoworkspacesilent {},address:{}", ws, addr)
+            HyprDispatch::MoveToWorkspaceSilent { workspace: ws.to_string(), address: addr }
         }
-        "fullscreen" => "fullscreen 0".to_string(),
+        "fullscreen" => HyprDispatch::Fullscreen,
         "float" => {
             if let Some(t) = target {
-                format!("togglefloating address:{}", normalize_window_address(t))
+                HyprDispatch::ToggleFloat(Some(normalize_window_address(t)))
             } else {
-                "togglefloating".to_string()
+                HyprDispatch::ToggleFloat(None)
             }
         }
         "move" => {
             let coords = arg
                 .or(target)
                 .ok_or_else(|| anyhow!("move için `X Y` koordinatı gerekli"))?;
-            format!("moveactive exact {}", coords)
+            HyprDispatch::MoveActiveExact(coords.to_string())
         }
         "resize" => {
             let dims = arg
                 .or(target)
                 .ok_or_else(|| anyhow!("resize için `W H` boyutu gerekli"))?;
-            format!("resizeactive exact {}", dims)
+            HyprDispatch::ResizeActiveExact(dims.to_string())
         }
         other => return Err(anyhow!("Bilinmeyen pencere aksiyonu: {}", other)),
     };
 
-    hypr_dispatch(&dispatch_cmd)?;
+    hypr_dispatch_cmd(&dispatch_cmd)?;
     if action.eq_ignore_ascii_case("close") {
         if let Some(addr) = target {
             let clean = addr.trim_start_matches("0x");
@@ -78,7 +78,7 @@ pub fn manage_window(action: &str, target: Option<&str>, arg: Option<&str>) -> R
         action: format!("window_{}", action),
         target: target.unwrap_or("active").to_string(),
         coordinates: None,
-        details: format!("Hyprland dispatch çalıştırıldı: `{}`", dispatch_cmd),
+        details: format!("Hyprland dispatch çalıştırıldı: `{}`", dispatch_cmd.lua()),
     })
 }
 
@@ -137,7 +137,10 @@ pub fn launch_application(
         .cloned();
 
     if let (Some(ws), Some(win)) = (workspace, new_win.as_ref()) {
-        let _ = hypr_dispatch(&format!("movetoworkspacesilent {},address:{}", ws, win.address));
+        let _ = hypr_dispatch_cmd(&HyprDispatch::MoveToWorkspaceSilent {
+            workspace: ws.to_string(),
+            address: win.address.clone(),
+        });
     }
 
     let target_desc = if let Some(w) = new_win {

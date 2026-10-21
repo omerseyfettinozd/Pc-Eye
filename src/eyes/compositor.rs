@@ -9,6 +9,7 @@ use std::env;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, Instant};
 
 const AUTH_KEYWORDS: &[&str] = &[
@@ -87,15 +88,131 @@ pub fn hypr_query_json(endpoint: &str) -> Result<Value> {
     Ok(val)
 }
 
-/// Hyprland `dispatch` komutunu doğrudan soket üzerinden gönderir.
+/// Hyprland `dispatch` komutunu ham metinle gönderir. Yanıt yalnızca `ok` ise başarıdır;
+/// `error:`/`warning:` gibi her şey (Lua tarafı pencere bulunamadı uyarıları dahil) hata sayılır.
 pub fn hypr_dispatch(args: &str) -> Result<String> {
     let cmd = format!("dispatch {}", args.trim());
     let resp = hypr_request_raw(&cmd)?;
-    if resp.trim() == "ok" || resp.trim().is_empty() {
+    if resp.trim() == "ok" {
         Ok("ok".to_string())
     } else {
-        Err(anyhow!("Hyprland dispatch hatası (`{}`): {}", cmd, resp.trim()))
+        Err(anyhow!(
+            "Hyprland dispatch hatası (`{}`): {}",
+            cmd,
+            if resp.trim().is_empty() { "(boş yanıt)" } else { resp.trim() }
+        ))
     }
+}
+
+/// Yapılandırılmış Hyprland dispatch isteği. Hyprland >= 0.55 Lua tabanlı (`hl.dsp.*`),
+/// eski sürümler `movecursor X Y` biçimini kullanır; her iki sözdizimi de burada üretilir.
+#[derive(Debug, Clone)]
+pub enum HyprDispatch {
+    CursorMove { x: i64, y: i64 },
+    FocusWindow(String),
+    FocusWorkspace(String),
+    CloseWindow(String),
+    MoveToWorkspaceSilent { workspace: String, address: String },
+    ToggleFloat(Option<String>),
+    Fullscreen,
+    MoveActiveExact(String),
+    ResizeActiveExact(String),
+}
+
+fn lua_str(s: &str) -> String {
+    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+/// Çalışma alanı kimliği sayıysa Lua sayı, değilse (isim, `e+1`, `special:x`) metin olarak yazılır.
+fn lua_ws(ws: &str) -> String {
+    match ws.trim().parse::<i64>() {
+        Ok(n) => n.to_string(),
+        Err(_) => lua_str(ws.trim()),
+    }
+}
+
+fn two_nums(s: &str) -> Option<(i64, i64)> {
+    let mut it = s.split_whitespace();
+    let a = it.next()?.parse().ok()?;
+    let b = it.next()?.parse().ok()?;
+    Some((a, b))
+}
+
+impl HyprDispatch {
+    /// Hyprland 0.55+ Lua dispatcher ifadesi.
+    pub fn lua(&self) -> String {
+        let win = |a: &str| lua_str(&format!("address:{}", a));
+        match self {
+            Self::CursorMove { x, y } => format!("hl.dsp.cursor.move({{x={}, y={}}})", x, y),
+            Self::FocusWindow(a) => format!("hl.dsp.focus({{window={}}})", win(a)),
+            Self::FocusWorkspace(w) => format!("hl.dsp.focus({{workspace={}}})", lua_ws(w)),
+            Self::CloseWindow(a) => format!("hl.dsp.window.close({{window={}}})", win(a)),
+            Self::MoveToWorkspaceSilent { workspace, address } => format!(
+                "hl.dsp.window.move({{workspace={}, follow=false, window={}}})",
+                lua_ws(workspace),
+                win(address)
+            ),
+            Self::ToggleFloat(None) => "hl.dsp.window.float({action=\"toggle\"})".to_string(),
+            Self::ToggleFloat(Some(a)) => {
+                format!("hl.dsp.window.float({{action=\"toggle\", window={}}})", win(a))
+            }
+            Self::Fullscreen => "hl.dsp.window.fullscreen({})".to_string(),
+            Self::MoveActiveExact(c) => match two_nums(c) {
+                Some((x, y)) => format!("hl.dsp.window.move({{x={}, y={}}})", x, y),
+                None => format!("hl.dsp.window.move({{x={}}})", lua_str(c)),
+            },
+            Self::ResizeActiveExact(c) => match two_nums(c) {
+                Some((x, y)) => format!("hl.dsp.window.resize({{x={}, y={}}})", x, y),
+                None => format!("hl.dsp.window.resize({{x={}}})", lua_str(c)),
+            },
+        }
+    }
+
+    /// Hyprland < 0.55 klasik dispatcher sözdizimi.
+    pub fn legacy(&self) -> String {
+        match self {
+            Self::CursorMove { x, y } => format!("movecursor {} {}", x, y),
+            Self::FocusWindow(a) => format!("focuswindow address:{}", a),
+            Self::FocusWorkspace(w) => format!("workspace {}", w),
+            Self::CloseWindow(a) => format!("closewindow address:{}", a),
+            Self::MoveToWorkspaceSilent { workspace, address } => {
+                format!("movetoworkspacesilent {},address:{}", workspace, address)
+            }
+            Self::ToggleFloat(None) => "togglefloating".to_string(),
+            Self::ToggleFloat(Some(a)) => format!("togglefloating address:{}", a),
+            Self::Fullscreen => "fullscreen 0".to_string(),
+            Self::MoveActiveExact(c) => format!("moveactive exact {}", c),
+            Self::ResizeActiveExact(c) => format!("resizeactive exact {}", c),
+        }
+    }
+}
+
+/// 0 = bilinmiyor, 1 = Lua sözdizimi çalıştı, 2 = klasik sözdizimi çalıştı.
+static DISPATCH_MODE: AtomicU8 = AtomicU8::new(0);
+
+/// Tek merkezî dispatch noktası: önce bilinen/çalışan sözdizimini dener, hata olursa diğerine düşer.
+/// Başarılı sözdizimi sonraki çağrılar için hatırlanır. Her iki yol da başarısızsa ilk hata döner.
+pub fn hypr_dispatch_cmd(d: &HyprDispatch) -> Result<String> {
+    let attempts: [(u8, String); 2] = if DISPATCH_MODE.load(Ordering::Relaxed) == 2 {
+        [(2, d.legacy()), (1, d.lua())]
+    } else {
+        [(1, d.lua()), (2, d.legacy())]
+    };
+    let mut first_err = None;
+    for (mode, cmd) in attempts {
+        match hypr_dispatch(&cmd) {
+            Ok(r) => {
+                DISPATCH_MODE.store(mode, Ordering::Relaxed);
+                return Ok(r);
+            }
+            Err(e) => {
+                if first_err.is_none() {
+                    first_err = Some(e);
+                }
+            }
+        }
+    }
+    Err(first_err.unwrap())
 }
 
 pub fn is_auth_surface(text: &str) -> bool {
@@ -488,4 +605,29 @@ pub fn wait_for_compositor_event(
         timeout_ms,
         event_prefix
     ))
+}
+
+/// Odaktaki pencere bir XWayland istemcisi mi? (`activewindow` -> `"xwayland": true`)
+pub fn active_window_is_xwayland() -> bool {
+    hypr_query_json("activewindow")
+        .ok()
+        .and_then(|v| v.get("xwayland").and_then(|x| x.as_bool()))
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use super::*;
+
+    #[test]
+    fn lua_and_legacy_syntax() {
+        let d = HyprDispatch::CursorMove { x: 3, y: 4 };
+        assert_eq!(d.lua(), "hl.dsp.cursor.move({x=3, y=4})");
+        assert_eq!(d.legacy(), "movecursor 3 4");
+        let m = HyprDispatch::MoveToWorkspaceSilent { workspace: "2".into(), address: "0xab".into() };
+        assert_eq!(m.lua(), "hl.dsp.window.move({workspace=2, follow=false, window=\"address:0xab\"})");
+        assert_eq!(m.legacy(), "movetoworkspacesilent 2,address:0xab");
+        assert_eq!(HyprDispatch::FocusWindow("0xab".into()).lua(), "hl.dsp.focus({window=\"address:0xab\"})");
+        assert_eq!(HyprDispatch::FocusWorkspace("e+1".into()).lua(), "hl.dsp.focus({workspace=\"e+1\"})");
+    }
 }

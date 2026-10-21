@@ -1,7 +1,8 @@
 use crate::director::guard::enforce_action_guard;
 use crate::eyes::compositor::{
-    capture_desktop_state, hypr_dispatch, normalize_window_address,
+    active_window_is_xwayland, capture_desktop_state, hypr_dispatch_cmd, normalize_window_address, HyprDispatch,
 };
+use crate::director::x11_input::X11Keyboard;
 use crate::eyes::ui_atspi::inspect_window_ui;
 use crate::eyes::vision::load_persisted_marks;
 use crate::protocol::types::UiElement;
@@ -40,7 +41,7 @@ pub fn parse_mouse_button(btn: &str) -> u32 {
 /// İmleci Hyprland kompozitörünün kendi `movecursor` komutuyla tam küresel koordinata taşır.
 pub fn move_cursor(x: i64, y: i64) -> Result<ActionReceipt> {
     enforce_action_guard(None, false)?;
-    hypr_dispatch(&format!("movecursor {} {}", x, y))?;
+    hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: x, y: y })?;
     Ok(ActionReceipt {
         ok: true,
         action: "move_cursor".to_string(),
@@ -60,7 +61,7 @@ pub fn click_at(
 ) -> Result<ActionReceipt> {
     enforce_action_guard(None, allow_protected)?;
     if let (Some(cx), Some(cy)) = (x, y) {
-        hypr_dispatch(&format!("movecursor {} {}", cx, cy))?;
+        hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
         thread::sleep(Duration::from_millis(18));
     }
 
@@ -100,7 +101,7 @@ pub fn drag_mouse(
 ) -> Result<ActionReceipt> {
     enforce_action_guard(None, allow_protected)?;
     let btn_code = parse_mouse_button(button);
-    hypr_dispatch(&format!("movecursor {} {}", x1, y1))?;
+    hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: x1, y: y1 })?;
     thread::sleep(Duration::from_millis(25));
 
     let mut wl = WaylandVirtualInput::connect()?;
@@ -111,7 +112,7 @@ pub fn drag_mouse(
     for s in 1..=steps {
         let ix = x1 + (x2 - x1) * s / steps;
         let iy = y1 + (y2 - y1) * s / steps;
-        hypr_dispatch(&format!("movecursor {} {}", ix, iy))?;
+        hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: ix, y: iy })?;
         thread::sleep(Duration::from_millis(12));
     }
 
@@ -135,7 +136,7 @@ pub fn scroll_wheel(
 ) -> Result<ActionReceipt> {
     enforce_action_guard(None, allow_protected)?;
     if let (Some(cx), Some(cy)) = (x, y) {
-        hypr_dispatch(&format!("movecursor {} {}", cx, cy))?;
+        hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
         thread::sleep(Duration::from_millis(15));
     }
 
@@ -289,19 +290,29 @@ pub fn type_text(
     enforce_action_guard(window_addr, allow_protected)?;
     if let Some(addr) = window_addr {
         let norm = normalize_window_address(addr);
-        hypr_dispatch(&format!("focuswindow address:{}", norm))?;
+        hypr_dispatch_cmd(&HyprDispatch::FocusWindow(norm))?;
         thread::sleep(Duration::from_millis(30));
     }
 
-    let mut wl = WaylandVirtualInput::connect()?;
-    wl.type_unicode_string(text)?;
+    let mut path = "wayland";
+    if active_window_is_xwayland() {
+        match X11Keyboard::connect().and_then(|kb| kb.type_text(text)) {
+            Ok(()) => path = "x11-xtest",
+            Err(e) => {
+                eprintln!("pc-eye: X11 yazma yolu başarısız ({e:#}); Wayland sanal klavyesine düşülüyor");
+                WaylandVirtualInput::connect()?.type_unicode_string(text)?;
+            }
+        }
+    } else {
+        WaylandVirtualInput::connect()?.type_unicode_string(text)?;
+    }
 
     Ok(ActionReceipt {
         ok: true,
         action: "type_text".to_string(),
         target: window_addr.unwrap_or("focused").to_string(),
         coordinates: None,
-        details: format!("{} karakter yazıldı", text.chars().count()),
+        details: format!("{} karakter yazıldı ({})", text.chars().count(), path),
     })
 }
 
@@ -314,12 +325,18 @@ pub fn press_key_combo(
     enforce_action_guard(window_addr, allow_protected)?;
     if let Some(addr) = window_addr {
         let norm = normalize_window_address(addr);
-        hypr_dispatch(&format!("focuswindow address:{}", norm))?;
+        hypr_dispatch_cmd(&HyprDispatch::FocusWindow(norm))?;
         thread::sleep(Duration::from_millis(25));
     }
 
-    let mut wl = WaylandVirtualInput::connect()?;
-    wl.send_key_combo(combo)?;
+    if active_window_is_xwayland() {
+        if let Err(e) = X11Keyboard::connect().and_then(|kb| kb.send_combo(combo)) {
+            eprintln!("pc-eye: X11 tuş yolu başarısız ({e:#}); Wayland sanal klavyesine düşülüyor");
+            WaylandVirtualInput::connect()?.send_key_combo(combo)?;
+        }
+    } else {
+        WaylandVirtualInput::connect()?.send_key_combo(combo)?;
+    }
 
     Ok(ActionReceipt {
         ok: true,

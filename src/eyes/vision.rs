@@ -113,7 +113,7 @@ pub fn resolve_capture_plan(
     } else if let Some(r) = region {
         ("region".to_string(), None, clamp_rect(r[0], r[1], r[2], r[3]))
     } else if let Some(addr) = window_addr {
-        let norm = normalize_window_address(addr);
+        let norm = crate::eyes::compositor::resolve_window_ref(addr, &desktop.windows)?;
         let win = desktop
             .windows
             .iter()

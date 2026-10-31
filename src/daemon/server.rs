@@ -276,7 +276,7 @@ pub fn build_xray_for_target(
             matched_win.map(|w| w.title.clone()),
         )
     } else if let Some(addr) = window_addr {
-        let norm = crate::eyes::compositor::normalize_window_address(addr);
+        let norm = crate::eyes::compositor::resolve_window_ref(addr, &desktop.windows)?;
         let win = desktop
             .windows
             .iter()

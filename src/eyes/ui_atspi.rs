@@ -1,5 +1,5 @@
 use crate::daemon::ring_buffer::now_ms;
-use crate::eyes::compositor::{capture_desktop_state, normalize_window_address};
+use crate::eyes::compositor::{capture_desktop_state, resolve_window_ref};
 use crate::eyes::process_xray::collect_app_cluster;
 use crate::protocol::types::{TerminalContext, UiElement, UiTreeReport, WindowInfo};
 use anyhow::{anyhow, Result};
@@ -110,7 +110,7 @@ pub fn inspect_window_ui(
     let desktop = capture_desktop_state()?;
 
     let win: WindowInfo = if let Some(addr) = target_window_addr {
-        let norm = normalize_window_address(addr);
+        let norm = resolve_window_ref(addr, &desktop.windows)?;
         desktop
             .windows
             .into_iter()

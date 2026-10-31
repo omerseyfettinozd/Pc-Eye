@@ -270,13 +270,79 @@ pub fn is_protected_window(class: &str, title: &str) -> bool {
         || is_auth_surface(title)
 }
 
-pub fn normalize_window_address(addr: &str) -> String {
-    let trimmed = addr.trim().to_ascii_lowercase();
-    if trimmed.starts_with("0x") {
-        trimmed
-    } else {
-        format!("0x{}", trimmed)
+/// `0x…` ya da en az 8 haneli onaltılık dizgi adres sayılır; "cafe" gibi kısa başlıklar sayılmaz.
+fn looks_like_window_address(s: &str) -> bool {
+    let t = s.trim().to_ascii_lowercase();
+    let hex = t.strip_prefix("0x").unwrap_or(&t);
+    !hex.is_empty() && hex.chars().all(|c| c.is_ascii_hexdigit()) && (t.starts_with("0x") || hex.len() >= 8)
+}
+
+fn hex_address(s: &str) -> String {
+    let t = s.trim().to_ascii_lowercase();
+    if t.starts_with("0x") { t } else { format!("0x{}", t) }
+}
+
+fn describe_windows<'a>(windows: impl Iterator<Item = &'a WindowInfo>) -> String {
+    windows
+        .take(8)
+        .map(|w| format!("{} «{}» ({})", w.address, w.title, w.class))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// Pencere referansını adrese çözer: adres, tam başlık, başlık parçası, sınıf (bu sırayla).
+/// Ajanlar başlıkla sormayı doğal bulur; belirsizlikte tahmin etmek yerine adayları listeler.
+pub fn resolve_window_ref(reference: &str, windows: &[WindowInfo]) -> Result<String> {
+    if looks_like_window_address(reference) {
+        let norm = hex_address(reference);
+        return if windows.iter().any(|w| w.address == norm) {
+            Ok(norm)
+        } else {
+            Err(anyhow!(
+                "Pencere bulunamadı: {} (açık pencereler: {})",
+                norm,
+                describe_windows(windows.iter())
+            ))
+        };
     }
+    let q = reference.trim().to_lowercase();
+    let tiers: [&dyn Fn(&WindowInfo) -> bool; 4] = [
+        &|w| w.title.to_lowercase() == q,
+        &|w| w.title.to_lowercase().contains(&q),
+        &|w| w.class.to_lowercase() == q,
+        &|w| w.class.to_lowercase().contains(&q),
+    ];
+    for tier in tiers {
+        let hits: Vec<&WindowInfo> = windows.iter().filter(|w| tier(w)).collect();
+        match hits.len() {
+            0 => continue,
+            1 => return Ok(hits[0].address.clone()),
+            _ => {
+                return Err(anyhow!(
+                    "`{}` birden çok pencereyle eşleşti, adres ver: {}",
+                    reference,
+                    describe_windows(hits.into_iter())
+                ))
+            }
+        }
+    }
+    Err(anyhow!(
+        "`{}` adres, başlık veya sınıfla eşleşen pencere yok (açık pencereler: {})",
+        reference,
+        describe_windows(windows.iter())
+    ))
+}
+
+/// Pencere referansını adrese çevirir; başlık/sınıf verildiyse Hyprland'den çözer.
+/// Çözülemezse girdiyi olduğu gibi döner, böylece çağıranın "bulunamadı" hatası onu gösterir.
+pub fn normalize_window_address(addr: &str) -> String {
+    if looks_like_window_address(addr) {
+        return hex_address(addr);
+    }
+    capture_desktop_state()
+        .ok()
+        .and_then(|d| resolve_window_ref(addr, &d.windows).ok())
+        .unwrap_or_else(|| addr.trim().to_string())
 }
 
 /// Hyprland `j/binds` üzerinden kullanıcının tanımladığı tüm kısayolları çözümler.
@@ -679,5 +745,65 @@ mod dispatch_tests {
         let t = HyprDispatch::Fullscreen { maximized: false, state: None, window: None };
         assert_eq!(t.lua(), "hl.dsp.window.fullscreen({mode=\"fullscreen\"})");
         assert!(t.legacy_equivalent());
+    }
+}
+
+#[cfg(test)]
+mod window_ref_tests {
+    use super::*;
+
+    fn win(address: &str, title: &str, class: &str) -> WindowInfo {
+        WindowInfo {
+            address: address.to_string(),
+            class: class.to_string(),
+            title: title.to_string(),
+            pid: 1,
+            workspace_id: 1,
+            workspace_name: "1".to_string(),
+            monitor: 0,
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            floating: false,
+            fullscreen: 0,
+            xwayland: false,
+            mapped: true,
+            hidden: false,
+            focused: false,
+            protected_window: false,
+        }
+    }
+
+    fn sample() -> Vec<WindowInfo> {
+        vec![
+            win("0x55aa00000001", "Eval Düğmeler LKJG", "eval_app.py"),
+            win("0x55aa00000002", "Mozilla Firefox", "firefox"),
+            win("0x55aa00000003", "Firefox — Ayarlar", "firefox"),
+            win("0x55aa00000004", "cafe", "kitty"),
+        ]
+    }
+
+    #[test]
+    fn resolves_address_title_and_class_in_order() {
+        let w = sample();
+        assert_eq!(resolve_window_ref("0x55AA00000002", &w).unwrap(), "0x55aa00000002");
+        assert_eq!(resolve_window_ref("55aa00000002", &w).unwrap(), "0x55aa00000002");
+        assert_eq!(resolve_window_ref("eval düğmeler lkjg", &w).unwrap(), "0x55aa00000001");
+        assert_eq!(resolve_window_ref("Ayarlar", &w).unwrap(), "0x55aa00000003");
+        // Tam başlık eşleşmesi, parça eşleşmelerinden önce gelir.
+        assert_eq!(resolve_window_ref("Mozilla Firefox", &w).unwrap(), "0x55aa00000002");
+        // Kısa onaltılık görünümlü başlık adres sanılmaz.
+        assert_eq!(resolve_window_ref("cafe", &w).unwrap(), "0x55aa00000004");
+    }
+
+    #[test]
+    fn ambiguous_or_missing_lists_candidates() {
+        let w = sample();
+        let err = resolve_window_ref("firefox", &w).unwrap_err().to_string();
+        assert!(err.contains("birden çok") && err.contains("0x55aa00000003"), "{}", err);
+        let err = resolve_window_ref("yok böyle", &w).unwrap_err().to_string();
+        assert!(err.contains("Eval Düğmeler"), "{}", err);
+        assert!(resolve_window_ref("0xdeadbeef", &w).is_err());
     }
 }

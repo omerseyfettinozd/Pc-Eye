@@ -562,7 +562,7 @@ fn mcp_tools_schema() -> Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "window": { "type": "string", "description": "Pencere adresi (ör. 0x55fd...). Boşsa aktif pencere." },
+                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir. Boşsa aktif pencere." },
                     "query": { "type": "string", "description": "İsim veya rol filtresi." },
                     "max_elements": { "type": "integer", "description": "Maksimum eleman sayısı (varsayılan 60)." }
                 }
@@ -575,7 +575,7 @@ fn mcp_tools_schema() -> Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "window": { "type": "string", "description": "Hedef pencere adresi." },
+                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
                     "region": { "type": "array", "items": { "type": "integer" }, "description": "[x, y, w, h] kırpma bölgesi." },
                     "zoom": { "type": "array", "items": { "type": "integer" }, "description": "[x, y] noktası etrafında hassas yakınlaştırma." },
                     "marks": { "type": "boolean", "description": "Tıklanabilir bölgelerin üzerine numaralı Set-of-Marks kutuları çizer." },
@@ -593,7 +593,7 @@ fn mcp_tools_schema() -> Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "window": { "type": "string", "description": "Pencere adresi." },
+                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
                     "pid": { "type": "integer", "description": "Kök süreç PID numarası." }
                 }
             }
@@ -629,7 +629,7 @@ fn mcp_tools_schema() -> Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "window": { "type": "string" },
+                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
                     "name": { "type": "string", "description": "Tıklanacak kontrolün veya ekrandaki OCR metninin adı." },
                     "mark": { "type": "integer", "description": "Set-of-Marks numarası." },
                     "button": { "type": "string", "description": "left | right | middle" },
@@ -658,7 +658,7 @@ fn mcp_tools_schema() -> Value {
                     "clicks": { "type": "integer" },
                     "text": { "type": "string" },
                     "keys": { "type": "string" },
-                    "window": { "type": "string" },
+                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
                     "then": { "type": "string", "description": "context | ui | vision | xray" }
                 }
             }
@@ -672,7 +672,7 @@ fn mcp_tools_schema() -> Value {
                 "required": ["action"],
                 "properties": {
                     "action": { "type": "string", "description": "focus | close | workspace | movetoworkspace | fullscreen | float | move | resize. fullscreen: window verilirse o pencereye uygulanır; arg on | max | off | toggle" },
-                    "window": { "type": "string" },
+                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
                     "arg": { "type": "string" },
                     "then": { "type": "string" }
                 }
@@ -719,7 +719,7 @@ fn mcp_tools_schema() -> Value {
                 "properties": {
                     "event": { "type": "string", "description": "visual_settle | log_match | ui_match | port_open | openwindow | closewindow | activewindow | workspace" },
                     "match": { "type": "string", "description": "Aranan metin, UI/OCR eleman adı veya TCP port numarası." },
-                    "window": { "type": "string", "description": "visual_settle veya ui_match için hedef pencere adresi." },
+                    "window": { "type": "string", "description": "visual_settle veya ui_match için hedef pencere. Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
                     "timeout_ms": { "type": "integer" }
                 }
             }

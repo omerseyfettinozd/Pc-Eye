@@ -525,7 +525,7 @@ impl WaylandVirtualInput {
     fn pointer_button(&mut self, button: u32, state: u32) -> Result<()> {
         let mut pkt = Vec::new();
         // zwlr_virtual_pointer_v1.button (opcode 2): time, button, state
-        write_wl_msg(&mut pkt, self.ptr_id, 2, &[100, button, state]);
+        write_wl_msg(&mut pkt, self.ptr_id, 2, &[wl_time_ms(), button, state]);
         // zwlr_virtual_pointer_v1.frame (opcode 4)
         write_wl_msg(&mut pkt, self.ptr_id, 4, &[]);
         self.stream.write_all(&pkt)?;
@@ -542,7 +542,7 @@ impl WaylandVirtualInput {
             &mut pkt,
             self.ptr_id,
             7,
-            &[100, axis, fixed_val, discrete_steps as u32],
+            &[wl_time_ms(), axis, fixed_val, discrete_steps as u32],
         );
         // frame (opcode 4)
         write_wl_msg(&mut pkt, self.ptr_id, 4, &[]);
@@ -566,7 +566,7 @@ impl WaylandVirtualInput {
         self.upload_keymap(&keymap_str)?;
 
         let mut pkt = Vec::new();
-        let mut t = 100u32;
+        let mut t = wl_time_ms();
         for ch in text.chars() {
             let idx = unique_chars.iter().position(|&c| c == ch).unwrap_or(0);
             let evdev_keycode = (idx as u32) + 1; // XKB keycode = evdev + 8 -> 9 + idx
@@ -626,7 +626,7 @@ impl WaylandVirtualInput {
         self.upload_keymap(&keymap_str)?;
 
         let mut pkt = Vec::new();
-        let mut t = 100u32;
+        let mut t = wl_time_ms();
         for (_, code) in &mods {
             write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, *code, 1]);
             t += 10;
@@ -902,6 +902,16 @@ struct WlGlobal {
     name: u32,
     interface: String,
     version: u32,
+}
+
+/// Wayland girdi olaylarının zaman damgası: compositor'ın kullandığı `CLOCK_MONOTONIC` ms.
+/// Sabit bir değer (eski `100`) gerçek cihaz olaylarının gerisinde kalır; WebKitGTK gibi
+/// istemciler zamanda geri giden tekerlek olaylarını sessizce atar.
+fn wl_time_ms() -> u32 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    // SAFETY: geçerli bir timespec işaretçisi; CLOCK_MONOTONIC her Linux'ta vardır.
+    unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) };
+    (ts.tv_sec as u64 * 1000 + ts.tv_nsec as u64 / 1_000_000) as u32
 }
 
 fn write_wl_msg(buf: &mut Vec<u8>, obj_id: u32, opcode: u16, args: &[u32]) {

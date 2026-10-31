@@ -403,6 +403,17 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             let rec = manage_window(action, target, arg)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
+        "pc_eye_display" => {
+            let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("list");
+            let rec = crate::director::display::manage_display(
+                action,
+                args.get("name").and_then(|v| v.as_str()),
+                args.get("mode").and_then(|v| v.as_str()),
+                args.get("position").and_then(|v| v.as_str()),
+                args.get("scale").and_then(|v| v.as_f64()),
+            )?;
+            vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
+        }
         "pc_eye_launch" => {
             let cmd_arr: Vec<String> = args
                 .get("command")
@@ -660,9 +671,26 @@ fn mcp_tools_schema() -> Value {
                 "type": "object",
                 "required": ["action"],
                 "properties": {
-                    "action": { "type": "string", "description": "focus | close | workspace | movetoworkspace | fullscreen | float | move | resize" },
+                    "action": { "type": "string", "description": "focus | close | workspace | movetoworkspace | fullscreen | float | move | resize. fullscreen: window verilirse o pencereye uygulanır; arg on | max | off | toggle" },
                     "window": { "type": "string" },
                     "arg": { "type": "string" },
+                    "then": { "type": "string" }
+                }
+            }
+        },
+        {
+            "name": "pc_eye_display",
+            "description": "Sanal (headless) ekran yönetimi: list | create | mode | remove. create kullanıcının ekranlarından yalıtılmış bir çıkış açar ve workspace_id döner; uygulamayı pc_eye_launch(workspace=...) ile oraya gönderip kullanıcının ekranına dokunmadan gözlemle/kontrol et.",
+            "annotations": { "readOnlyHint": false },
+            "inputSchema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                    "action": { "type": "string", "description": "list | create | mode | remove" },
+                    "name": { "type": "string", "description": "Çıkış adı (create'te isteğe bağlı)" },
+                    "mode": { "type": "string", "description": "WxH veya WxH@R, ör. 1920x1080@60" },
+                    "position": { "type": "string", "description": "X,Y veya isolated (varsayılan)" },
+                    "scale": { "type": "number" },
                     "then": { "type": "string" }
                 }
             }

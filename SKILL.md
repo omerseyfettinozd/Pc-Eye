@@ -71,3 +71,10 @@ Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-e
      - `pc-eye wait log_match --match "Listening on" --timeout-ms 5000`
      - `pc-eye wait port_open --match "8080" --timeout-ms 5000`
      - `pc-eye wait openwindow --match "firefox" --timeout-ms 5000`
+
+9. **Work on an Isolated Virtual Screen (`display`) — never on the user's screen**:
+   - `pc-eye display create --name AGENT-1 --mode 1920x1080@60` opens a headless output 1000 px to the right of every real monitor (not adjacent, so the user's cursor cannot drift into it) and returns its `workspace_id`.
+   - `pc-eye launch --workspace <workspace_id> -- <app>` puts the app there; `pc-eye window fullscreen --window <addr>` makes it opaque and fills the output (`--arg on|max|off|toggle`; `--window` targets that window only — without `--window` it toggles the user's active window).
+   - `pc-eye display mode --name AGENT-1 --mode 1920x2400@30` makes the output tall to capture a whole long page in one `vision` shot (re-run `window fullscreen` afterwards). `pc-eye display list`, `pc-eye display remove --name AGENT-1` (only headless outputs can be removed).
+   - **Input etiquette:** before `input key/type`, focus the target window; afterwards restore the user's previously active window and cursor position. Never send keys without focusing the target first.
+   - **Known limit:** `input scroll` reaches GTK3/WebKitGTK windows (Tauri, WebKitGTK apps) as a correct wheel notch, but WebKitGTK does not scroll the page; kitty and other clients do. For WebKitGTK apps use a tall output instead.

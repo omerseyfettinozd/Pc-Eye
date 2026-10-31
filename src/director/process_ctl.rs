@@ -52,7 +52,25 @@ pub fn manage_window(action: &str, target: Option<&str>, arg: Option<&str>) -> R
             let ws = arg.ok_or_else(|| anyhow!("hedef workspace gerekli"))?;
             HyprDispatch::MoveToWorkspaceSilent { workspace: ws.to_string(), address: addr }
         }
-        "fullscreen" => HyprDispatch::Fullscreen,
+        "fullscreen" => {
+            // `--arg`: on|fullscreen (varsayılan) | max|maximized | off|unset | toggle.
+            // Hedef verilip `--arg` verilmezse kur; hiçbiri yoksa eski davranış (aktifte geçiş).
+            let mode = arg.map(|a| a.trim().to_ascii_lowercase());
+            let (maximized, state) = match mode.as_deref() {
+                None => (false, target.map(|_| true)),
+                Some("on" | "1" | "set" | "fullscreen") => (false, Some(true)),
+                Some("max" | "maximize" | "maximized") => (true, Some(true)),
+                Some("off" | "0" | "unset") => (false, Some(false)),
+                Some("toggle") => (false, None),
+                Some(other) => {
+                    return Err(anyhow!(
+                        "fullscreen için geçersiz --arg `{}` (on | max | off | toggle)",
+                        other
+                    ))
+                }
+            };
+            HyprDispatch::Fullscreen { maximized, state, window: target.map(normalize_window_address) }
+        }
         "float" => {
             if let Some(t) = target {
                 HyprDispatch::ToggleFloat(Some(normalize_window_address(t)))

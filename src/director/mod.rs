@@ -1,3 +1,4 @@
+pub mod display;
 pub mod guard;
 pub mod input;
 pub mod process_ctl;

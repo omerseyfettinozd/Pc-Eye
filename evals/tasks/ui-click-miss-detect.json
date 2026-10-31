@@ -1,0 +1,9 @@
+{
+  "id": "ui-click-miss-detect",
+  "scene": "buttons",
+  "tags": ["action:verify"],
+  "probe": [
+    {"args": ["click-ui", "--window", "{window}", "--name", "Bir düğme seç"], "expect_contains": ["\"visible_change\": false", "UYARI"]}
+  ],
+  "check": {"type": "none"}
+}

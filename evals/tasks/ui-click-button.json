@@ -1,11 +1,40 @@
 {
   "id": "ui-click-button",
   "scene": "buttons",
-  "tags": ["perception:atspi", "action:click"],
+  "tags": [
+    "perception:atspi",
+    "action:click"
+  ],
   "prompt": "\"{title}\" başlıklı pencerede \"{target}\" düğmesine tıkla.",
   "probe": [
-    {"args": ["ui", "--window", "{window}"], "expect_contains": ["{target}"]},
-    {"args": ["click-ui", "--window", "{window}", "--name", "{target}"], "settle_ms": 300}
+    {
+      "args": [
+        "ui",
+        "--window",
+        "{window}"
+      ],
+      "expect_contains": [
+        "{target}"
+      ]
+    },
+    {
+      "args": [
+        "click-ui",
+        "--window",
+        "{window}",
+        "--name",
+        "{target}"
+      ],
+      "settle_ms": 300,
+      "expect_contains": [
+        "\"visible_change\": true"
+      ]
+    }
   ],
-  "check": {"type": "out_json", "expect": {"clicked": "{target}"}}
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "clicked": "{target}"
+    }
+  }
 }

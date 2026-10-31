@@ -338,11 +338,13 @@ def check_answer(final_text, expect):
 
 
 def check_task(check, scene, final_text=None):
-    expect = fill(check["expect"], scene.vars)
+    expect = fill(check.get("expect"), scene.vars)
     if check["type"] == "out_json":
         return check_out_json(scene.out, expect)
     if check["type"] == "answer":
         return check_answer(final_text, expect)
+    if check["type"] == "none":  # yalnız probe adımlarının beklentileri belirler
+        return True, "ok"
     raise ValueError(f"bilinmeyen denetim türü: {check['type']}")
 
 

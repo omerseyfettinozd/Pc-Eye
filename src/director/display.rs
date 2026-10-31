@@ -108,6 +108,7 @@ fn receipt(action: &str, target: &str, details: String) -> ActionReceipt {
         target: target.to_string(),
         coordinates: None,
         details,
+        verification: None,
     }
 }
 

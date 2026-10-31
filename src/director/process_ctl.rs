@@ -128,6 +128,7 @@ pub fn manage_window(action: &str, target: Option<&str>, arg: Option<&str>) -> R
                 target: target.unwrap_or("active").to_string(),
                 coordinates: None,
                 details: format!("Hyprland dispatch çalıştırıldı: `{}`", d.lua()),
+                verification: None,
             });
         }
         other => return Err(anyhow!("Bilinmeyen pencere aksiyonu: {}", other)),
@@ -147,6 +148,7 @@ pub fn manage_window(action: &str, target: Option<&str>, arg: Option<&str>) -> R
         target: target.unwrap_or("active").to_string(),
         coordinates: None,
         details: format!("Hyprland dispatch çalıştırıldı: `{}`", dispatch_cmd.lua()),
+        verification: None,
     })
 }
 
@@ -227,6 +229,7 @@ pub fn launch_application(
             cmd_args.join(" "),
             log_file_path.display()
         ),
+        verification: None,
     })
 }
 
@@ -266,6 +269,7 @@ pub fn freeze_process_safe(pid: i32, max_freeze_ms: u64) -> Result<ActionReceipt
             "PID {} donduruldu (SIGSTOP). Watchdog en geç {} ms sonra otomatik SIGCONT gönderecek.",
             pid, clamped_ms
         ),
+        verification: None,
     })
 }
 
@@ -282,6 +286,7 @@ pub fn thaw_process(pid: i32) -> Result<ActionReceipt> {
         target: format!("PID {}", pid),
         coordinates: None,
         details: format!("PID {} çözüldü (SIGCONT)", pid),
+        verification: None,
     })
 }
 
@@ -385,6 +390,7 @@ pub fn clipboard_action_ext(
             target: format!("cliphist:{}", id),
             coordinates: None,
             details: format!("cliphist #{} öğesi panoya geri yüklendi", id),
+            verification: None,
         })?);
     }
 
@@ -425,6 +431,7 @@ pub fn clipboard_action_ext(
                 target: abs.to_string_lossy().to_string(),
                 coordinates: None,
                 details: format!("Görsel ({}, {} bayt) panoya kopyalandı", mime, bytes.len()),
+                verification: None,
             })?);
         } else {
             let uri = format!("file://{}\r\n", abs.to_string_lossy());
@@ -444,6 +451,7 @@ pub fn clipboard_action_ext(
                 target: abs.to_string_lossy().to_string(),
                 coordinates: None,
                 details: format!("Dosya URI (`text/uri-list`) panoya kopyalandı: {}", uri.trim()),
+                verification: None,
             })?);
         }
     }
@@ -476,6 +484,7 @@ pub fn clipboard_action(write_text: Option<&str>) -> Result<ActionReceipt> {
             target: "wayland_clipboard".to_string(),
             coordinates: None,
             details: format!("Panoya {} bayt yazıldı", txt.len()),
+            verification: None,
         })
     } else {
         let rep = inspect_clipboard_rich()?;
@@ -485,6 +494,7 @@ pub fn clipboard_action(write_text: Option<&str>) -> Result<ActionReceipt> {
             target: "wayland_clipboard".to_string(),
             coordinates: None,
             details: serde_json::to_string(&rep).unwrap_or_default(),
+            verification: None,
         })
     }
 }
@@ -518,6 +528,7 @@ pub fn trigger_hyprland_bind(combo: &str) -> Result<ActionReceipt> {
         target: target.combo,
         coordinates: None,
         details: format!("Hyprland kısayolu çalıştırıldı: `dispatch {}`", dispatch_str),
+        verification: None,
     })
 }
 

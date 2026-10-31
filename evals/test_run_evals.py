@@ -88,7 +88,7 @@ class TaskFileTests(unittest.TestCase):
         ids = [t["id"] for t in tasks]
         self.assertEqual(len(ids), len(set(ids)))
         for t in tasks:
-            self.assertIn(t["check"]["type"], ("out_json", "answer"))
+            self.assertIn(t["check"]["type"], ("out_json", "answer", "none"))
             self.assertTrue(t.get("prompt") or t.get("probe"), t["id"])
 
 

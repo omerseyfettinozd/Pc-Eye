@@ -555,6 +555,7 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                 target: target_srv,
                 coordinates: None,
                 details: format!("MPRIS `{}` komutu gönderildi", method),
+                verification: None,
             })
         }
         "set-volume" | "volume" => {
@@ -568,6 +569,7 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                 target: "@DEFAULT_AUDIO_SINK@".to_string(),
                 coordinates: None,
                 details: format!("Ses seviyesi `{}` olarak ayarlandı", vol),
+                verification: None,
             })
         }
         "mute" | "unmute" | "toggle-mute" => {
@@ -585,6 +587,7 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                 target: "@DEFAULT_AUDIO_SINK@".to_string(),
                 coordinates: None,
                 details: format!("Ses mute durumu `{}` yapıldı", mode),
+                verification: None,
             })
         }
         "record" | "record-wav" => {
@@ -633,6 +636,7 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                         sink.node_name, duration_ms
                     )
                 },
+                verification: None,
             })
         }
         other => Err(anyhow!("Bilinmeyen ses/medya komutu: {}", other)),

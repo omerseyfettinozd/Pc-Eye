@@ -31,12 +31,21 @@ def write_out(path, data):
 
 def build_buttons(args, out):
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-    box.append(Gtk.Label(label="Bir düğme seç"))
+    header = Gtk.Label(label="Bir düğme seç")
+    box.append(header)
+    status = Gtk.Label(label="")
     grid = Gtk.FlowBox(max_children_per_line=3, selection_mode=Gtk.SelectionMode.NONE)
+
+    def clicked(lab):
+        # Gerçek uygulamalar gibi görünür geri bildirim: doğrulama bunu görebilmeli.
+        status.set_label(f"Seçilen: {lab}")
+        write_out(out, {"clicked": lab})
+
     for label in args.labels.split("|"):
         btn = Gtk.Button(label=label)
-        btn.connect("clicked", lambda _b, lab=label: write_out(out, {"clicked": lab}))
+        btn.connect("clicked", lambda _b, lab=label: clicked(lab))
         grid.append(btn)
+    box.append(status)
     box.append(grid)
     return box
 

@@ -122,6 +122,7 @@ pub fn execute_sequence(steps: &[SequenceStep], allow_protected: bool) -> Result
                     target: ev.kind,
                     coordinates: None,
                     details: ev.payload,
+                    verification: None,
                 }
             }
             "sleep_ms" => {
@@ -133,6 +134,7 @@ pub fn execute_sequence(steps: &[SequenceStep], allow_protected: bool) -> Result
                     target: format!("{}ms", ms),
                     coordinates: None,
                     details: "Beklendi".to_string(),
+                    verification: None,
                 }
             }
             other => return Err(anyhow!("Bilinmeyen sequence adımı: {}", other)),

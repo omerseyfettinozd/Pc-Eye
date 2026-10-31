@@ -27,6 +27,96 @@ pub struct ActionReceipt {
     pub target: String,
     pub coordinates: Option<[i64; 2]>,
     pub details: String,
+    /// Eylem öncesi/sonrası görüntü karşılaştırması; `ok` yalnız eylemin gönderildiğini söyler.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<ActionVerification>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionVerification {
+    pub region: [i64; 4],
+    pub changed_pixels: u64,
+    pub change_pct: f64,
+    /// `false` ise hedef bölgede hiçbir şey değişmedi: tıklama büyük olasılıkla ıskaladı.
+    pub visible_change: bool,
+}
+
+/// Bir pikselin "değişti" sayılması için kanal farkı; sıkıştırma/titreme gürültüsünü eler.
+const PIXEL_DELTA: u8 = 32;
+/// Odak halkası gibi küçük geri bildirimler de değişim sayılsın diye düşük tutulur.
+const MIN_CHANGED_PIXELS: u64 = 30;
+const VERIFY_SETTLE_MS: u64 = 250;
+
+fn compare_frames(region: [i64; 4], before: &image::RgbImage, after: &image::RgbImage) -> ActionVerification {
+    let total = (before.width() as u64 * before.height() as u64).max(1);
+    let changed = if before.dimensions() != after.dimensions() {
+        total
+    } else {
+        before
+            .pixels()
+            .zip(after.pixels())
+            .filter(|(a, b)| a.0.iter().zip(b.0.iter()).any(|(x, y)| x.abs_diff(*y) > PIXEL_DELTA))
+            .count() as u64
+    };
+    ActionVerification {
+        region,
+        changed_pixels: changed,
+        change_pct: (changed as f64 * 10000.0 / total as f64).round() / 100.0,
+        visible_change: changed >= MIN_CHANGED_PIXELS,
+    }
+}
+
+/// Eylemi çalıştırır ve bölgenin önce/sonra görüntüsünü karşılaştırır (yakalama başarısızsa doğrulama yok).
+fn with_verification<F>(region: [i64; 4], act: F) -> Result<(ActionReceipt, Option<ActionVerification>)>
+where
+    F: FnOnce() -> Result<ActionReceipt>,
+{
+    let before = crate::eyes::vision::grab_region_ppm(region).ok();
+    let receipt = act()?;
+    let verification = before.and_then(|b| {
+        thread::sleep(Duration::from_millis(VERIFY_SETTLE_MS));
+        let after = crate::eyes::vision::grab_region_ppm(region).ok()?;
+        Some(compare_frames(region, &b, &after))
+    });
+    Ok((receipt, verification))
+}
+
+fn attach_verification(mut receipt: ActionReceipt, verification: Option<ActionVerification>) -> ActionReceipt {
+    if let Some(v) = &verification {
+        if !v.visible_change {
+            receipt.details = format!(
+                "UYARI: eylemden sonra hedef bölgede görünür değişiklik olmadı; hedef ıskalanmış olabilir, `vision` ile doğrula. {}",
+                receipt.details
+            );
+        }
+    }
+    receipt.verification = verification;
+    receipt
+}
+
+const ACTIONABLE_ROLES: &[&str] = &[
+    "push button", "button", "toggle button", "check box", "radio button", "menu item",
+    "combo box", "link", "page tab", "text", "entry", "password text", "spin button", "slider",
+];
+
+/// Ada göre en uygun elemanı seçer: tam eşleşme > içerme, aynı adlılar arasında eylem alabilen rol
+/// (düğme, onay kutusu…) kapsayıcıdan (`grid cell`, `label`, `filler`) önce gelir.
+fn pick_named_element(elements: &[UiElement], query: &str) -> Option<UiElement> {
+    let q = query.to_lowercase();
+    let rank = |e: &UiElement| {
+        let name = e.name.to_lowercase();
+        let name_rank = if name == q { 0 } else if name.contains(&q) { 1 } else { 2 };
+        let role_rank = if ACTIONABLE_ROLES.contains(&e.role.as_str()) { 0 } else { 1 };
+        (name_rank, role_rank, e.mark)
+    };
+    elements.iter().min_by_key(|e| rank(e)).cloned()
+}
+
+fn verification_region(window_geometry: Option<[i64; 4]>, cx: i64, cy: i64) -> [i64; 4] {
+    match window_geometry {
+        Some(g) if g[2] > 0 && g[3] > 0 => g,
+        _ => [(cx - 300).max(0), (cy - 150).max(0), 600, 300],
+    }
 }
 
 /// Fare düğmesi adını Linux evdev koduna çevirir.
@@ -48,6 +138,7 @@ pub fn move_cursor(x: i64, y: i64) -> Result<ActionReceipt> {
         target: format!("{},{}", x, y),
         coordinates: Some([x, y]),
         details: format!("İmleç ({}, {}) konumuna taşındı", x, y),
+        verification: None,
     })
 }
 
@@ -129,6 +220,7 @@ pub fn click_at(
             "({}, {}) konumuna {} tıklandı",
             coords[0], coords[1], button
         ),
+        verification: None,
     })
 }
 
@@ -165,6 +257,7 @@ pub fn drag_mouse(
         target: format!("({},{}) -> ({},{})", x1, y1, x2, y2),
         coordinates: Some([x2, y2]),
         details: "Sürükle-bırak tamamlandı".to_string(),
+        verification: None,
     })
 }
 
@@ -196,6 +289,7 @@ pub fn scroll_wheel(
         target: format!("dx={}, dy={}", dx, dy),
         coordinates: x.zip(y).map(|(a, b)| [a, b]),
         details: "Tekerlek kaydırma gönderildi".to_string(),
+        verification: None,
     })
 }
 
@@ -230,97 +324,119 @@ pub fn click_ui_element_ext(
 ) -> Result<ActionReceipt> {
     enforce_action_guard(window_addr, allow_protected)?;
 
-    let matched: UiElement = if let Some(m_id) = mark_id {
+    let (matched, window_geometry): (UiElement, Option<[i64; 4]>) = if let Some(m_id) = mark_id {
         let marks = load_persisted_marks();
         if let Some(found) = marks.into_iter().find(|e| e.mark == m_id) {
-            found
+            (found, None)
         } else {
             let ui = inspect_window_ui(window_addr, None, 80)?;
-            ui.elements
+            let geom = ui.window_geometry;
+            let found = ui
+                .elements
                 .into_iter()
                 .find(|e| e.mark == m_id)
-                .ok_or_else(|| anyhow!("Mark #{} bulunamadı", m_id))?
+                .ok_or_else(|| anyhow!("Mark #{} bulunamadı", m_id))?;
+            (found, Some(geom))
         }
     } else if let Some(q) = name_query {
         let ui = inspect_window_ui(window_addr, Some(q), 80)?;
-        if ui.elements.is_empty() {
-            return Err(anyhow!(
+        let found = pick_named_element(&ui.elements, q).ok_or_else(|| {
+            anyhow!(
                 "`{}` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın)",
                 q
-            ));
-        }
-        let q_lower = q.to_ascii_lowercase();
-        ui.elements
-            .iter()
-            .find(|e| e.name.to_ascii_lowercase() == q_lower)
-            .cloned()
-            .unwrap_or_else(|| ui.elements[0].clone())
+            )
+        })?;
+        (found, Some(ui.window_geometry))
     } else {
         return Err(anyhow!("`click-ui` için `--name` veya `--mark` belirtilmelidir"));
     };
 
     let [cx, cy] = matched.click_point;
+    let target = format!("[{}] {} ({})", matched.mark, matched.name, matched.role);
+    let region = verification_region(window_geometry, cx, cy);
 
     if let Some(txt) = set_text {
-        if !matched.dbus_service.is_empty()
-            && crate::eyes::ui_atspi::atspi_set_editable_text(
+        let (receipt, verification) = with_verification(region, || {
+            if !matched.dbus_service.is_empty()
+                && crate::eyes::ui_atspi::atspi_set_editable_text(
+                    &matched.dbus_service,
+                    &matched.dbus_path,
+                    txt,
+                )
+                .unwrap_or(false)
+            {
+                return Ok(ActionReceipt {
+                    ok: true,
+                    action: "set_ui_text_dbus".to_string(),
+                    target: target.clone(),
+                    coordinates: Some([cx, cy]),
+                    details: format!("D-Bus EditableText ile `{}` metni yazıldı", txt),
+                    verification: None,
+                });
+            }
+            click_at(Some(cx), Some(cy), "left", 1, allow_protected)?;
+            thread::sleep(Duration::from_millis(25));
+            type_text(txt, window_addr, allow_protected)?;
+            Ok(ActionReceipt {
+                ok: true,
+                action: "set_ui_text_pointer".to_string(),
+                target: target.clone(),
+                coordinates: Some([cx, cy]),
+                details: format!("Kontrole tıklanıp `{}` metni yazıldı", txt),
+                verification: None,
+            })
+        })?;
+        return Ok(attach_verification(receipt, verification));
+    }
+
+    // Eylemi olmayan bir kapsayıcıda DoAction yanlış olumlu verir; yalnız eylem alabilen rollerde dene.
+    let use_dbus = prefer_dbus
+        && !matched.dbus_service.is_empty()
+        && ACTIONABLE_ROLES.contains(&matched.role.as_str());
+    if !use_dbus {
+        // "Önce" karesine tıklamadan bağımsız değişimler girmesin ki doğrulama hedefin kendi
+        // tepkisini ölçsün: headless çıkışta imleç kareye çizilir, üzerine gelme vurgusu oluşur ve
+        // odaksız pencere ilk tıklamada pasif→aktif görünüme geçip yeniden boyanır.
+        let _ = hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy });
+        focus_window_at(cx, cy);
+        thread::sleep(Duration::from_millis(150));
+    }
+
+    let (receipt, verification) = with_verification(region, || {
+        if use_dbus {
+            if let Ok(true) = crate::eyes::ui_atspi::atspi_invoke_do_action(
                 &matched.dbus_service,
                 &matched.dbus_path,
-                txt,
-            )
-            .unwrap_or(false)
-        {
-            return Ok(ActionReceipt {
-                ok: true,
-                action: "set_ui_text_dbus".to_string(),
-                target: format!("[{}] {} ({})", matched.mark, matched.name, matched.role),
-                coordinates: Some([cx, cy]),
-                details: format!("D-Bus EditableText ile `{}` metni yazıldı", txt),
-            });
+                0,
+            ) {
+                return Ok(ActionReceipt {
+                    ok: true,
+                    action: "click_ui_dbus".to_string(),
+                    target: target.clone(),
+                    coordinates: Some([cx, cy]),
+                    details: format!(
+                        "UI elemanı `{}` [mark={}] fare hareket ettirilmeden doğrudan D-Bus DoAction(0) ile tetiklendi",
+                        matched.name, matched.mark
+                    ),
+                    verification: None,
+                });
+            }
         }
-        click_at(Some(cx), Some(cy), "left", 1, allow_protected)?;
-        thread::sleep(Duration::from_millis(25));
-        type_text(txt, window_addr, allow_protected)?;
-        return Ok(ActionReceipt {
+
+        click_at(Some(cx), Some(cy), button, 1, allow_protected)?;
+        Ok(ActionReceipt {
             ok: true,
-            action: "set_ui_text_pointer".to_string(),
-            target: format!("[{}] {} ({})", matched.mark, matched.name, matched.role),
+            action: "click_ui".to_string(),
+            target: target.clone(),
             coordinates: Some([cx, cy]),
-            details: format!("Kontrole tıklanıp `{}` metni yazıldı", txt),
-        });
-    }
-
-    if prefer_dbus && !matched.dbus_service.is_empty() {
-        if let Ok(true) = crate::eyes::ui_atspi::atspi_invoke_do_action(
-            &matched.dbus_service,
-            &matched.dbus_path,
-            0,
-        ) {
-            return Ok(ActionReceipt {
-                ok: true,
-                action: "click_ui_dbus".to_string(),
-                target: format!("[{}] {} ({})", matched.mark, matched.name, matched.role),
-                coordinates: Some([cx, cy]),
-                details: format!(
-                    "UI elemanı `{}` [mark={}] fare hareket ettirilmeden doğrudan D-Bus DoAction(0) ile tetiklendi",
-                    matched.name, matched.mark
-                ),
-            });
-        }
-    }
-
-    click_at(Some(cx), Some(cy), button, 1, allow_protected)?;
-
-    Ok(ActionReceipt {
-        ok: true,
-        action: "click_ui".to_string(),
-        target: format!("[{}] {} ({})", matched.mark, matched.name, matched.role),
-        coordinates: Some([cx, cy]),
-        details: format!(
-            "UI elemanı `{}` [mark={}] ({}, {}) koordinatında tıklandı",
-            matched.name, matched.mark, cx, cy
-        ),
-    })
+            details: format!(
+                "UI elemanı `{}` [mark={}] ({}, {}) koordinatında tıklandı",
+                matched.name, matched.mark, cx, cy
+            ),
+            verification: None,
+        })
+    })?;
+    Ok(attach_verification(receipt, verification))
 }
 
 /// Unicode-güvenli metin yazma (`zwp_virtual_keyboard_v1` dinamik XKB keymap ile Türkçe karakterler dahil).
@@ -355,6 +471,7 @@ pub fn type_text(
         target: window_addr.unwrap_or("focused").to_string(),
         coordinates: None,
         details: format!("{} karakter yazıldı ({})", text.chars().count(), path),
+        verification: None,
     })
 }
 
@@ -386,6 +503,7 @@ pub fn press_key_combo(
         target: combo.to_string(),
         coordinates: None,
         details: format!("Tuş kombinasyonu gönderildi: {}", combo),
+        verification: None,
     })
 }
 
@@ -1017,5 +1135,62 @@ mod evdev_tests {
         let km = build_evdev_xkb_keymap(&[("Control_L".into(), 29), ("s".into(), 31)]);
         assert!(km.contains("<K0> = 37;") && km.contains("<K1> = 39;"));
         assert!(km.contains("modifier_map Control { <K0> };"));
+    }
+}
+
+#[cfg(test)]
+mod click_ui_tests {
+    use super::*;
+
+    fn el(mark: usize, role: &str, name: &str) -> UiElement {
+        UiElement {
+            mark,
+            role: role.to_string(),
+            name: name.to_string(),
+            value: None,
+            description: None,
+            states: Vec::new(),
+            actions: Vec::new(),
+            rel_bounds: [0, 0, 10, 10],
+            screen_bounds: [0, 0, 10, 10],
+            click_point: [5, 5],
+            dbus_service: String::new(),
+            dbus_path: String::new(),
+        }
+    }
+
+    #[test]
+    fn button_beats_container_with_same_name() {
+        let els = vec![el(1, "grid cell", "Şeftali"), el(2, "label", "Şeftali"), el(3, "button", "Şeftali")];
+        assert_eq!(pick_named_element(&els, "şeftali").unwrap().mark, 3);
+    }
+
+    #[test]
+    fn exact_name_beats_substring_and_turkish_case_folds() {
+        let els = vec![el(1, "button", "İptal et"), el(2, "label", "İPTAL")];
+        assert_eq!(pick_named_element(&els, "iptal").map(|e| e.mark), Some(1));
+        assert_eq!(pick_named_element(&els, "İPTAL").unwrap().mark, 2);
+        assert!(pick_named_element(&[], "x").is_none());
+    }
+
+    #[test]
+    fn frame_comparison_ignores_noise_and_counts_real_change() {
+        let before = image::RgbImage::from_pixel(20, 20, image::Rgb([100, 100, 100]));
+        let mut noisy = before.clone();
+        noisy.put_pixel(0, 0, image::Rgb([110, 100, 100]));
+        let v = compare_frames([0, 0, 20, 20], &before, &noisy);
+        assert_eq!(v.changed_pixels, 0);
+        assert!(!v.visible_change);
+
+        let mut changed = before.clone();
+        for x in 0..20 {
+            for y in 0..2 {
+                changed.put_pixel(x, y, image::Rgb([255, 255, 255]));
+            }
+        }
+        let v = compare_frames([0, 0, 20, 20], &before, &changed);
+        assert_eq!(v.changed_pixels, 40);
+        assert!(v.visible_change);
+        assert_eq!(v.change_pct, 10.0);
     }
 }

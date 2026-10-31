@@ -71,26 +71,36 @@ pub fn ocr_region_elements(
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct OcrCacheEntry {
-    pub dhash: u64,
+    pub content_hash: u64,
     pub region: [i64; 4],
     pub elements: Vec<UiElement>,
 }
 
-fn load_ocr_cache(region: [i64; 4], dhash: u64) -> Option<Vec<UiElement>> {
+/// Önbellek anahtarı piksellerin birebir aynı olduğunu garanti etmeli. Algısal dHash bilerek kabadır:
+/// yerleşimi aynı, metni farklı iki ekran (değişen sayaç, yeni kod) aynı dHash'i verir ve eski metin döner.
+fn content_hash(img: &image::RgbImage) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    img.dimensions().hash(&mut h);
+    img.as_raw().hash(&mut h);
+    h.finish()
+}
+
+fn load_ocr_cache(region: [i64; 4], hash: u64) -> Option<Vec<UiElement>> {
     let p = crate::eyes::vision::runtime_dir().join("ocr_cache.json");
     let raw = std::fs::read_to_string(p).ok()?;
     let entry: OcrCacheEntry = serde_json::from_str(&raw).ok()?;
-    if entry.region == region && entry.dhash == dhash && !entry.elements.is_empty() {
+    if entry.region == region && entry.content_hash == hash && !entry.elements.is_empty() {
         Some(entry.elements)
     } else {
         None
     }
 }
 
-fn save_ocr_cache(region: [i64; 4], dhash: u64, elements: &[UiElement]) {
+fn save_ocr_cache(region: [i64; 4], hash: u64, elements: &[UiElement]) {
     let p = crate::eyes::vision::runtime_dir().join("ocr_cache.json");
     let entry = OcrCacheEntry {
-        dhash,
+        content_hash: hash,
         region,
         elements: elements.to_vec(),
     };
@@ -99,7 +109,7 @@ fn save_ocr_cache(region: [i64; 4], dhash: u64, elements: &[UiElement]) {
     }
 }
 
-/// Bellek-içi `PPM` görüntü baytlarından (`dHash` önbellekli) `tesseract TSV` + İkon Füzyonu ile `UiElement` listesi üretir.
+/// Bellek-içi `PPM` görüntü baytlarından (içerik hash'i önbellekli) `tesseract TSV` + İkon Füzyonu ile `UiElement` listesi üretir.
 pub fn ocr_ppm_bytes_to_elements(
     ppm_bytes: &[u8],
     region: [i64; 4],
@@ -107,10 +117,10 @@ pub fn ocr_ppm_bytes_to_elements(
     max_elements: usize,
 ) -> Result<Vec<UiElement>> {
     let img = parse_ppm_p6(ppm_bytes)?;
-    let dhash = crate::eyes::vision::compute_dhash64(&img);
+    let hash = content_hash(&img);
 
-    // 1. Eğer pencere görüntüsü değişmemişse (dHash aynıysa) <0.5ms içinde önbellekten dön!
-    let all_elements = if let Some(cached) = load_ocr_cache(region, dhash) {
+    // 1. Pencere görüntüsü piksel piksel aynıysa tesseract'ı atla, önbellekten dön.
+    let all_elements = if let Some(cached) = load_ocr_cache(region, hash) {
         cached
     } else {
         let ppm_w = img.width();
@@ -179,7 +189,7 @@ pub fn ocr_ppm_bytes_to_elements(
             }
         }
 
-        save_ocr_cache(region, dhash, &built);
+        save_ocr_cache(region, hash, &built);
         built
     };
 
@@ -428,5 +438,23 @@ level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theigh
         assert_eq!(phrases[0].left, 100);
         assert_eq!(phrases[0].width, 132); // (142 + 90) - 100
         assert_eq!(phrases[1].text, "Kaydet");
+    }
+
+    #[test]
+    fn cache_key_changes_when_only_text_pixels_change() {
+        // Beyaz zemin üzerinde aynı yerde iki farklı "metin" şeridi: dHash aynı kalabilir, anahtar kalmamalı.
+        let mut a = image::RgbImage::from_pixel(200, 60, image::Rgb([255, 255, 255]));
+        let mut b = a.clone();
+        for x in 20..120 {
+            a.put_pixel(x, 30, image::Rgb([20, 20, 20]));
+            b.put_pixel(x + 1, 30, image::Rgb([20, 20, 20]));
+        }
+        assert_eq!(
+            crate::eyes::vision::compute_dhash64(&a),
+            crate::eyes::vision::compute_dhash64(&b),
+            "örnek, dHash çakışmasını temsil etmeli"
+        );
+        assert_ne!(content_hash(&a), content_hash(&b));
+        assert_eq!(content_hash(&a), content_hash(&a.clone()));
     }
 }

@@ -15,7 +15,7 @@ use crate::eyes::audio_pipewire::{capture_audio_report, control_audio_and_media}
 use crate::eyes::compositor::list_hyprland_binds;
 use crate::eyes::logs_notify::query_recent_journal_logs;
 use crate::eyes::ui_atspi::inspect_window_ui;
-use crate::eyes::vision::capture_vision;
+use crate::eyes::vision::{capture_frame_sequence, capture_vision};
 use anyhow::Result;
 use base64::Engine;
 use serde_json::{json, Value};
@@ -226,20 +226,52 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                     None
                 }
             });
-            let rep = capture_vision(win, region, zoom, marks)?;
-            let mut out =
-                vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })];
-            if include_b64 {
-                if let Ok(bytes) = std::fs::read(&rep.file_path) {
-                    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                    out.push(json!({
-                        "type": "image",
-                        "data": b64,
-                        "mimeType": "image/png"
-                    }));
+            // Kare dizisi (animasyon izlenebilirliği) modu: `frames` verilirse dizi yakalanır.
+            if let Some(n) = args.get("frames").and_then(|v| v.as_u64()) {
+                let interval_ms = args
+                    .get("interval_ms")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(100);
+                let out_path = args.get("out").and_then(|v| v.as_str());
+                let rep = capture_frame_sequence(
+                    win,
+                    region,
+                    zoom,
+                    n as usize,
+                    interval_ms,
+                    out_path,
+                )?;
+                let mut out =
+                    vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })];
+                if include_b64 {
+                    if let Some(p) = rep.saved_frame_path.as_deref() {
+                        if let Ok(bytes) = std::fs::read(p) {
+                            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                            out.push(json!({
+                                "type": "image",
+                                "data": b64,
+                                "mimeType": "image/png"
+                            }));
+                        }
+                    }
                 }
+                out
+            } else {
+                let rep = capture_vision(win, region, zoom, marks)?;
+                let mut out =
+                    vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })];
+                if include_b64 {
+                    if let Ok(bytes) = std::fs::read(&rep.file_path) {
+                        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                        out.push(json!({
+                            "type": "image",
+                            "data": b64,
+                            "mimeType": "image/png"
+                        }));
+                    }
+                }
+                out
             }
-            out
         }
         "pc_eye_xray" => {
             let win = args.get("window").and_then(|v| v.as_str());
@@ -536,6 +568,9 @@ fn mcp_tools_schema() -> Value {
                     "region": { "type": "array", "items": { "type": "integer" }, "description": "[x, y, w, h] kırpma bölgesi." },
                     "zoom": { "type": "array", "items": { "type": "integer" }, "description": "[x, y] noktası etrafında hassas yakınlaştırma." },
                     "marks": { "type": "boolean", "description": "Tıklanabilir bölgelerin üzerine numaralı Set-of-Marks kutuları çizer." },
+                    "frames": { "type": "integer", "description": "Kare dizisi (animasyon izlenebilirliği) modu: bu kadar kare yakalar; her kare için dHash, ortalama parlaklık ve önceki kareye göre pixel_diff_pct, ayrıca süre/aralık/stabil-kare özeti döner. Verilmezse tek kare yakalanır." },
+                    "interval_ms": { "type": "integer", "description": "Kare dizisi modunda kareler arası bekleme (ms, varsayılan 100)." },
+                    "out": { "type": "string", "description": "Kare dizisi modunda SON kareyi bu yola yaz (varsayılan zero-disk: hiç dosya yazılmaz)." },
                     "include_base64": { "type": "boolean", "description": "Görüntüyü base64 olarak MCP yanıtına ekler." }
                 }
             }

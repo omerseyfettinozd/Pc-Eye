@@ -71,6 +71,34 @@ pub fn is_terminal_window(class: &str) -> bool {
     TERMINAL_CLASSES.iter().any(|t| lower.contains(t))
 }
 
+/// Bir UI elemanının "anlamlı içerik" taşıyıp taşımadığını söyler: boş olmayan `name` VEYA boş olmayan `value`.
+fn element_has_content(el: &UiElement) -> bool {
+    !el.name.trim().is_empty()
+        || el
+            .value
+            .as_deref()
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false)
+}
+
+/// Anlamlı içerikli eleman sayısı (boş `name` + `value: None` düğümler "trivial" sayılır).
+pub fn count_contentful_elements(elements: &[UiElement]) -> usize {
+    elements.iter().filter(|e| element_has_content(e)).count()
+}
+
+/// OCR geri dönüş kapısı (saf fonksiyon; birim test edilebilir).
+///
+/// Kural:
+/// - Terminal penceresinde sorgu yoksa OCR'a DÜŞME (terminal PTY bağlamı yeterli).
+/// - Aksi halde AT-SPI ağacı "anlamlı içerik" taşımıyorsa OCR dene: toplam eleman `<= 1` VEYA
+///   içerikli (name/value dolu) eleman sayısı `<= 2`.
+fn needs_ocr_fallback(elements: &[UiElement], is_terminal: bool, has_query: bool) -> bool {
+    if is_terminal && !has_query {
+        return false;
+    }
+    elements.len() <= 1 || count_contentful_elements(elements) <= 2
+}
+
 /// Göz 2a: Hedef pencere (veya odaktaki pencere) için Semantik UI Ağacı + Durum/Değer + Koordinat Çözümlemesi + Terminal PTY Bağlamı üretir.
 pub fn inspect_window_ui(
     target_window_addr: Option<&str>,
@@ -117,25 +145,35 @@ pub fn inspect_window_ui(
         );
     }
 
-    // V3 Yükseltmesi: AT-SPI2 ağacı boşsa (Electron, oyun, Canvas, PDF vb.) veya aranan metin AT-SPI'da yoksa
-    // otomatik olarak Sıfır-Disk Bellek-İçi OCR (Tesseract TSV eng+tur) ile metinleri ve koordinatlarını çıkar!
-    if elements.is_empty() && (!is_terminal_window(&win.class) || query_filter.is_some()) {
-        if let Ok(ocr_els) = crate::eyes::ocr::ocr_region_elements(
+    // V4 Yükseltmesi (TRIVIAL ağaç düzeltmesi): AT-SPI2 ağacı "boş" olmasa bile ANLAMLI İÇERİK taşımıyorsa
+    // (ör. WebKitGTK/Tauri yalnızca tek bir "frame" düğümü yayınlar; ad/değer yok, koordinat yok) OCR geri
+    // dönüşünü DENE. Kapı `elements.is_empty()` yerine "içerikli eleman sayısı" ölçütüne bağlandı.
+    let atspi_count = elements.len();
+    if needs_ocr_fallback(&elements, is_terminal_window(&win.class), query_filter.is_some()) {
+        if let Ok(mut ocr_els) = crate::eyes::ocr::ocr_region_elements(
             win_geom,
             query_filter,
             max_elements.max(10),
         ) {
             if !ocr_els.is_empty() {
-                elements = ocr_els;
+                // AT-SPI elemanları KORUNUR; OCR mark numaraları onların üstünden devam eder ki
+                // `click-ui --mark <N>` hem AT-SPI hem OCR elemanları için çakışmasız çalışsın.
+                let base = elements.len();
+                for el in ocr_els.iter_mut() {
+                    el.mark += base;
+                }
+                elements.extend(ocr_els);
                 used_ocr = true;
             }
         }
     }
 
-    let perception_mode = if !elements.is_empty() && !used_ocr {
-        "at-spi2".to_string()
+    let perception_mode = if used_ocr && atspi_count > 0 {
+        "hybrid-atspi-ocr".to_string()
     } else if used_ocr {
         "ocr-semantic".to_string()
+    } else if !elements.is_empty() {
+        "at-spi2".to_string()
     } else if terminal_context.is_some() {
         "terminal-pty".to_string()
     } else {
@@ -147,8 +185,14 @@ pub fn inspect_window_ui(
             "Semantik UI elemanları (states ve value dahil) hazır. `click-ui --mark <N>` veya `--name <AD>` (veya arka plan için `--dbus-action`) kullanabilirsiniz."
                 .to_string(),
         ),
+        "hybrid-atspi-ocr" => Some(format!(
+            "AT-SPI2 ağacı {} anlamlı eleman taşıdı (trivial) ve {} OCR elemanı ile birleştirildi. \
+             Mark numaraları AT-SPI elemanlarından başlayıp OCR ile devam eder; `click-ui --mark <N>` veya `--name <METİN>` ile tıklayın.",
+            atspi_count,
+            elements.len() - atspi_count
+        )),
         "ocr-semantic" => Some(
-            "AT-SPI2 ağacı boş olduğu için Sıfır-Disk Bellek-İçi OCR (eng+tur) ile penceredeki tüm metinler ve tıklama koordinatları çıkarıldı. `click-ui --name <METİN>` veya `--mark <N>` ile doğrudan tıklayabilirsiniz."
+            "AT-SPI2 ağacı anlamlı içerik taşımıyor (boş ya da yalnızca trivial düğümler) olduğu için Sıfır-Disk Bellek-İçi OCR (eng+tur) ile penceredeki metinler ve tıklama koordinatları çıkarıldı. `click-ui --name <METİN>` veya `--mark <N>` ile doğrudan tıklayabilirsiniz."
                 .to_string(),
         ),
         "terminal-pty" => Some(
@@ -790,5 +834,75 @@ mod tests {
         assert!(states.contains(&"editable".to_string()));
         assert!(states.contains(&"enabled".to_string()));
         assert!(states.contains(&"focused".to_string()));
+    }
+
+    fn el(mark: usize, name: &str, value: Option<&str>) -> UiElement {
+        UiElement {
+            mark,
+            role: "push button".to_string(),
+            name: name.to_string(),
+            value: value.map(|v| v.to_string()),
+            description: None,
+            states: vec![],
+            actions: vec![],
+            rel_bounds: [0, 0, 10, 10],
+            screen_bounds: [0, 0, 10, 10],
+            click_point: [5, 5],
+            dbus_service: String::new(),
+            dbus_path: String::new(),
+        }
+    }
+
+    #[test]
+    fn test_needs_ocr_fallback_trivial_webkit_frame() {
+        // Kanıtlanan senaryo: WebKitGTK/Tauri penceresi tek bir "frame" düğümü yayınlar
+        // (name boş, value yok) -> eski `elements.is_empty()` kapısı OCR'ı atlıyordu.
+        let trivial = vec![el(1, "", None)];
+        assert_eq!(count_contentful_elements(&trivial), 0);
+        assert!(needs_ocr_fallback(&trivial, false, false));
+    }
+
+    #[test]
+    fn test_needs_ocr_fallback_rich_tree_skips_ocr() {
+        let rich = vec![
+            el(1, "Kaydet", None),
+            el(2, "İptal", None),
+            el(3, "Ara", Some("hello")),
+        ];
+        assert_eq!(count_contentful_elements(&rich), 3);
+        assert!(!needs_ocr_fallback(&rich, false, false));
+    }
+
+    #[test]
+    fn test_needs_ocr_fallback_contentful_threshold_two() {
+        // Tam olarak 2 içerikli eleman -> çok az sayılır, OCR denenir.
+        let two = vec![el(1, "A", None), el(2, "B", None)];
+        assert!(needs_ocr_fallback(&two, false, false));
+
+        // 3 içerikli eleman (trivial'ler araya karışsa bile) -> OCR denenmez.
+        let three = vec![
+            el(1, "A", None),
+            el(2, "B", None),
+            el(3, "", None),
+            el(4, "C", None),
+        ];
+        assert_eq!(count_contentful_elements(&three), 3);
+        assert!(!needs_ocr_fallback(&three, false, false));
+    }
+
+    #[test]
+    fn test_needs_ocr_fallback_terminal_rule_preserved() {
+        // Terminal + sorgu yok -> içerik trivial olsa bile OCR'a düşme (terminal PTY yeterli).
+        let trivial = vec![el(1, "", None)];
+        assert!(!needs_ocr_fallback(&trivial, true, false));
+        // Terminal + sorgu var -> OCR denenir.
+        assert!(needs_ocr_fallback(&trivial, true, true));
+        // Terminal + sorgu var ama içerik zengin -> denenmez.
+        let rich = vec![
+            el(1, "A", None),
+            el(2, "B", None),
+            el(3, "C", None),
+        ];
+        assert!(!needs_ocr_fallback(&rich, true, true));
     }
 }

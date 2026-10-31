@@ -63,6 +63,15 @@ enum Commands {
         /// Tıklanabilir bölgelerin üzerine numaralı Set-of-Marks kutuları çiz
         #[arg(long)]
         marks: bool,
+        /// Kare dizisi (animasyon izlenebilirliği) modu: bu kadar kare yakala
+        #[arg(long)]
+        frames: Option<usize>,
+        /// Kareler arası bekleme süresi (ms)
+        #[arg(long, default_value_t = 100)]
+        interval_ms: u64,
+        /// Yalnızca kare dizisi modunda: SON kareyi bu yola yaz (varsayılan: zero-disk, yazılmaz)
+        #[arg(long)]
+        out: Option<String>,
     },
 
     /// Göz 3: Pencerenin veya PID'nin arkasındaki tüm süreç soy ağacını, açık dosyaları ve ağ soketlerini röntgenler
@@ -277,11 +286,26 @@ fn main() -> Result<()> {
             region,
             zoom,
             marks,
+            frames,
+            interval_ms,
+            out,
         } => {
             let reg = region.as_deref().and_then(parse_four_ints);
             let zm = zoom.as_deref().and_then(parse_two_ints);
-            let rep = eyes::vision::capture_vision(window.as_deref(), reg, zm, marks)?;
-            println!("{}", serde_json::to_string_pretty(&rep)?);
+            if let Some(n) = frames {
+                let rep = eyes::vision::capture_frame_sequence(
+                    window.as_deref(),
+                    reg,
+                    zm,
+                    n,
+                    interval_ms,
+                    out.as_deref(),
+                )?;
+                println!("{}", serde_json::to_string_pretty(&rep)?);
+            } else {
+                let rep = eyes::vision::capture_vision(window.as_deref(), reg, zm, marks)?;
+                println!("{}", serde_json::to_string_pretty(&rep)?);
+            }
         }
         Commands::Xray { window, pid } => {
             let rep = daemon::server::build_xray_for_target(window.as_deref(), pid)?;

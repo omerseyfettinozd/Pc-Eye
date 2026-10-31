@@ -1,7 +1,7 @@
 use crate::daemon::ring_buffer::now_ms;
 use crate::eyes::compositor::{capture_desktop_state, normalize_window_address};
 use crate::eyes::ui_atspi::inspect_window_ui;
-use crate::protocol::types::{UiElement, VisionReport};
+use crate::protocol::types::{FrameSample, FrameSequenceReport, UiElement, VisionReport};
 use anyhow::{anyhow, Context, Result};
 use image::{ImageFormat, Rgb, RgbImage};
 use serde::{Deserialize, Serialize};
@@ -47,14 +47,21 @@ pub fn save_persisted_marks(marks: &[UiElement]) {
     }
 }
 
-/// Göz 2b: Ekran, Pencere, Bölge veya Zoom görüntüsü yakalar; dHash / Pixel-Diff hesaplar ve isteğe bağlı Set-of-Marks çizer.
-pub fn capture_vision(
+/// Yakalama hedefi (mod, pencere ve gerçek masaüstü geometrisi).
+pub struct CapturePlan {
+    pub mode: String,
+    pub target_window: Option<String>,
+    pub geom: [i64; 4],
+    pub scale: f64,
+}
+
+/// Hedefi (monitör/pencere/bölge/zoom) somut masaüstü geometrisine çözer.
+/// `capture_vision` ve `capture_frame_sequence` bu mantığı paylaşır.
+pub fn resolve_capture_plan(
     window_addr: Option<&str>,
     region: Option<[i64; 4]>,
     zoom_point: Option<[i64; 2]>,
-    draw_marks: bool,
-) -> Result<VisionReport> {
-    let ts = now_ms();
+) -> Result<CapturePlan> {
     let desktop = capture_desktop_state()?;
 
     if desktop.auth_guard_tripped {
@@ -93,7 +100,7 @@ pub fn capture_vision(
         [x, y, w, h]
     };
 
-    let (capture_mode, target_window, geom) = if let Some([zx, zy]) = zoom_point {
+    let (mode, target_window, geom) = if let Some([zx, zy]) = zoom_point {
         let zw = 480i64;
         let zh = 320i64;
         let x = (zx - zw / 2).clamp(bx0, (bx1 - zw).max(bx0));
@@ -117,6 +124,28 @@ pub fn capture_vision(
         let g = primary_mon.as_ref().map(logical).unwrap_or([0, 0, 2560, 1600]);
         ("monitor".to_string(), None, g)
     };
+
+    Ok(CapturePlan {
+        mode,
+        target_window,
+        geom,
+        scale,
+    })
+}
+
+/// Göz 2b: Ekran, Pencere, Bölge veya Zoom görüntüsü yakalar; dHash / Pixel-Diff hesaplar ve isteğe bağlı Set-of-Marks çizer.
+pub fn capture_vision(
+    window_addr: Option<&str>,
+    region: Option<[i64; 4]>,
+    zoom_point: Option<[i64; 2]>,
+    draw_marks: bool,
+) -> Result<VisionReport> {
+    let ts = now_ms();
+    let plan = resolve_capture_plan(window_addr, region, zoom_point)?;
+    let capture_mode = plan.mode;
+    let target_window = plan.target_window;
+    let geom = plan.geom;
+    let scale = plan.scale;
 
     // In-memory PPM yakalama (grim -t ppm -) -> Sıfır disk I/O
     let mut img = grab_region_ppm(geom)?;
@@ -240,14 +269,16 @@ pub fn parse_ppm_p6(bytes: &[u8]) -> Result<RgbImage> {
 
 /// 9x8 gri tonlama örneklemesiyle 64-bit Difference Hash (`dHash`) hesaplar (<0.2ms).
 pub fn compute_dhash64(img: &RgbImage) -> u64 {
-    let w = img.width().max(9);
-    let h = img.height().max(8);
     let mut grid = [[0u8; 9]; 8];
+    let last_x = img.width().saturating_sub(1);
+    let last_y = img.height().saturating_sub(1);
 
     for (ry, row) in grid.iter_mut().enumerate() {
-        let py = ((ry as u32) * img.height() / h).min(img.height().saturating_sub(1));
+        // 8 satır -> 0..=7 aralığını görüntü yüksekliğine yay (kenar kırpma güvenli).
+        let py = ((ry as u32) * last_y / 7).min(last_y);
         for (rx, cell) in row.iter_mut().enumerate() {
-            let px = ((rx as u32) * img.width() / w).min(img.width().saturating_sub(1));
+            // 9 sütun -> 0..=8 aralığını görüntü genişliğine yay (kenar kırpma güvenli).
+            let px = ((rx as u32) * last_x / 8).min(last_x);
             let p = img.get_pixel(px, py);
             *cell = ((p[0] as u32 * 77 + p[1] as u32 * 150 + p[2] as u32 * 29) >> 8) as u8;
         }
@@ -294,6 +325,183 @@ fn evaluate_and_store_frame_diff(
         }
     }
     (None, true)
+}
+
+/// Kare ortalaması parlaklık (0-255) — sRGB luma ağırlıklı (`0.299R + 0.587G + 0.114B`).
+pub fn compute_mean_brightness(img: &RgbImage) -> f64 {
+    let (w, h) = (img.width(), img.height());
+    if w == 0 || h == 0 {
+        return 0.0;
+    }
+    let mut sum: u64 = 0;
+    for p in img.pixels() {
+        let lum = (p[0] as u32 * 77 + p[1] as u32 * 150 + p[2] as u32 * 29) >> 8;
+        sum += lum as u64;
+    }
+    let n = (w as u64) * (h as u64);
+    ((sum as f64 / n as f64) * 100.0).round() / 100.0
+}
+
+/// İki 64-bit dHash arasındaki Hamming farkını yüzdeye çevirir (mevcut `pixel_diff_pct` ölçeğiyle aynı).
+pub fn dhash_diff_pct(a: u64, b: u64) -> f64 {
+    let hamming = (a ^ b).count_ones();
+    ((hamming as f64 / 64.0) * 100.0 * 100.0).round() / 100.0
+}
+
+/// Tek bir karenin "stabil" sayıldığı en yüksek değişim yüzdesi (yaklaşık 1-2 dHash biti).
+pub const STABLE_DIFF_PCT: f64 = 3.0;
+
+/// Hareketin bittiği ilk kare indeksini bulur: bu indeksten itibaren kalan TÜM kareler
+/// eşiğin altında (stabil) olmalı; aksi halde `None` (hareket dizi boyunca sürüyor).
+pub fn compute_motion_settled(diffs: &[Option<f64>], threshold_pct: f64) -> Option<usize> {
+    let n = diffs.len();
+    for start in 1..n {
+        if diffs[start..]
+            .iter()
+            .all(|d| d.map(|v| v <= threshold_pct).unwrap_or(true))
+        {
+            return Some(start);
+        }
+    }
+    None
+}
+
+/// Göz 2b: Kare dizisi (animasyon izlenebilirliği) yakalar.
+///
+/// Zero-disk ilkesi: tüm kareler yalnızca bellekte işlenir (`grim -t ppm -` pipe -> RAM),
+/// her kare için hafif özet (dHash, ortalama parlaklık, `pixel_diff_pct`) tutulur ve ham
+/// görüntü tamponu serbest bırakılır. Diske YALNIZCA kullanıcı `out_path` verdiyse SON kare yazılır.
+pub fn capture_frame_sequence(
+    window_addr: Option<&str>,
+    region: Option<[i64; 4]>,
+    zoom_point: Option<[i64; 2]>,
+    requested_frames: usize,
+    interval_ms: u64,
+    out_path: Option<&str>,
+) -> Result<FrameSequenceReport> {
+    let plan = resolve_capture_plan(window_addr, region, zoom_point)?;
+    let frames = requested_frames.clamp(2, 1200);
+    let start_ts = now_ms();
+
+    let mut samples: Vec<FrameSample> = Vec::with_capacity(frames);
+    let mut prev_dhash: Option<u64> = None;
+    let mut last_img: Option<RgbImage> = None;
+    let mut brightness_sum = 0.0f64;
+    let mut prev_grab_cost = 0u64;
+
+    for i in 0..frames {
+        if i > 0 {
+            // Görüntü yakalama maliyeti (grim ~30ms) telafi edilir; hedef kare aralığına yaklaşılır.
+            let target = interval_ms.saturating_sub(prev_grab_cost);
+            let elapsed = now_ms().saturating_sub(samples[i - 1].timestamp_ms);
+            if elapsed < target {
+                std::thread::sleep(std::time::Duration::from_millis(target - elapsed));
+            }
+        }
+
+        let g0 = now_ms();
+        let img = grab_region_ppm(plan.geom)?;
+        let ts = now_ms();
+        prev_grab_cost = ts.saturating_sub(g0);
+        let dhash = compute_dhash64(&img);
+        let brightness = compute_mean_brightness(&img);
+        brightness_sum += brightness;
+
+        let diff = prev_dhash.map(|p| dhash_diff_pct(p, dhash));
+        samples.push(FrameSample {
+            index: i,
+            timestamp_ms: ts,
+            mean_brightness: brightness,
+            dhash_hex: format!("{:016x}", dhash),
+            pixel_diff_pct: diff,
+        });
+        prev_dhash = Some(dhash);
+
+        // Yalnızca son kareyi tut; önceki ham tamponlar döngü sonunda düşer (zero-disk).
+        if i + 1 == frames {
+            last_img = Some(img);
+        }
+    }
+
+    // Gerçek kare aralıkları: zaman damgası farklarından türetilir (istek ile gerçekleşen ayrımı dürüstçe gösterir).
+    let intervals: Vec<u64> = samples
+        .windows(2)
+        .map(|w| w[1].timestamp_ms.saturating_sub(w[0].timestamp_ms))
+        .collect();
+    let diffs: Vec<Option<f64>> = samples.iter().map(|s| s.pixel_diff_pct).collect();
+    let motion_settled_at = compute_motion_settled(&diffs, STABLE_DIFF_PCT);
+    let round2 = |v: f64| ((v) * 100.0).round() / 100.0;
+    let total_change_pct = round2(diffs.iter().flatten().sum::<f64>());
+    let max_change_pct = round2(diffs.iter().flatten().cloned().fold(0.0f64, f64::max));
+    let mean_frame_interval_ms = if intervals.is_empty() {
+        0.0
+    } else {
+        round2(intervals.iter().sum::<u64>() as f64 / intervals.len() as f64)
+    };
+    let max_frame_interval_ms = intervals.iter().copied().max().unwrap_or(0);
+    let total_duration_ms = samples
+        .last()
+        .map(|s| s.timestamp_ms.saturating_sub(samples[0].timestamp_ms))
+        .unwrap_or(0);
+    let mean_brightness_avg = round2(brightness_sum / frames as f64);
+    let motion_detected = diffs.iter().flatten().any(|v| *v > STABLE_DIFF_PCT);
+
+    let saved_frame_path = if let Some(p) = out_path {
+        let path = PathBuf::from(p);
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                let _ = fs::create_dir_all(parent);
+            }
+        }
+        let img = last_img
+            .as_ref()
+            .ok_or_else(|| anyhow!("Kaydedilecek son kare yok"))?;
+        img.save_with_format(&path, ImageFormat::Png)
+            .with_context(|| format!("Kare kaydedilemedi: {}", path.display()))?;
+        Some(path.to_string_lossy().to_string())
+    } else {
+        None
+    };
+
+    let settled_desc = match motion_settled_at {
+        Some(i) => format!("hareket {} numaralı karede duruldu", i),
+        None if motion_detected => "hareket dizi boyunca sürdü (stabil kare yok)".to_string(),
+        None => "görüntü baştan stabil (hareket yok)".to_string(),
+    };
+    let human_summary = format!(
+        "{} modunda {} kare / {} ms (ortalama aralık {:.1} ms, azami {} ms) yakalandı; \
+         toplam değişim {:.2}%, azami kare değişimi {:.2}%; {}.",
+        plan.mode,
+        samples.len(),
+        total_duration_ms,
+        mean_frame_interval_ms,
+        max_frame_interval_ms,
+        total_change_pct,
+        max_change_pct,
+        settled_desc
+    );
+
+    Ok(FrameSequenceReport {
+        timestamp_ms: start_ts,
+        capture_mode: plan.mode,
+        target_window: plan.target_window,
+        desktop_geometry: plan.geom,
+        scale: plan.scale,
+        requested_frames,
+        frame_count: samples.len(),
+        interval_ms,
+        total_duration_ms,
+        mean_frame_interval_ms,
+        max_frame_interval_ms,
+        mean_brightness_avg,
+        motion_settled_at,
+        total_change_pct,
+        max_change_pct,
+        motion_detected,
+        frames: samples,
+        saved_frame_path,
+        human_summary,
+    })
 }
 
 /// AT-SPI ağacı olmayan (Canvas/Electron/Oyun) pencerelerde yüksek kontrastlı buton/ikon/kontrol bölgelerini tespit eder.
@@ -534,5 +742,72 @@ mod tests {
         draw_marks_overlay(&mut img, [0, 0, 16, 16], &[mark]);
         let h2 = compute_dhash64(&img);
         assert_ne!(h1, h2);
+    }
+
+    /// 9x8'den büyük görüntüde örnekleme tüm alana yayılmalı.
+    /// Eski hatalı kodda px/py görüntü boyutuyla ölçeklendiği için yalnız sol-üst
+    /// 9x8 piksel okunuyordu; bu test o kodda KIRILIR.
+    fn regression_image(shift: u8) -> RgbImage {
+        let (w, h) = (200u32, 120u32);
+        let mut img = RgbImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let p = if x < 9 && y < 8 {
+                    // Sol-üst 9x8 bölge: tamamen tek renk (eski kodun tek gördüğü yer)
+                    Rgb([10u8, 10, 10])
+                } else {
+                    let v = ((x * 255 / w) as u8).wrapping_add((y * 5) as u8);
+                    if x > 150 && y > 90 {
+                        // Uzak bölge: ikinci sürümde güçlü biçimde değiştirilir
+                        Rgb([v.wrapping_add(shift), v, 255u8.wrapping_sub(v)])
+                    } else {
+                        Rgb([v, v.wrapping_add(80), 255u8.wrapping_sub(v)])
+                    }
+                };
+                img.put_pixel(x, y, p);
+            }
+        }
+        img
+    }
+
+    #[test]
+    fn dhash_samples_whole_image_not_just_topleft() {
+        let a = regression_image(0);
+        let b = regression_image(120); // yalnız uzak bölge değişti
+
+        let ha = compute_dhash64(&a);
+        let hb = compute_dhash64(&b);
+
+        // Hash sıfır olmamalı: desenli görüntüde düz gri tonlar oluşmamalı.
+        assert_ne!(ha, 0, "dhash tüm görüntüyü örneklemeli, sıfır olmamalı");
+        // Yalnız uzak bölge değişse bile hash farklı olmalı (örnekleme oraya ulaşmalı).
+        assert_ne!(ha, hb, "uzak bölgedeki değişiklik hash'i değiştirmeli");
+    }
+
+    #[test]
+    fn test_dhash_diff_pct_and_mean_brightness() {
+        // Aynı hash -> 0%; tamamen farklı hash -> 100%.
+        assert!((dhash_diff_pct(0, 0) - 0.0).abs() < 1e-9);
+        assert!((dhash_diff_pct(0, u64::MAX) - 100.0).abs() < 1e-9);
+        // Tek bit farkı = 1/64 * 100 = 1.5625 (%2 haneye yuvarlanmış).
+        assert!((dhash_diff_pct(0b1, 0b0) - (100.0 / 64.0)).abs() < 0.01);
+
+        let black = RgbImage::from_pixel(20, 20, Rgb([0, 0, 0]));
+        let white = RgbImage::from_pixel(20, 20, Rgb([255, 255, 255]));
+        assert!(compute_mean_brightness(&black) < 1.0);
+        assert!(compute_mean_brightness(&white) > 254.0);
+    }
+
+    #[test]
+    fn test_compute_motion_settled() {
+        // [None, 20, 30, 0, 0, 0] -> 3. indeksten sonra hep stabil.
+        let d = vec![None, Some(20.0), Some(30.0), Some(0.0), Some(0.0), Some(0.0)];
+        assert_eq!(compute_motion_settled(&d, STABLE_DIFF_PCT), Some(3));
+        // Sürekli hareket -> None.
+        let moving = vec![None, Some(50.0), Some(50.0), Some(50.0)];
+        assert_eq!(compute_motion_settled(&moving, STABLE_DIFF_PCT), None);
+        // Hiç hareket yok -> ilk karşılaştırmadan itibaren stabil.
+        let still = vec![None, Some(0.0), Some(0.0)];
+        assert_eq!(compute_motion_settled(&still, STABLE_DIFF_PCT), Some(1));
     }
 }

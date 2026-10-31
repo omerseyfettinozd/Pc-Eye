@@ -133,7 +133,7 @@ pub struct UiTreeReport {
     pub window_pid: i32,
     pub window_geometry: [i64; 4],
     pub a11y_bus_enabled: bool,
-    pub perception_mode: String, // "at-spi2" | "terminal-pty" | "vision-fallback"
+    pub perception_mode: String, // "at-spi2" | "hybrid-atspi-ocr" | "ocr-semantic" | "terminal-pty" | "vision-fallback"
     pub element_count: usize,
     pub elements: Vec<UiElement>,
     pub terminal_context: Option<TerminalContext>,
@@ -171,6 +171,47 @@ pub struct VisionReport {
     pub visual_stable: bool,
     pub marks_drawn: usize,
     pub marks_legend: Vec<UiElement>,
+}
+
+/// Göz 2b: Kare dizisindeki tek bir karenin hafif (zero-disk) özeti.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FrameSample {
+    pub index: usize,
+    pub timestamp_ms: u64,
+    /// Kare ortalaması parlaklık (0-255, sRGB luma).
+    pub mean_brightness: f64,
+    pub dhash_hex: String,
+    /// Önceki kareye göre görsel değişim yüzdesi (ilk kare için `null`).
+    pub pixel_diff_pct: Option<f64>,
+}
+
+/// Göz 2b: Kare Dizisi / Animasyon İzlenebilirlik Raporu (`pc-eye vision --frames N`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FrameSequenceReport {
+    pub timestamp_ms: u64,
+    pub capture_mode: String, // "monitor" | "window" | "region" | "zoom"
+    pub target_window: Option<String>,
+    pub desktop_geometry: [i64; 4],
+    pub scale: f64,
+    pub requested_frames: usize,
+    pub frame_count: usize,
+    pub interval_ms: u64,
+    pub total_duration_ms: u64,
+    pub mean_frame_interval_ms: f64,
+    pub max_frame_interval_ms: u64,
+    pub mean_brightness_avg: f64,
+    /// Hareketin bittiği (stabil hale geldiği) ilk kare indeksi; hareket sürdüyse `null`.
+    pub motion_settled_at: Option<usize>,
+    /// Toplam değişim miktarı = tüm `pixel_diff_pct` değerlerinin toplamı.
+    pub total_change_pct: f64,
+    pub max_change_pct: f64,
+    /// Animasyon yakalandı mı? (en az bir karede anlamlı değişim var mı)
+    pub motion_detected: bool,
+    pub frames: Vec<FrameSample>,
+    /// Yalnızca kullanıcı istediğinde yazılan son kare dosyası (varsayılan: hiç yazılmaz).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved_frame_path: Option<String>,
+    pub human_summary: String,
 }
 
 /// Göz 3: Alt süreç öğesi.

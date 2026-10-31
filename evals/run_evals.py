@@ -529,6 +529,8 @@ def select_tasks(tasks, args):
         tasks = [t for t in tasks if set(args.tag) & set(t.get("tags", []))]
     if args.tier == "probe":
         tasks = [t for t in tasks if t.get("probe")]
+    elif args.tier == "agent":
+        tasks = [t for t in tasks if t.get("prompt")]
     return tasks
 
 

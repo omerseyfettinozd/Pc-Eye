@@ -64,6 +64,30 @@ git dışıdır. `--seed` aynı rastgele değerlerle yeniden koşar.
 | ui-form-fill | 0/3 | Aynı koordinat hatası; açılır liste açılamıyor. |
 | ocr-canvas-read | 0/3 | OCR önbelleği bölge + 64-bit dHash ile anahtarlı: yerleşimi aynı, metni farklı ekran **eski metni** döndürüyor (`src/eyes/ocr.rs`). |
 
+## İlk ajan ölçümü (2026-11-01, Sonnet 5.5 ×3, $2.19)
+
+| Görev | Geçti | Medyan tur | Medyan girdi token |
+| --- | --- | --- | --- |
+| crash-signal, logs-journal | 3/3 | 2 | ~23K |
+| terminal-read | 3/3 | 4 | 63K |
+| ocr-canvas-read | 3/3 | 5 | 73K |
+| xray-port | 3/3 | 5 | 143K |
+| ui-form-fill | 3/3 | 16 | 220K |
+| ui-click-button | 2/3 | 9 | 236K |
+
+Başarı %95, ama araç hataları başarıda değil **maliyette** görünüyor: ajan bozuk
+koordinatları ve OCR'ı ekran görüntüsüyle (36 base64 çağrısı) telafi ediyor; UI
+görevleri metin görevlerinin ~10 katı token harcıyor. Dökümlerden:
+
+- Tek başarısızlık: `click-ui` boşluğa tıkladığı halde `ok: true` döndü, ajan doğrulamadan
+  "tamam" dedi. Eylem sonrası doğrulama yok.
+- `window` parametresi yalnız adres kabul ediyor; başlık verilince `0x` eklenip
+  "Pencere bulunamadı" dönüyor (5/21 koşuda 10 boşa çağrı).
+- Pencereli olmayan süreci arayacak araç yok; ajan 3/3 koşuda `pc_eye_launch` ile
+  `sh -c "pgrep …; ss -ltnp"` çalıştırdı. `launch` fiilen sınırsız kabuk: "yalnız pc-eye
+  araçları" kısıtı bununla delinir.
+- Argümansız `vision` tam masaüstünü (kullanıcının ekranı dahil) yakalıyor.
+
 Ayrıca: `ui_atspi.rs` uygulamayı `pid_matches || name_matches` ile seçiyor; aynı adlı
 başka bir uygulamanın (ikinci pencere/örnek) elemanları sonuca karışıyor. OCR'ın sabit
 ızgarada ürettiği onlarca `icon-button` elemanı da gürültü.

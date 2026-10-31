@@ -84,6 +84,18 @@ enum Commands {
         pid: Option<i32>,
     },
 
+    /// Göz 3: Penceresi olmayan süreçleri de ad/komut satırı parçasına veya dinlediği porta göre bulur
+    Ps {
+        /// Ad veya komut satırında geçen metin
+        #[arg(long = "match")]
+        query: Option<String>,
+        /// Bu TCP/UDP portunu dinleyen süreçler
+        #[arg(long)]
+        port: Option<u16>,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
+
     /// Göz 4: Sistem journald loglarını, başlatılan uygulamaların stdout/stderr kayıtlarını ve masaüstü bildirimlerini döner
     Logs {
         /// Belirli bir PID için filtrele
@@ -328,6 +340,10 @@ fn main() -> Result<()> {
         Commands::Xray { window, pid } => {
             let rep = daemon::server::build_xray_for_target(window.as_deref(), pid)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Commands::Ps { query, port, limit } => {
+            let found = eyes::process_xray::find_processes(query.as_deref(), port, limit)?;
+            println!("{}", serde_json::to_string_pretty(&found)?);
         }
         Commands::Logs { pid, limit } => {
             let pids = pid.map(|p| vec![p]);

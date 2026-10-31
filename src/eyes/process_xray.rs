@@ -1,7 +1,7 @@
 use crate::daemon::ring_buffer::{now_ms, PercentileStats};
 use crate::eyes::logs_notify::query_recent_journal_logs;
 use crate::protocol::types::{
-    GpuTelemetry, NetConnection, ProcessMember, ProcessXrayReport, SystemHealthSummary,
+    GpuTelemetry, NetConnection, ProcessMatch, ProcessMember, ProcessXrayReport, SystemHealthSummary,
 };
 use anyhow::{anyhow, Result};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -465,6 +465,64 @@ pub fn is_tcp_port_open(port: u16) -> Option<String> {
         }
     }
     None
+}
+
+fn listening_endpoints(pid: i32) -> Vec<String> {
+    let (_, inodes) = collect_open_files_and_socket_inodes(&[pid], 0);
+    let mut out: Vec<String> = resolve_network_connections(&inodes)
+        .into_iter()
+        .filter(|c| c.state == "LISTEN" || c.proto.starts_with("udp"))
+        .map(|c| format!("{} {}", c.proto, c.local_addr))
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// Göz 3: Penceresi olmayan süreçleri de bulur: komut satırı/ad parçası ve/veya dinlenen port.
+/// `xray` bir PID ister; ajanın PID'i bulmak için kabuk komutuna (`launch sh -c pgrep`) kaçmasını önler.
+pub fn find_processes(query: Option<&str>, port: Option<u16>, limit: usize) -> Result<Vec<ProcessMatch>> {
+    if query.map_or(true, |q| q.trim().is_empty()) && port.is_none() {
+        return Err(anyhow!("`--match` veya `--port` gerekli"));
+    }
+    let q = query.map(|q| q.trim().to_lowercase());
+    let port_suffix = port.map(|p| format!(":{}", p));
+    let me = std::process::id() as i32;
+
+    let mut pids: Vec<i32> = fs::read_dir("/proc")?
+        .flatten()
+        .filter_map(|e| e.file_name().to_str()?.parse::<i32>().ok())
+        .filter(|&pid| pid != me)
+        .collect();
+    pids.sort_unstable();
+
+    let mut matches = Vec::new();
+    for pid in pids {
+        let Some(m) = read_process_member(pid) else { continue };
+        if let Some(q) = &q {
+            if !m.name.to_lowercase().contains(q) && !m.cmdline.to_lowercase().contains(q) {
+                continue;
+            }
+        }
+        let listening = listening_endpoints(pid);
+        if let Some(suffix) = &port_suffix {
+            if !listening.iter().any(|l| l.ends_with(suffix.as_str())) {
+                continue;
+            }
+        }
+        matches.push(ProcessMatch {
+            pid: m.pid,
+            ppid: m.ppid,
+            name: m.name,
+            cmdline: m.cmdline.chars().take(300).collect(),
+            rss_mb: m.rss_mb,
+            listening,
+        });
+        if matches.len() >= limit {
+            break;
+        }
+    }
+    Ok(matches)
 }
 
 /// Göz 3: Bir pencere veya kök PID için tam kapsamlı AppCluster Röntgeni üretir.

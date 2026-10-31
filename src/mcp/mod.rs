@@ -279,6 +279,13 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             let rep = build_xray_for_target(win, pid)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
         }
+        "pc_eye_processes" => {
+            let query = args.get("match").and_then(|v| v.as_str());
+            let port = args.get("port").and_then(|v| v.as_u64()).map(|n| n as u16);
+            let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+            let found = crate::eyes::process_xray::find_processes(query, port, limit)?;
+            vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&found)? })]
+        }
         "pc_eye_logs" => {
             let pid = args.get("pid").and_then(|v| v.as_i64()).map(|n| n as i32);
             let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(30) as usize;
@@ -595,6 +602,19 @@ fn mcp_tools_schema() -> Value {
                 "properties": {
                     "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
                     "pid": { "type": "integer", "description": "Kök süreç PID numarası." }
+                }
+            }
+        },
+        {
+            "name": "pc_eye_processes",
+            "description": "Penceresi olmayan arka plan süreçleri dahil, ad/komut satırı parçasına veya dinlediği porta göre süreç arar; her biri için PID, komut satırı, RAM ve dinlediği uç noktaları döner. Ayrıntı için PID'i pc_eye_xray'e ver.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "match": { "type": "string", "description": "Ad veya komut satırında geçen metin (büyük/küçük harf duyarsız)." },
+                    "port": { "type": "integer", "description": "Bu TCP/UDP portunu dinleyen süreçler." },
+                    "limit": { "type": "integer", "description": "En fazla sonuç (varsayılan 20)." }
                 }
             }
         },

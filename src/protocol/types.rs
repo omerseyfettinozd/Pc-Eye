@@ -229,6 +229,18 @@ pub struct ProcessMember {
     pub io_write_bytes: u64,
 }
 
+/// Göz 3: Ad/komut satırı veya dinlenen porta göre bulunan süreç (penceresi olmasa da).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessMatch {
+    pub pid: i32,
+    pub ppid: i32,
+    pub name: String,
+    pub cmdline: String,
+    pub rss_mb: f64,
+    /// `tcp 127.0.0.1:8080` biçiminde dinlenen (LISTEN / UDP) uç noktalar.
+    pub listening: Vec<String>,
+}
+
 /// Göz 3: Ağ bağlantısı (TCP/UDP soket).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetConnection {

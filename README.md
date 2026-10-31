@@ -10,11 +10,11 @@
 | :--- | :--- | :--- |
 | **Göz 1: Kompozitör & Uzay** | [`src/eyes/compositor.rs`](src/eyes/compositor.rs) | Doğrudan Hyprland UNIX soketi (`.socket.sock` & `.socket2.sock`, `<0.5ms`), monitör/workspace/pencere topolojisi, `layer-shell` (`waybar`, `rofi`, `dunst`), `AuthGuard` (`polkit`/`gpg` kilit tespiti), `ProtectedWindow` koruması, Hyprland kısayol (`binds`) keşfi |
 | **Göz 2a: Semantik UI, Bellek-İçi OCR & Terminal Ekranı** | [`src/eyes/ui_atspi.rs`](src/eyes/ui_atspi.rs), [`src/eyes/ocr.rs`](src/eyes/ocr.rs) | Otomatik `org.a11y.Status.IsEnabled=true` aktivasyonu, `AT-SPI2` erişilebilirlik ağacı, **Pencere-İçi -> Global Koordinat Çözücü**, **64-bit State Bitmask & Value okuyucu**, D-Bus `Action.DoAction(0)` & `EditableText.SetTextContents`, **Sıfır-Disk Bellek-İçi OCR (`grim PPM -> tesseract eng+tur TSV` ifade gruplayıcı: Electron/oyun/Canvas pencerelerindeki tüm metinleri koordinatlarıyla çıkarır)**, ve **Terminal PTY + Görünür Ekran Satırları (`visible_lines`)** |
-| **Göz 2b: Diferansiyel Vizyon & SoM** | [`src/eyes/vision.rs`](src/eyes/vision.rs) | Sıfır-disk (`grim -t ppm -` pipe) görüntü işleme, 64-bit `dHash`, kareler arası `pixel_diff_pct` değişim yüzdesi, bölgesel `zoom`, ve **Set-of-Marks (`--marks`)** numaralı kutu çizimi (AT-SPI2 + OCR + yüksek kontrastlı görsel kontrol kutusu dedektörü) |
+| **Göz 2b: Diferansiyel Vizyon & SoM** | [`src/eyes/vision.rs`](src/eyes/vision.rs) | Sıfır-disk (`grim -t ppm -` pipe) görüntü işleme, 64-bit `dHash`, kareler arası `pixel_diff_pct` değişim yüzdesi, bölgesel `zoom`, **Set-of-Marks (`--marks`)** numaralı kutu çizimi (AT-SPI2 + OCR + yüksek kontrastlı görsel kontrol kutusu dedektörü) ve **kare dizisi (`--frames`)** ile animasyon izleme |
 | **Göz 3: Süreç Kümesi & GPU X-Ray** | [`src/eyes/process_xray.rs`](src/eyes/process_xray.rs) | Uygulama süreç soy ağacı (`AppCluster` + `cgroup`), `p50/p95/p99` spike istatistikleri, açık dosyalar (`/proc/<pid>/fd`), canlı `TCP/UDP` soket tablosu (`/proc/net/*`), Linux PSI (`/proc/pressure/*`), çift GPU telemetrisi (`NVIDIA RTX` + `AMD Radeon`) |
 | **Göz 4: Birleşik Log, Coredump & Bildirim** | [`src/eyes/logs_notify.rs`](src/eyes/logs_notify.rs) | `systemd-journald` JSON logları + `pc-eye launch` uygulama `stdout/stderr` kayıtları (`app_logs/*.log`) + **`coredumpctl` süreç çökme röntgeni (`SIGSEGV`/`SIGABRT`)** + `dunstctl history` masaüstü bildirimlerinin tek kronolojik akışta birleştirilmesi |
 | **Göz 5: Ses, Fiziksel PCM, WAV Kaydı & MPRIS** | [`src/eyes/audio_pipewire.rs`](src/eyes/audio_pipewire.rs) | `PipeWire` aktif ses akışları, **`pw-record` ile gerçek fiziksel PCM 16-bit ses sinyali (`rms_dbfs`, `peak_dbfs`, `audible_signal`)**, **Masaüstü Ses Kaydedici (`audio --op record --arg <ms>` -> `.wav`)**, **D-Bus MPRIS medya ve aktif tarayıcı URL (`xesam:url`) okuyucu**, ve ses/medya kontrolü |
-| **Yönetmen (Director) & Kara Kutu Daemon** | [`src/director/`](src/director/), [`src/daemon/`](src/daemon/) | Saf-Rust Wayland `zwlr_virtual_pointer_v1` + `zwp_virtual_keyboard_v1` (dinamik `memfd` XKB keymap ile tam Türkçe/UTF-8 dizgi yazımı), **Zengin Çok-Formatlı Pano (`MIME`, `chromium/x-source-url`, `cliphist` geçmişi, `--file` ile görsel/dosya kopyalama, `--restore-id`)**, **Kesintisiz Arka Plan `pc-eye daemon` (`.socket2.sock` Kara Kutu kaydedicisi)**, Watchdog korumalı `freeze`/`thaw` ve çok-modlu `wait` (`visual_settle`, `log_match`, `ui_match`, `port_open`) |
+| **Yönetmen (Director) & Kara Kutu Daemon** | [`src/director/`](src/director/), [`src/daemon/`](src/daemon/) | **Yalıtılmış sanal ekran (`display`: kullanıcının ekranına bitişik olmayan headless çıkış, hedefli `window fullscreen`)**, Saf-Rust Wayland `zwlr_virtual_pointer_v1` + `zwp_virtual_keyboard_v1` (dinamik `memfd` XKB keymap ile tam Türkçe/UTF-8 dizgi yazımı), **Zengin Çok-Formatlı Pano (`MIME`, `chromium/x-source-url`, `cliphist` geçmişi, `--file` ile görsel/dosya kopyalama, `--restore-id`)**, **Kesintisiz Arka Plan `pc-eye daemon` (`.socket2.sock` Kara Kutu kaydedicisi)**, Watchdog korumalı `freeze`/`thaw` ve çok-modlu `wait` (`visual_settle`, `log_match`, `ui_match`, `port_open`) |
 
 ---
 
@@ -40,6 +40,16 @@ pc-eye ui --window 0x55fd87a5cad0 --max-elements 20
 
 # Set-of-Marks numaralı görsel yakalama + dHash + pixel_diff_pct
 pc-eye vision --marks
+
+# Kare dizisi: animasyonun ne zaman durduğu, kareler arası değişim (zero-disk)
+pc-eye vision --frames 10 --interval-ms 100
+
+# Kullanıcının ekranından yalıtılmış sanal (headless) ekran: uygulamayı orada aç, tam ekran yap
+pc-eye display create --name AGENT-1 --mode 1920x1080@60   # workspace_id döner
+pc-eye launch --workspace <workspace_id> -- <uygulama>
+pc-eye window fullscreen --window <adres>                  # yalnız o pencere; --arg on|max|off|toggle
+pc-eye display mode --name AGENT-1 --mode 1920x2400@30     # uzun sayfayı tek karede yakala
+pc-eye display remove --name AGENT-1
 
 # Süreç kümesi (AppCluster), açık dosyalar ve aktif ağ soketleri röntgeni
 pc-eye xray --pid 1234

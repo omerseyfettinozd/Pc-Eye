@@ -45,6 +45,8 @@ Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-e
 
 6. **Visual Inspection & Set-of-Marks (`vision`)**:
    - Call `pc_eye_vision` (or `pc-eye vision --marks` / `--zoom x,y` / `--region x,y,w,h`) to capture an in-memory screenshot with `dhash_hex`, `pixel_diff_pct`, and `--marks` (draws numbered `[1]`, `[2]` boxes over AT-SPI2 / OCR / high-contrast elements).
+   - `pc-eye vision --frames 10 --interval-ms 100` captures a zero-disk frame sequence (per-frame dHash, brightness, change %, and the frame where motion settled) to verify animations; `--out <path>` saves only the last frame.
+   - `pc-eye ui` returns `perception_mode: "hybrid-atspi-ocr"` when the AT-SPI tree is trivial (e.g. WebKitGTK/Tauri expose a single empty "frame"); OCR marks are numbered after the AT-SPI ones.
 
 7. **Act Deterministically (`click-ui`, `input`, `window`, `launch`, `director`)**:
    - **Semantic / OCR / Mark Click & Direct D-Bus Invocation**:

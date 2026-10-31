@@ -114,7 +114,9 @@ pub enum HyprDispatch {
     CloseWindow(String),
     MoveToWorkspaceSilent { workspace: String, address: String },
     ToggleFloat(Option<String>),
-    Fullscreen,
+    /// `maximized=false` gerçek tam ekran, `true` yalnız büyütme. `state`: `None` geçiş (toggle),
+    /// `Some(true)` kur, `Some(false)` kaldır. Hedef pencere yoksa aktif pencere.
+    Fullscreen { maximized: bool, state: Option<bool>, window: Option<String> },
     /// `X Y` mutlak konum; hedef pencere adresi (yoksa aktif pencere).
     MoveExact { coords: String, window: Option<String> },
     /// `W H` mutlak boyut; hedef pencere adresi (yoksa aktif pencere).
@@ -158,7 +160,19 @@ impl HyprDispatch {
             Self::ToggleFloat(Some(a)) => {
                 format!("hl.dsp.window.float({{action=\"toggle\", window={}}})", win(a))
             }
-            Self::Fullscreen => "hl.dsp.window.fullscreen({})".to_string(),
+            Self::Fullscreen { maximized, state, window } => {
+                let mut fields = vec![format!(
+                    "mode=\"{}\"",
+                    if *maximized { "maximized" } else { "fullscreen" }
+                )];
+                if let Some(on) = state {
+                    fields.push(format!("action=\"{}\"", if *on { "set" } else { "unset" }));
+                }
+                if let Some(a) = window {
+                    fields.push(format!("window={}", win(a)));
+                }
+                format!("hl.dsp.window.fullscreen({{{}}})", fields.join(", "))
+            }
             Self::MoveExact { coords, window } => {
                 let w = window.as_deref().map(|a| format!(", window={}", win(a))).unwrap_or_default();
                 match two_nums(coords) {
@@ -176,6 +190,12 @@ impl HyprDispatch {
         }
     }
 
+    /// Klasik sözdizimi bu isteği aynı anlamla ifade edebiliyor mu? Hedefli/kur-kaldır fullscreen
+    /// edemez; oraya düşmek isteği yanlışlıkla kullanıcının aktif penceresine uygular.
+    pub fn legacy_equivalent(&self) -> bool {
+        !matches!(self, Self::Fullscreen { window: Some(_), .. } | Self::Fullscreen { state: Some(_), .. })
+    }
+
     /// Hyprland < 0.55 klasik dispatcher sözdizimi.
     pub fn legacy(&self) -> String {
         match self {
@@ -188,7 +208,10 @@ impl HyprDispatch {
             }
             Self::ToggleFloat(None) => "togglefloating".to_string(),
             Self::ToggleFloat(Some(a)) => format!("togglefloating address:{}", a),
-            Self::Fullscreen => "fullscreen 0".to_string(),
+            // Klasik sözdizimi hedef pencere/kur-kaldır desteklemez: aktif pencerede geçiş yapar.
+            Self::Fullscreen { maximized, .. } => {
+                format!("fullscreen {}", if *maximized { 1 } else { 0 })
+            }
             Self::MoveExact { coords, window: None } => format!("moveactive exact {}", coords),
             Self::MoveExact { coords, window: Some(a) } => {
                 format!("movewindowpixel exact {},address:{}", coords, a)
@@ -214,6 +237,9 @@ pub fn hypr_dispatch_cmd(d: &HyprDispatch) -> Result<String> {
     };
     let mut first_err = None;
     for (mode, cmd) in attempts {
+        if mode == 2 && !d.legacy_equivalent() {
+            continue;
+        }
         match hypr_dispatch(&cmd) {
             Ok(r) => {
                 DISPATCH_MODE.store(mode, Ordering::Relaxed);
@@ -643,5 +669,15 @@ mod dispatch_tests {
         assert_eq!(m.legacy(), "movetoworkspacesilent 2,address:0xab");
         assert_eq!(HyprDispatch::FocusWindow("0xab".into()).lua(), "hl.dsp.focus({window=\"address:0xab\"})");
         assert_eq!(HyprDispatch::FocusWorkspace("e+1".into()).lua(), "hl.dsp.focus({workspace=\"e+1\"})");
+        let f = HyprDispatch::Fullscreen { maximized: false, state: Some(true), window: Some("0xab".into()) };
+        assert_eq!(
+            f.lua(),
+            "hl.dsp.window.fullscreen({mode=\"fullscreen\", action=\"set\", window=\"address:0xab\"})"
+        );
+        // Hedefli istek klasik sözdizimine düşmemeli: o yol aktif pencereye uygulanır.
+        assert!(!f.legacy_equivalent());
+        let t = HyprDispatch::Fullscreen { maximized: false, state: None, window: None };
+        assert_eq!(t.lua(), "hl.dsp.window.fullscreen({mode=\"fullscreen\"})");
+        assert!(t.legacy_equivalent());
     }
 }

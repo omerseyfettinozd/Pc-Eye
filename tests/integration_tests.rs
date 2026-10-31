@@ -56,7 +56,7 @@ fn test_mcp_initialize_and_tools_list() {
     let tools = responses[1]["result"]["tools"]
         .as_array()
         .expect("tools should be an array");
-    assert_eq!(tools.len(), 12, "Expected 12 MCP tools");
+    assert_eq!(tools.len(), 13, "Expected 13 MCP tools");
 
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     assert!(names.contains(&"pc_eye_context"));

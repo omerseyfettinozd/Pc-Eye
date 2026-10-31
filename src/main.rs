@@ -153,11 +153,29 @@ enum Commands {
     /// Hyprland IPC üzerinden pencere ve çalışma alanı yönetimi
     Window {
         /// İşlem: focus | close | workspace | movetoworkspace | fullscreen | float | move | resize
+        /// (fullscreen --arg: on | max | off | toggle; --window verilirse o pencere)
         action: String,
         #[arg(long)]
         window: Option<String>,
         #[arg(long)]
         arg: Option<String>,
+    },
+
+    /// Sanal (headless) ekran: list | create | mode | remove — kullanıcının ekranından yalıtılmış çalışma alanı
+    Display {
+        /// İşlem: list | create | mode | remove
+        action: String,
+        /// Çıkış adı (create'te isteğe bağlı; yoksa HEADLESS-N)
+        #[arg(long)]
+        name: Option<String>,
+        /// Çözünürlük: "WxH" veya "WxH@R" (ör. 1500x940@60)
+        #[arg(long)]
+        mode: Option<String>,
+        /// Konum: "X,Y" veya "isolated" (varsayılan: diğer ekranların sağında 1000 px boşluk)
+        #[arg(long)]
+        position: Option<String>,
+        #[arg(long)]
+        scale: Option<f64>,
     },
 
     /// Uygulama başlatır, stdout/stderr logunu yakalar ve yeni pencerenin adresini döner
@@ -376,6 +394,22 @@ fn main() -> Result<()> {
         } => {
             let rec =
                 director::process_ctl::manage_window(&action, window.as_deref(), arg.as_deref())?;
+            println!("{}", serde_json::to_string_pretty(&rec)?);
+        }
+        Commands::Display {
+            action,
+            name,
+            mode,
+            position,
+            scale,
+        } => {
+            let rec = director::display::manage_display(
+                &action,
+                name.as_deref(),
+                mode.as_deref(),
+                position.as_deref(),
+                scale,
+            )?;
             println!("{}", serde_json::to_string_pretty(&rec)?);
         }
         Commands::Launch {

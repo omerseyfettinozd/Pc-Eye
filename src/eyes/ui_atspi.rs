@@ -324,7 +324,8 @@ fn collect_atspi_elements_for_window(
         });
 
     let win_class_lower = win.class.to_ascii_lowercase();
-    let mut matching_services = Vec::new();
+    let mut pid_services = Vec::new();
+    let mut name_services = Vec::new();
 
     for (service, root_path) in root_children {
         let conn_pid = atspi_get_service_pid(bus_addr, &service);
@@ -336,10 +337,15 @@ fn collect_atspi_elements_for_window(
         let name_matches = !app_name.is_empty()
             && (win_class_lower.contains(&app_name) || app_name.contains(&win_class_lower));
 
-        if pid_matches || name_matches {
-            matching_services.push((service, root_path));
+        if pid_matches {
+            pid_services.push((service, root_path));
+        } else if name_matches {
+            name_services.push((service, root_path));
         }
     }
+    // Ad eşleşmesi yalnız PID çözülemediğinde: aksi halde aynı adlı başka örneklerin
+    // (ikinci Firefox, eski bir süreç) elemanları bu pencerenin sonucuna karışır.
+    let matching_services = if pid_services.is_empty() { name_services } else { pid_services };
 
     let mut elements = Vec::new();
     let filter_lower = query_filter.map(|q| q.to_ascii_lowercase());
@@ -347,8 +353,26 @@ fn collect_atspi_elements_for_window(
     for (service, root_path) in matching_services {
         let mut queue = VecDeque::new();
         let mut visited = HashSet::new();
-        queue.push_back(root_path.clone());
-        visited.insert(root_path);
+        visited.insert(root_path.clone());
+        // Uygulamanın birden çok penceresi varsa yalnız başlığı bu pencereninki olanı tara.
+        let top_level = atspi_get_children(bus_addr, &service, &root_path).unwrap_or_default();
+        let same_title: Vec<String> = top_level
+            .iter()
+            .filter(|(srv, p)| {
+                *srv == service
+                    && atspi_get_string_prop(bus_addr, &service, p, "Name").as_deref()
+                        == Some(win.title.as_str())
+            })
+            .map(|(_, p)| p.clone())
+            .collect();
+        if top_level.len() > 1 && !same_title.is_empty() {
+            for p in same_title {
+                visited.insert(p.clone());
+                queue.push_back(p);
+            }
+        } else {
+            queue.push_back(root_path);
+        }
 
         let mut inspected_nodes = 0usize;
         while let Some(path) = queue.pop_front() {
@@ -362,10 +386,21 @@ fn collect_atspi_elements_for_window(
             let name =
                 atspi_get_string_prop(bus_addr, &service, &path, "Name").unwrap_or_default();
 
-            if let Some(extents) = atspi_get_extents(bus_addr, &service, &path) {
-                let [rx, ry, rw, rh] = extents;
+            // Wayland'de istemci ekrandaki yerini bilmez: GTK4 `SCREEN` için her elemanı (0,0)
+            // döndürür. `WINDOW` araç takımlarında pencereye göreli doğru konumu verir.
+            let extents = atspi_get_extents(bus_addr, &service, &path, ATSPI_COORD_WINDOW)
+                .map(|e| (e, true))
+                .or_else(|| {
+                    atspi_get_extents(bus_addr, &service, &path, ATSPI_COORD_SCREEN)
+                        .map(|e| (e, false))
+                });
+            if let Some(([rx, ry, rw, rh], window_relative)) = extents {
                 if rw > 2 && rh > 2 && (!name.is_empty() || is_interactive_role(&role)) {
-                    let (sx, sy) = resolve_screen_coordinates(rx, ry, rw, rh, win);
+                    let (sx, sy) = if window_relative {
+                        (win.x + rx, win.y + ry)
+                    } else {
+                        resolve_screen_coordinates(rx, ry, rw, rh, win)
+                    };
                     let matches_query = filter_lower
                         .as_ref()
                         .map(|q| {
@@ -759,7 +794,10 @@ fn atspi_get_string_prop(bus_addr: &str, service: &str, path: &str, prop: &str) 
     val.get("data")?.as_str().map(|s| s.to_string())
 }
 
-fn atspi_get_extents(bus_addr: &str, service: &str, path: &str) -> Option<[i64; 4]> {
+const ATSPI_COORD_SCREEN: u32 = 0;
+const ATSPI_COORD_WINDOW: u32 = 1;
+
+fn atspi_get_extents(bus_addr: &str, service: &str, path: &str, coord_type: u32) -> Option<[i64; 4]> {
     let out = Command::new("busctl")
         .arg(format!("--address={}", bus_addr))
         .args([
@@ -769,7 +807,7 @@ fn atspi_get_extents(bus_addr: &str, service: &str, path: &str) -> Option<[i64; 
             "org.a11y.atspi.Component",
             "GetExtents",
             "u",
-            "0",
+            &coord_type.to_string(),
             "--json=short",
         ])
         .output()

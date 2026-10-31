@@ -34,7 +34,9 @@ ROOT = Path(__file__).resolve().parent
 TASKS_DIR = ROOT / "tasks"
 RESULTS_DIR = ROOT / "results"
 FIXTURE = ROOT / "fixtures" / "eval_app.py"
-PCEYE = shutil.which("pc-eye") or str(Path.home() / ".local/bin/pc-eye")
+# Kurulu binary yerine yeni bir derlemeyi ölçmek için: PCEYE_BIN=target/release/pc-eye
+PCEYE = os.environ.get("PCEYE_BIN") or shutil.which("pc-eye") or str(Path.home() / ".local/bin/pc-eye")
+PCEYE = str(Path(PCEYE).resolve())
 DISPLAY_NAME = "PCEYE-EVAL"
 DISPLAY_MODE = "1600x900@30"
 

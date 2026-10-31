@@ -1,0 +1,10 @@
+{
+  "id": "logs-journal",
+  "scene": "journal",
+  "tags": ["background:logs"],
+  "prompt": "Sistem günlüğüne az önce \"{tag}\" etiketiyle bir hata kaydı düştü. Kayıttaki rapor kodu nedir?",
+  "probe": [
+    {"args": ["logs", "--limit", "100"], "expect_contains": ["{token}"]}
+  ],
+  "check": {"type": "answer", "expect": "{token}"}
+}

@@ -1,0 +1,897 @@
+{
+ "tier": "probe",
+ "started": "20261101-020052",
+ "seed": 576955636,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "35d1b28",
+ "summary": {
+  "tasks": [
+   {
+    "task": "crash-signal",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 28.9
+   },
+   {
+    "task": "logs-journal",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 28.2
+   },
+   {
+    "task": "ocr-canvas-read",
+    "runs": 3,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 129.9
+   },
+   {
+    "task": "terminal-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 457.4
+   },
+   {
+    "task": "ui-click-button-dbus",
+    "runs": 3,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 400.6
+   },
+   {
+    "task": "ui-click-button",
+    "runs": 3,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 777.9
+   },
+   {
+    "task": "ui-form-fill",
+    "runs": 3,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 1593.0
+   },
+   {
+    "task": "xray-port",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 34.2
+   }
+  ],
+  "pass_rate": 0.5,
+  "total_cost_usd": 0
+ },
+ "runs": [
+  {
+   "task": "crash-signal",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-crash-af3w",
+    "signal": "SIGBUS",
+    "signal_short": "BUS"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 27.1,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 27.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "crash-signal",
+   "attempt": 1,
+   "vars": {
+    "marker": "eval-crash-xkxk",
+    "signal": "SIGSEGV",
+    "signal_short": "SEGV"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 28.9,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 28.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "crash-signal",
+   "attempt": 2,
+   "vars": {
+    "marker": "eval-crash-tggw",
+    "signal": "SIGILL",
+    "signal_short": "ILL"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 29.1,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 29.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 0,
+   "vars": {
+    "tag": "eval-d4c6",
+    "token": "GX3UFY96"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 28.3,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 28.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 1,
+   "vars": {
+    "tag": "eval-4pen",
+    "token": "AR2TFVRA"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 28.2,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 28.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 2,
+   "vars": {
+    "tag": "eval-etlr",
+    "token": "C9V3TCMR"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 27.5,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 27.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 0,
+   "vars": {
+    "token": "74A-CTTU",
+    "pid": 1187791,
+    "title": "Eval Tuval WX3J"
+   },
+   "ok": false,
+   "detail": "ui:eksik: ['74A-CTTU']",
+   "ms": 144.2,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073eda0"
+     ],
+     "rc": 0,
+     "ms": 144.2,
+     "ok": false,
+     "note": "eksik: ['74A-CTTU']",
+     "stdout": "{\n  \"timestamp_ms\": 1793487660047,\n  \"window_address\": \"0x55aeb073eda0\",\n  \"window_class\": \"eval_app.py\",\n  \"window_title\": \"Eval Tuval WX3J\",\n  \"window_pid\": 1187791,\n  \"window_geometry\": [\n    3560,\n    0,\n    1600,\n    900\n  ],\n  \"a11y_bus_enabled\": true,\n  \"perception_mode\": \"hybrid-atspi-ocr\",\n  \"element_count\": 61,\n  \"elements\": [\n    {\n      \"mark\": 1,\n      \"role\": \"window\",\n      \"name\": \"Eval Tuval WX3J\",\n      \"value\": null,\n      \"description\": null,\n      \"states\": [\n        \"sensitive\",\n        \"showing\"\n      ],\n      \"actions\": [\n        \"click\",\n        \"dbus_do_action\"\n      ],\n      \"rel_bounds\": [\n        0,\n        0,\n        1600,\n        900\n      ],\n      \"screen_bounds\": [\n        3560,\n        0,\n        1600,\n        900\n      ],\n      \"click_point\": [\n        4360,\n        450\n      ],\n      \"dbus_service\": \":1.6437\",\n      \"dbus_path\": \"/org/gtk/Application/anonymous/a11y/caf80fb4_c0be_46f2_a9b7_cb22ae1891d8\"\n    },\n    {\n      \"mark\": 2,\n      \"role\": \"ocr-text\",\n      \"name\": \"Gizli kod:\",\n      \"value\": \"conf:95%\",\n      \"description\": \"Tesseract OCR metin bloğu\",\n      \"states\": [\n        \"showing\",\n        \"visible\",\n        \"enabled\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        66,\n        91,\n        126,\n        23\n      ],\n      \"screen_bounds\": [\n        3626,\n        91,\n        126,\n        23\n      ],\n      \"click_point\": [\n        3689,\n        102\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 3,\n      \"role\": \"ocr-text\",\n      \"name\": \"DUY-FKH8\",\n      \"value\": \"conf:93%\",\n      \"description\": \"Tesseract OCR metin bloğu\",\n      \"states\": [\n        \"showing\",\n        \"visible\",\n        \"enabled\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        69,\n        164,\n        254,\n        41\n      ],\n      \"screen_bounds\": [\n        3629,\n        164,\n        254,\n        41\n      ],\n      \"click_point\": [\n        3756,\n        184\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 4,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#3\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        0,\n        28,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3560,\n        28,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3580,\n        42\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 5,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#4\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        80,\n        0,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3640,\n        0,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3660,\n        14\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 6,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#5\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        160,\n        0,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3720,\n        0,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3740,\n        14\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 7,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#6\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"r"
+    }
+   ]
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 1,
+   "vars": {
+    "token": "UXP-4VAP",
+    "pid": 1187900,
+    "title": "Eval Tuval W268"
+   },
+   "ok": false,
+   "detail": "ui:eksik: ['UXP-4VAP']",
+   "ms": 129.9,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb081fba0"
+     ],
+     "rc": 0,
+     "ms": 129.9,
+     "ok": false,
+     "note": "eksik: ['UXP-4VAP']",
+     "stdout": "{\n  \"timestamp_ms\": 1793487661949,\n  \"window_address\": \"0x55aeb081fba0\",\n  \"window_class\": \"eval_app.py\",\n  \"window_title\": \"Eval Tuval W268\",\n  \"window_pid\": 1187900,\n  \"window_geometry\": [\n    3560,\n    0,\n    1600,\n    900\n  ],\n  \"a11y_bus_enabled\": true,\n  \"perception_mode\": \"hybrid-atspi-ocr\",\n  \"element_count\": 61,\n  \"elements\": [\n    {\n      \"mark\": 1,\n      \"role\": \"window\",\n      \"name\": \"Eval Tuval W268\",\n      \"value\": null,\n      \"description\": null,\n      \"states\": [\n        \"sensitive\",\n        \"showing\"\n      ],\n      \"actions\": [\n        \"click\",\n        \"dbus_do_action\"\n      ],\n      \"rel_bounds\": [\n        0,\n        0,\n        1600,\n        900\n      ],\n      \"screen_bounds\": [\n        3560,\n        0,\n        1600,\n        900\n      ],\n      \"click_point\": [\n        4360,\n        450\n      ],\n      \"dbus_service\": \":1.6465\",\n      \"dbus_path\": \"/org/gtk/Application/anonymous/a11y/f780bc27_53ca_4d87_b495_082027463738\"\n    },\n    {\n      \"mark\": 2,\n      \"role\": \"ocr-text\",\n      \"name\": \"Gizli kod:\",\n      \"value\": \"conf:95%\",\n      \"description\": \"Tesseract OCR metin bloğu\",\n      \"states\": [\n        \"showing\",\n        \"visible\",\n        \"enabled\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        66,\n        91,\n        126,\n        23\n      ],\n      \"screen_bounds\": [\n        3626,\n        91,\n        126,\n        23\n      ],\n      \"click_point\": [\n        3689,\n        102\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 3,\n      \"role\": \"ocr-text\",\n      \"name\": \"DUY-FKH8\",\n      \"value\": \"conf:93%\",\n      \"description\": \"Tesseract OCR metin bloğu\",\n      \"states\": [\n        \"showing\",\n        \"visible\",\n        \"enabled\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        69,\n        164,\n        254,\n        41\n      ],\n      \"screen_bounds\": [\n        3629,\n        164,\n        254,\n        41\n      ],\n      \"click_point\": [\n        3756,\n        184\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 4,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#3\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        0,\n        28,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3560,\n        28,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3580,\n        42\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 5,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#4\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        80,\n        0,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3640,\n        0,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3660,\n        14\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 6,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#5\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        160,\n        0,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3720,\n        0,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3740,\n        14\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 7,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#6\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"r"
+    }
+   ]
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 2,
+   "vars": {
+    "token": "RA7-ECVR",
+    "pid": 1188058,
+    "title": "Eval Tuval 6FK4"
+   },
+   "ok": false,
+   "detail": "ui:eksik: ['RA7-ECVR']",
+   "ms": 125.8,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb081fba0"
+     ],
+     "rc": 0,
+     "ms": 125.8,
+     "ok": false,
+     "note": "eksik: ['RA7-ECVR']",
+     "stdout": "{\n  \"timestamp_ms\": 1793487663619,\n  \"window_address\": \"0x55aeb081fba0\",\n  \"window_class\": \"eval_app.py\",\n  \"window_title\": \"Eval Tuval 6FK4\",\n  \"window_pid\": 1188058,\n  \"window_geometry\": [\n    3560,\n    0,\n    1600,\n    900\n  ],\n  \"a11y_bus_enabled\": true,\n  \"perception_mode\": \"hybrid-atspi-ocr\",\n  \"element_count\": 61,\n  \"elements\": [\n    {\n      \"mark\": 1,\n      \"role\": \"window\",\n      \"name\": \"Eval Tuval 6FK4\",\n      \"value\": null,\n      \"description\": null,\n      \"states\": [\n        \"sensitive\",\n        \"showing\"\n      ],\n      \"actions\": [\n        \"click\",\n        \"dbus_do_action\"\n      ],\n      \"rel_bounds\": [\n        0,\n        0,\n        1600,\n        900\n      ],\n      \"screen_bounds\": [\n        3560,\n        0,\n        1600,\n        900\n      ],\n      \"click_point\": [\n        4360,\n        450\n      ],\n      \"dbus_service\": \":1.6493\",\n      \"dbus_path\": \"/org/gtk/Application/anonymous/a11y/5624b694_9e57_4c47_b476_2ce4c74d6d00\"\n    },\n    {\n      \"mark\": 2,\n      \"role\": \"ocr-text\",\n      \"name\": \"Gizli kod:\",\n      \"value\": \"conf:95%\",\n      \"description\": \"Tesseract OCR metin bloğu\",\n      \"states\": [\n        \"showing\",\n        \"visible\",\n        \"enabled\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        66,\n        91,\n        126,\n        23\n      ],\n      \"screen_bounds\": [\n        3626,\n        91,\n        126,\n        23\n      ],\n      \"click_point\": [\n        3689,\n        102\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 3,\n      \"role\": \"ocr-text\",\n      \"name\": \"DUY-FKH8\",\n      \"value\": \"conf:93%\",\n      \"description\": \"Tesseract OCR metin bloğu\",\n      \"states\": [\n        \"showing\",\n        \"visible\",\n        \"enabled\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        69,\n        164,\n        254,\n        41\n      ],\n      \"screen_bounds\": [\n        3629,\n        164,\n        254,\n        41\n      ],\n      \"click_point\": [\n        3756,\n        184\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 4,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#3\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        0,\n        28,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3560,\n        28,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3580,\n        42\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 5,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#4\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        80,\n        0,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3640,\n        0,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3660,\n        14\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 6,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#5\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"rel_bounds\": [\n        160,\n        0,\n        40,\n        28\n      ],\n      \"screen_bounds\": [\n        3720,\n        0,\n        40,\n        28\n      ],\n      \"click_point\": [\n        3740,\n        14\n      ],\n      \"dbus_service\": \"\",\n      \"dbus_path\": \"\"\n    },\n    {\n      \"mark\": 7,\n      \"role\": \"icon-button\",\n      \"name\": \"icon:top-left#6\",\n      \"value\": null,\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"states\": [\n        \"visible\"\n      ],\n      \"actions\": [\n        \"click\"\n      ],\n      \"r"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 0,
+   "vars": {
+    "token": "ETXH2ENA",
+    "pid": 1188199,
+    "title": "Eval Terminal XHPC"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 453.3,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb081fba0"
+     ],
+     "rc": 0,
+     "ms": 453.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 1,
+   "vars": {
+    "token": "9JKP49N4",
+    "pid": 1188330,
+    "title": "Eval Terminal YXLT"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 462.1,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb081fba0"
+     ],
+     "rc": 0,
+     "ms": 462.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 2,
+   "vars": {
+    "token": "GMA9RC76",
+    "pid": 1188474,
+    "title": "Eval Terminal YFUE"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 457.4,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb081fba0"
+     ],
+     "rc": 0,
+     "ms": 457.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button-dbus",
+   "attempt": 0,
+   "vars": {
+    "target": "Üzüm",
+    "pid": 1188598,
+    "title": "Eval Düğmeler 9YY3"
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 413.3,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Üzüm",
+      "--prefer-dbus"
+     ],
+     "rc": 0,
+     "ms": 413.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button-dbus",
+   "attempt": 1,
+   "vars": {
+    "target": "Mavi",
+    "pid": 1188845,
+    "title": "Eval Düğmeler 3FYX"
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 400.6,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Mavi",
+      "--prefer-dbus"
+     ],
+     "rc": 0,
+     "ms": 400.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button-dbus",
+   "attempt": 2,
+   "vars": {
+    "target": "Çınar",
+    "pid": 1189088,
+    "title": "Eval Düğmeler FFV2"
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 390.4,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Çınar",
+      "--prefer-dbus"
+     ],
+     "rc": 0,
+     "ms": 390.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 0,
+   "vars": {
+    "target": "İncir",
+    "pid": 1189314,
+    "title": "Eval Düğmeler ATPD"
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 777.9,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb081fba0"
+     ],
+     "rc": 0,
+     "ms": 398.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "İncir"
+     ],
+     "rc": 0,
+     "ms": 379.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 1,
+   "vars": {
+    "target": "Ördek",
+    "pid": 1189709,
+    "title": "Eval Düğmeler JN9F"
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 759.2,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb081fba0"
+     ],
+     "rc": 0,
+     "ms": 386.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Ördek"
+     ],
+     "rc": 0,
+     "ms": 373.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 2,
+   "vars": {
+    "target": "Yeşil",
+    "pid": 1190092,
+    "title": "Eval Düğmeler 7DAN"
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 948.8,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb081fba0"
+     ],
+     "rc": 0,
+     "ms": 480.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Yeşil"
+     ],
+     "rc": 0,
+     "ms": 468.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Güneş",
+    "city": "Muğla",
+    "default_city": "İstanbul",
+    "pid": 1190486,
+    "title": "Eval Form 8EHH"
+   },
+   "ok": false,
+   "detail": "click-ui:Error: `Muğla` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın); uygulama çıktısı yok",
+   "ms": 1964.8,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "Ümit Güneş"
+     ],
+     "rc": 0,
+     "ms": 665.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 330.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "İstanbul"
+     ],
+     "rc": 0,
+     "ms": 326.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Muğla"
+     ],
+     "rc": 1,
+     "ms": 269.2,
+     "ok": false,
+     "note": "Error: `Muğla` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın)",
+     "stdout": ""
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 373.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Doğan Çelik",
+    "city": "Şanlıurfa",
+    "default_city": "Çanakkale",
+    "pid": 1191147,
+    "title": "Eval Form GL9H"
+   },
+   "ok": false,
+   "detail": "click-ui:Error: `Şanlıurfa` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın); uygulama çıktısı yok",
+   "ms": 1593.0,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "Doğan Çelik"
+     ],
+     "rc": 0,
+     "ms": 314.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 346.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Çanakkale"
+     ],
+     "rc": 0,
+     "ms": 328.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Şanlıurfa"
+     ],
+     "rc": 1,
+     "ms": 266.0,
+     "ok": false,
+     "note": "Error: `Şanlıurfa` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın)",
+     "stdout": ""
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 338.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "İlkay Çelik",
+    "city": "Şanlıurfa",
+    "default_city": "Muğla",
+    "pid": 1191807,
+    "title": "Eval Form 8LK8"
+   },
+   "ok": false,
+   "detail": "click-ui:Error: `Şanlıurfa` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın); uygulama çıktısı yok",
+   "ms": 1576.6,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "İlkay Çelik"
+     ],
+     "rc": 0,
+     "ms": 271.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 373.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Muğla"
+     ],
+     "rc": 0,
+     "ms": 337.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Şanlıurfa"
+     ],
+     "rc": 1,
+     "ms": 253.8,
+     "ok": false,
+     "note": "Error: `Şanlıurfa` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın)",
+     "stdout": ""
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb081fba0",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 340.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "xray-port",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-svc-wu8m",
+    "port": "24130",
+    "pid": 1192451
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 34.2,
+   "steps": [
+    {
+     "args": [
+      "xray",
+      "--pid",
+      "1192451"
+     ],
+     "rc": 0,
+     "ms": 34.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "xray-port",
+   "attempt": 1,
+   "vars": {
+    "marker": "eval-svc-r32f",
+    "port": "46593",
+    "pid": 1192561
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 33.7,
+   "steps": [
+    {
+     "args": [
+      "xray",
+      "--pid",
+      "1192561"
+     ],
+     "rc": 0,
+     "ms": 33.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "xray-port",
+   "attempt": 2,
+   "vars": {
+    "marker": "eval-svc-lywe",
+    "port": "58428",
+    "pid": 1192618
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 35.7,
+   "steps": [
+    {
+     "args": [
+      "xray",
+      "--pid",
+      "1192618"
+     ],
+     "rc": 0,
+     "ms": 35.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  }
+ ]
+}

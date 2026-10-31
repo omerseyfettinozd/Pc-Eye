@@ -1,0 +1,9 @@
+{
+  "id": "ui-click-button-dbus",
+  "scene": "buttons",
+  "tags": ["perception:atspi", "action:dbus"],
+  "probe": [
+    {"args": ["click-ui", "--window", "{window}", "--name", "{target}", "--prefer-dbus"], "settle_ms": 300}
+  ],
+  "check": {"type": "out_json", "expect": {"clicked": "{target}"}}
+}

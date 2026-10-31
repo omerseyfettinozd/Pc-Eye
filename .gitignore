@@ -1,3 +1,5 @@
 /target
 /.pc-eye-runtime
 *.tmp
+__pycache__/
+/evals/results/transcripts/

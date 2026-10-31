@@ -1,0 +1,10 @@
+{
+  "id": "ocr-canvas-read",
+  "scene": "canvas",
+  "tags": ["perception:ocr"],
+  "prompt": "\"{title}\" başlıklı pencerede bir gizli kod yazıyor. Kod nedir?",
+  "probe": [
+    {"args": ["ui", "--window", "{window}"], "expect_contains": ["{token}"]}
+  ],
+  "check": {"type": "answer", "expect": "{token}"}
+}

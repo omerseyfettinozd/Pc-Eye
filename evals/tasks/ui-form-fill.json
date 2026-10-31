@@ -1,0 +1,14 @@
+{
+  "id": "ui-form-fill",
+  "scene": "form",
+  "tags": ["perception:atspi", "action:type", "action:dropdown", "turkish"],
+  "prompt": "\"{title}\" başlıklı penceredeki formu doldur: ad soyad \"{name}\", bültene abone olsun, şehir \"{city}\". Sonra Gönder'e bas.",
+  "probe": [
+    {"args": ["click-ui", "--window", "{window}", "--name", "Ad Soyad", "--set-text", "{name}"], "settle_ms": 200},
+    {"args": ["click-ui", "--window", "{window}", "--name", "Bültene abone ol"], "settle_ms": 200},
+    {"args": ["click-ui", "--window", "{window}", "--name", "{default_city}"], "settle_ms": 400},
+    {"args": ["click-ui", "--window", "{window}", "--name", "{city}"], "settle_ms": 300},
+    {"args": ["click-ui", "--window", "{window}", "--name", "Gönder"], "settle_ms": 300}
+  ],
+  "check": {"type": "out_json", "expect": {"name": "{name}", "newsletter": true, "city": "{city}"}}
+}

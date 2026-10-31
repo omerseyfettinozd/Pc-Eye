@@ -1,0 +1,10 @@
+{
+  "id": "xray-port",
+  "scene": "port",
+  "tags": ["background:process", "background:network"],
+  "prompt": "Komut satırında \"{marker}\" geçen, penceresi olmayan bir arka plan süreci var. Bu süreç hangi TCP portunu dinliyor?",
+  "probe": [
+    {"args": ["xray", "--pid", "{pid}"], "expect_contains": ["{port}"]}
+  ],
+  "check": {"type": "answer", "expect": "{port}"}
+}

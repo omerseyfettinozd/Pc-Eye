@@ -1,0 +1,10 @@
+{
+  "id": "terminal-read",
+  "scene": "terminal",
+  "tags": ["perception:terminal"],
+  "prompt": "\"{title}\" başlıklı terminalde bir dağıtım anahtarı yazdırıldı. Anahtar nedir?",
+  "probe": [
+    {"args": ["ui", "--window", "{window}"], "expect_contains": ["{token}"]}
+  ],
+  "check": {"type": "answer", "expect": "{token}"}
+}

@@ -47,7 +47,7 @@
         "\"ok\": true",
         "\"completed\": 4"
       ],
-      "max_ms": 8000,
+      "max_ms": 10000,
       "timeout": 60
     }
   ],

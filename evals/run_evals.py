@@ -93,15 +93,22 @@ def pceye(*args, timeout=30):
     return CallResult(rc, (time.perf_counter() - start) * 1000, out, err)
 
 
-def hyprctl_json(*args):
-    out = subprocess.run(["hyprctl", "-j", *args], capture_output=True, text=True).stdout
+# `--session` modunda sahneler ajan oturumunun Hyprland'ındadır; kullanıcı denetimleri dış örnekte kalır.
+SCENE_HYPR_SIG = None
+
+
+def hyprctl_json(*args, scene=False):
+    inst = ["--instance", SCENE_HYPR_SIG] if scene and SCENE_HYPR_SIG else []
+    out = subprocess.run(["hyprctl", *inst, "-j", *args], capture_output=True, text=True).stdout
     return json.loads(out or "null")
 
 
 class Sandbox:
     """Kullanıcının ekranına bitişik olmayan headless çıkış ve orada açılan süreçler."""
 
-    def __init__(self):
+    def __init__(self, session=None):
+        self.session = session
+        self.label = DISPLAY_NAME
         self.workspace = None
         self.pids = []
         self.cleanups = []
@@ -109,6 +116,8 @@ class Sandbox:
         self.user_window = None
 
     def __enter__(self):
+        if self.session:
+            return self._enter_session()
         if any(m["name"] == DISPLAY_NAME for m in hyprctl_json("monitors", "all")):
             pceye("display", "remove", "--name", DISPLAY_NAME)
         r = pceye("display", "create", "--name", DISPLAY_NAME, "--mode", DISPLAY_MODE)
@@ -118,8 +127,28 @@ class Sandbox:
         self.workspace = str(json.loads(receipt["details"])["workspace_id"])
         return self
 
+    def _enter_session(self):
+        global SCENE_HYPR_SIG
+        os.environ.pop("PC_EYE_SESSION", None)
+        r = pceye("session", "start", self.session)
+        info = r.json()
+        if r.rc != 0 or not info:
+            raise RuntimeError(f"ajan oturumu açılamadı: {r.stderr or r.stdout}")
+        SCENE_HYPR_SIG = info["signature"]
+        # Bundan sonra her pc-eye çağrısı (CLI, ajanın MCP sunucusu) oturumun içindedir.
+        os.environ["PC_EYE_SESSION"] = self.session
+        self.workspace = "1"
+        self.label = f"ajan oturumu {self.session}"
+        return self
+
     def __exit__(self, *exc):
+        global SCENE_HYPR_SIG
         self.kill_all()
+        if self.session:
+            os.environ.pop("PC_EYE_SESSION", None)
+            SCENE_HYPR_SIG = None
+            pceye("session", "stop", self.session)
+            return
         pceye("display", "remove", "--name", DISPLAY_NAME)
 
     def remember_user_focus(self):
@@ -127,7 +156,16 @@ class Sandbox:
         active = hyprctl_json("activewindow") or {}
         self.user_window = active.get("address")
 
+    def user_disturbed(self):
+        """Görev kullanıcının imlecini ya da odağını değiştirdi mi (yalnız ajan oturumunda anlamlı)."""
+        cursor = hyprctl_json("cursorpos")
+        active = (hyprctl_json("activewindow") or {}).get("address")
+        return cursor != self.user_cursor or active != self.user_window
+
     def restore_user_focus(self):
+        # Ajan oturumunda geri verilecek bir şey olmamalı; ölçüm dürüst kalsın diye düzeltilmez.
+        if self.session:
+            return
         # Görev, imleci ve odağı sanal ekrana taşımış olabilir; kullanıcıya geri ver.
         if self.user_window:
             subprocess.run(["hyprctl", "dispatch", "focuswindow", f"address:{self.user_window}"],
@@ -227,7 +265,7 @@ def scene_canvas(sb, rng, work):
     text = f"{token(rng, 3)}-{token(rng, 4)}"
     title = f"Eval Tuval {token(rng, 4)}"
     window, pid = sb.launch_window(fixture_cmd("canvas", work / "out.json", title, text=text))
-    win = next(c for c in hyprctl_json("clients") if c["address"] == window)
+    win = next(c for c in hyprctl_json("clients", scene=True) if c["address"] == window)
     return Scene({"token": text, "window": window, "pid": pid, "title": title, "win_x": win["at"][0]})
 
 
@@ -555,7 +593,7 @@ def run_agent(task, scene, sb, work, args, transcript):
     mcp = work / "mcp.json"
     mcp.write_text(json.dumps({"mcpServers": {"pc-eye": {
         "command": PCEYE, "args": ["mcp"],
-        "env": {"PC_EYE_RECIPES": os.environ["PC_EYE_RECIPES"]},
+        "env": {k: os.environ[k] for k in ("PC_EYE_RECIPES", "PC_EYE_SESSION") if k in os.environ},
     }}}))
     cmd = [
         "claude", "-p", fill(task["prompt"], scene.vars),
@@ -566,7 +604,7 @@ def run_agent(task, scene, sb, work, args, transcript):
         "--setting-sources", "project,local",
         "--no-session-persistence",
         "--max-budget-usd", str(args.budget),
-        "--append-system-prompt", AGENT_SYSTEM.format(display=DISPLAY_NAME, workspace=sb.workspace),
+        "--append-system-prompt", AGENT_SYSTEM.format(display=sb.label, workspace=sb.workspace),
     ]
     if args.model:
         cmd += ["--model", args.model]
@@ -692,6 +730,7 @@ def main():
     ap.add_argument("--timeout", type=int, default=300, help="agent görev süresi sınırı (sn)")
     ap.add_argument("--budget", type=float, default=1.0, help="agent görev başı $ sınırı")
     ap.add_argument("--no-save", action="store_true")
+    ap.add_argument("--session", help="görevleri bu adla açılan ayrı ajan oturumunda (iç içe Hyprland) koş")
     args = ap.parse_args()
 
     tasks = select_tasks(load_tasks(), args)
@@ -704,7 +743,8 @@ def main():
 
     seed = args.seed if args.seed is not None else random.randrange(1 << 30)
     rng = random.Random(seed)
-    stamp = time.strftime("%Y%m%d-%H%M%S")
+    # Paralel koşucular (farklı oturumlar) aynı saniyede başlayabilir: dosyalar çakışmasın.
+    stamp = time.strftime("%Y%m%d-%H%M%S") + (f"-{args.session}" if args.session else "")
     work_root = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "pc-eye-eval" / stamp
     transcripts = RESULTS_DIR / "transcripts" / stamp
     if args.tier == "agent":
@@ -712,8 +752,8 @@ def main():
 
     runs = []
     api_down = False
-    with Sandbox() as sb:
-        print(f"sanal ekran {DISPLAY_NAME} → çalışma alanı {sb.workspace}; seed={seed}")
+    with Sandbox(args.session) as sb:
+        print(f"{sb.label} → çalışma alanı {sb.workspace}; seed={seed}")
         for task in tasks:
             for i in range(args.repeat):
                 work = work_root / f"{task['id']}-{i}"
@@ -739,6 +779,8 @@ def main():
                     record.update({"ok": False, "setup_error": True, "detail": str(e), "ms": 0})
                 finally:
                     sb.kill_all()
+                    if sb.session:
+                        record["user_disturbed"] = sb.user_disturbed()
                     sb.restore_user_focus()
                     # $XDG_RUNTIME_DIR küçük bir RAM diskidir (masaüstü soketleri de orada);
                     # Firefox profilleri birikince 3 GB'ı doldurup oturumu tehlikeye attı.
@@ -762,8 +804,13 @@ def main():
         "git_commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
                                      capture_output=True, text=True).stdout.strip(),
         "summary": summarize(runs),
+        "session": args.session,
         "runs": runs,
     }
+    if args.session:
+        disturbed = sum(bool(r.get("user_disturbed")) for r in runs)
+        report["user_disturbed_runs"] = disturbed
+        print(f"kullanıcı imleci/odağı değişen koşu: {disturbed}/{len(runs)}")
     out = RESULTS_DIR / f"{stamp}-{args.tier}.json"
     prev = previous_result(args.tier, out)
     print_report(report, prev)

@@ -19,7 +19,11 @@ struct LastFrameMeta {
 
 pub fn runtime_dir() -> PathBuf {
     let base = env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
-    let dir = PathBuf::from(base).join("pc-eye");
+    let mut dir = PathBuf::from(base).join("pc-eye");
+    // Ajan oturumunun daemon'u, mark kayıtları ve yakalamaları kullanıcınınkilerle karışmaz.
+    if let Some(name) = crate::session::active_name() {
+        dir = dir.join("sessions").join(name);
+    }
     let _ = fs::create_dir_all(dir.join("captures"));
     dir
 }

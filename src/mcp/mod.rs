@@ -187,6 +187,7 @@ where
 }
 
 fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
+    crate::session::ensure_alive()?;
     let then_mode = args.get("then").and_then(|v| v.as_str()).unwrap_or("none");
 
     let mut items = match name {

@@ -3,6 +3,7 @@ pub mod director;
 pub mod eyes;
 pub mod mcp;
 pub mod protocol;
+pub mod session;
 pub mod web;
 
 use anyhow::Result;
@@ -107,6 +108,13 @@ enum Commands {
         program: String,
         #[arg(long)]
         allow_protected: bool,
+    },
+
+    /// Ajan oturumu: ajana ayrı (iç içe) bir Hyprland; kullanıcının imleci ve odağı değişmez.
+    /// İçinde çalışmak için: PC_EYE_SESSION=<ad> pc-eye <komut> (MCP için aynı ortam değişkeni)
+    Session {
+        #[command(subcommand)]
+        op: SessionOp,
     },
 
     /// Tarif hafızası: başarılı akışları listele, göster, model olmadan yeniden oynat
@@ -288,6 +296,23 @@ enum Commands {
 }
 
 #[derive(Subcommand, Debug)]
+enum SessionOp {
+    /// Oturumu aç (çalışıyorsa olduğu gibi döner)
+    Start {
+        #[arg(default_value = "agent")]
+        name: String,
+        #[arg(long, default_value = "1600x900")]
+        mode: String,
+    },
+    /// Oturumu kapat (iç Hyprland + headless çıkış)
+    Stop {
+        #[arg(default_value = "agent")]
+        name: String,
+    },
+    List,
+}
+
+#[derive(Subcommand, Debug)]
 enum RecipeOp {
     /// Kayıtlı tarifler (verilirse yalnız bu pencereye uyanlar)
     List {
@@ -312,6 +337,9 @@ enum RecipeOp {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    if !matches!(cli.command, Commands::Session { .. }) {
+        session::activate(!matches!(cli.command, Commands::Daemon))?;
+    }
 
     match cli.command {
         Commands::Doctor => {
@@ -427,6 +455,14 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&out)?);
         }
         Commands::Recipe { op } => run_recipe_command(op)?,
+        Commands::Session { op } => {
+            let out = match op {
+                SessionOp::Start { name, mode } => session::start(&name, &mode)?,
+                SessionOp::Stop { name } => session::stop(&name)?,
+                SessionOp::List => serde_json::json!(session::list()),
+            };
+            println!("{}", serde_json::to_string_pretty(&out)?);
+        }
         Commands::Ps { query, port, limit } => {
             let found = eyes::process_xray::find_processes(query.as_deref(), port, limit)?;
             println!("{}", serde_json::to_string_pretty(&found)?);

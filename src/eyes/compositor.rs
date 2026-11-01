@@ -44,6 +44,11 @@ pub fn resolve_hyprland_socket(socket_name: &str) -> Result<PathBuf> {
             return Ok(p);
         }
     }
+    // Ajan oturumunda başka bir örneğe düşmek, ajanın kullanıcının masaüstünü sürmesi demektir:
+    // iç Hyprland kapanınca ajan kullanıcının pencerelerini görmeye başlamıştı (paralel ölçüm 125142).
+    if let Some(name) = crate::session::active_name() {
+        return Err(anyhow!("ajan oturumu `{}` kapalı: Hyprland soketi yok ({})", name, socket_name));
+    }
 
     let hypr_dir = PathBuf::from(&runtime_dir).join("hypr");
     if hypr_dir.is_dir() {
@@ -121,6 +126,8 @@ pub enum HyprDispatch {
     MoveExact { coords: String, window: Option<String> },
     /// `W H` mutlak boyut; hedef pencere adresi (yoksa aktif pencere).
     ResizeExact { coords: String, window: Option<String> },
+    /// Komutu Hyprland üzerinden başlatır; pencere odak çalmadan verilen çalışma alanında açılır.
+    ExecSilent { command: String, workspace: String },
 }
 
 fn lua_str(s: &str) -> String {
@@ -187,6 +194,11 @@ impl HyprDispatch {
                     None => format!("hl.dsp.window.resize({{x={}{}}})", lua_str(coords), w),
                 }
             }
+            Self::ExecSilent { command, workspace } => format!(
+                "hl.dsp.exec_cmd({}, {{ workspace = {} }})",
+                lua_str(command),
+                lua_str(&format!("{} silent", workspace))
+            ),
         }
     }
 
@@ -220,6 +232,7 @@ impl HyprDispatch {
             Self::ResizeExact { coords, window: Some(a) } => {
                 format!("resizewindowpixel exact {},address:{}", coords, a)
             }
+            Self::ExecSilent { command, workspace } => format!("exec [workspace {} silent] {}", workspace, command),
         }
     }
 }

@@ -72,6 +72,24 @@ Ajan katmanı, Sonnet 5.5 ×3, aynı 7 görev:
 
 | 115603 | F3: Firefox metin okuma düzeltmesi, tarif önerisi ana ipucunda (+tarif görevi) | 30/30 (Haiku) | $0.063 (Haiku) | 27.9K | 101 |
 
+| 130530 | F4: ajan oturumu (iç içe Hyprland), 2 paralel koşucu | 60/60 (Haiku, 2×30) | $0.115 (2×) | 28.8K | — |
+
+**F4, ajan oturumu (`--session`):** görevler kullanıcının oturumunda değil, ajana ayrılmış iç içe bir
+Hyprland'da koşar; koşucu her görevden önce/sonra kullanıcının imlecini ve aktif penceresini karşılaştırır
+(`user_disturbed`). İki koşucu aynı anda (`--session a1` / `--session a2`), her biri tüm set:
+60/60 başarı, **kullanıcı imleci/odağı 0/60 koşuda değişti**, 60 koşu 419 s duvar saatinde (tek koşucu
+30 koşu ~360 s; görev başı süre paralellikle uzamadı). Probe katmanı oturumda 21/21 (bir koşuda
+bilinen seyrek `ui-click-miss-detect` kararsızlığı; kullanıcı oturumunda da 6'da 1 görülüyor).
+İlk paralel deneme (125142, sonuç dosyaları duruyor) iki hata buldu: aynı anda açılan iki oturum aynı
+iç örneği sahipleniyordu (biri kapanınca öteki gitti) ve iç örnek kapanınca pc-eye **kullanıcının
+Hyprland'ına düşüyordu** (ajan kullanıcının pencerelerini görmeye başladı). İkisi de düzeltildi:
+örnek, başlatılırken verilen etiketle `/proc/<pid>/environ`'dan tanınır; oturum modunda başka örneğe
+düşülmez ve MCP kapanmış oturum için açık hata döner.
+
+```bash
+python3 evals/run_evals.py agent --session a1 --model claude-haiku-5-5
+```
+
 **Model kıyası (F3, aynı makine, aynı görevler ×3):**
 
 | | Sonnet 5.5 (074248, F2) | Haiku 5.5 (115603, F3) |

@@ -460,8 +460,24 @@ def run_probe(task, scene):
         step_ok = r.rc == 0
         missing = [e for e in fill(step.get("expect_contains", []), scene.vars)
                    if e.casefold() not in r.stdout.casefold()]
-        step_ok = step_ok and not missing
-        note = r.stderr.strip()[:200] if r.rc else (f"eksik: {missing}" if missing else "ok")
+        present = [e for e in fill(step.get("expect_absent", []), scene.vars)
+                   if e.casefold() in r.stdout.casefold()]
+        # Süre bütçesi: gecikme gerilemesi de başarısızlıktır.
+        too_slow = step.get("max_ms") is not None and r.ms > step["max_ms"]
+        step_ok = step_ok and not missing and not present and not too_slow
+        # `save`: çıktının üst düzey JSON alanını sonraki adımlar için değişkene al (ör. snap kimliği).
+        out = r.json() if step.get("save") else None
+        for var, key in (step.get("save") or {}).items():
+            if isinstance(out, dict) and key in out:
+                scene.vars[var] = out[key]
+        if r.rc:
+            note = r.stderr.strip()[:200]
+        elif missing or present:
+            note = f"eksik: {missing}" if missing else f"olmamalıydı: {present}"
+        elif too_slow:
+            note = f"yavaş: {r.ms:.0f} ms > {step['max_ms']} ms"
+        else:
+            note = "ok"
         steps.append({"args": args, "rc": r.rc, "ms": round(r.ms, 1), "ok": step_ok, "note": note})
         if not step_ok:
             steps[-1]["stdout"] = r.stdout[:30000]

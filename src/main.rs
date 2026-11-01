@@ -48,6 +48,9 @@ enum Commands {
         icons: bool,
         #[arg(long)]
         seq_since: Option<u64>,
+        /// Önceki snapshot'ın `snap` kimliği: yalnız değişenler (daemon üzerinden çalışır)
+        #[arg(long)]
+        since: Option<u64>,
     },
 
     /// Göz 2a: Hedef pencerenin AT-SPI2 semantik UI ağacını (states ve value dahil) veya Terminal PTY durumunu okur
@@ -313,8 +316,17 @@ fn main() -> Result<()> {
             let rep = daemon::server::build_context_report(seq_since)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
         }
-        Commands::Snapshot { window, max_elements, icons, seq_since } => {
-            let snap = eyes::snapshot::build_snapshot(window.as_deref(), max_elements, icons, seq_since)?;
+        Commands::Snapshot { window, max_elements, icons, seq_since, since } => {
+            // Daemon'da olay güdümlü önbellek ve snapshot geçmişi (delta) yaşar; yoksa yerelde.
+            daemon::server::ensure_background_daemon();
+            let args = serde_json::json!({
+                "window": window, "max_elements": max_elements, "icons": icons,
+                "seq_since": seq_since, "since": since,
+            });
+            let snap = match daemon::rpc::request("snapshot", args) {
+                Some(reply) => reply.map_err(|e| anyhow::anyhow!(e))?,
+                None => eyes::snapshot::build_snapshot(window.as_deref(), max_elements, icons, seq_since, since)?,
+            };
             println!("{}", serde_json::to_string_pretty(&snap)?);
         }
         Commands::Ui {
@@ -322,11 +334,16 @@ fn main() -> Result<()> {
             query,
             max_elements,
         } => {
-            let rep = eyes::ui_atspi::inspect_window_ui(
-                window.as_deref(),
-                query.as_deref(),
-                max_elements,
-            )?;
+            daemon::server::ensure_background_daemon();
+            let args = serde_json::json!({ "window": window, "query": query, "max_elements": max_elements });
+            let rep = match daemon::rpc::request("ui", args) {
+                Some(reply) => reply.map_err(|e| anyhow::anyhow!(e))?,
+                None => serde_json::to_value(eyes::ui_atspi::inspect_window_ui(
+                    window.as_deref(),
+                    query.as_deref(),
+                    max_elements,
+                )?)?,
+            };
             println!("{}", serde_json::to_string_pretty(&rep)?);
         }
         Commands::Vision {

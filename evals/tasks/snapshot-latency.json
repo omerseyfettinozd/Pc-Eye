@@ -1,0 +1,11 @@
+{
+  "id": "snapshot-latency",
+  "scene": "form",
+  "tags": ["tool:snapshot", "daemon", "latency"],
+  "probe": [
+    {"args": ["snapshot", "--window", "{title}"], "expect_contains": ["Ad Soyad"]},
+    {"args": ["snapshot", "--window", "{title}"], "expect_contains": ["Ad Soyad"], "max_ms": 25},
+    {"args": ["ui", "--window", "{title}"], "expect_contains": ["Ad Soyad"], "max_ms": 60}
+  ],
+  "check": {"type": "none"}
+}

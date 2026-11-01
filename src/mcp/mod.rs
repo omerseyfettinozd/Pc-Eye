@@ -31,6 +31,8 @@ const TOOL_TIMEOUT_SLACK_MS: u64 = 10_000;
 /// Standart Model Context Protocol (MCP) JSON-RPC 2.0 stdio sunucusunu çalıştırır.
 pub fn run_mcp_stdio_server() -> Result<()> {
     let _bg_state = spawn_background_collectors();
+    // Uzun yaşayan süreç: AT-SPI olaylarını dinleyip eleman önbelleğini geçerli tut.
+    crate::eyes::a11y_events::start();
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
@@ -192,7 +194,8 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             let max = args.get("max_elements").and_then(|v| v.as_u64()).unwrap_or(40) as usize;
             let icons = args.get("icons").and_then(|v| v.as_bool()).unwrap_or(false);
             let seq_since = args.get("seq_since").and_then(|v| v.as_u64());
-            let snap = crate::eyes::snapshot::build_snapshot(win, max, icons, seq_since)?;
+            let since = args.get("since").and_then(|v| v.as_u64());
+            let snap = crate::eyes::snapshot::build_snapshot(win, max, icons, seq_since, since)?;
             // Kompakt JSON: girintiler bu araçta yükün belirgin bir kısmı olurdu.
             vec![json!({ "type": "text", "text": serde_json::to_string(&snap)? })]
         }
@@ -566,7 +569,7 @@ fn mcp_tools_schema() -> Value {
     json!([
         {
             "name": "pc_eye_snapshot",
-            "description": "İLK BUNU ÇAĞIR. Tek çağrıda token-dostu durum: monitörler, pencereler (adres/başlık/çalışma alanı), hedef pencerenin etkileşimli elemanları (mark, rol, ad, değer, durum, tıklama noktası `at`; terminalse görünür satırlar) ve seq_since ile yalnız yeni olaylar. Tıklamak için pc_eye_click_ui mark/name; ayrıntı gerekirse ui/vision/context.",
+            "description": "İLK BUNU ÇAĞIR. Tek çağrıda token-dostu durum: monitörler, pencereler (adres/başlık/çalışma alanı), hedef pencerenin etkileşimli elemanları (mark, rol, ad, değer, durum, tıklama noktası `at`; terminalse görünür satırlar) since ile yalnız değişenler, seq_since ile yalnız yeni olaylar. Tıklamak için pc_eye_click_ui mark/name; ayrıntı gerekirse ui/vision/context.",
             "annotations": { "readOnlyHint": true },
             "inputSchema": {
                 "type": "object",
@@ -574,6 +577,7 @@ fn mcp_tools_schema() -> Value {
                     "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; boşsa aktif pencere." },
                     "max_elements": { "type": "integer", "description": "En fazla eleman (varsayılan 40)." },
                     "icons": { "type": "boolean", "description": "Algısal ikon tahminlerini de ekle (varsayılan: metinli eleman varsa elenir)." },
+                    "since": { "type": "integer", "description": "Önceki snapshot'ın snap değeri: yalnız değişen pencere ve elemanları döner (unchanged: true ise hiçbir şey değişmedi)." },
                     "seq_since": { "type": "integer", "description": "Önceki snapshot'ın seq değeri: yalnız sonraki pencere olaylarını ekler." }
                 }
             }

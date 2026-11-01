@@ -1,3 +1,4 @@
+pub mod a11y_events;
 pub mod atspi_bus;
 pub mod audio_pipewire;
 pub mod compositor;

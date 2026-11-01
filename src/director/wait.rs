@@ -115,7 +115,9 @@ pub fn wait_for_condition(
         "ui_match" | "ui" => {
             let needle = match_str.ok_or_else(|| anyhow!("`ui_match` için `--match <AD>` gerekli"))?;
             while Instant::now() < deadline {
-                if let Ok(ui) = inspect_window_ui(window_addr, Some(needle), 40) {
+                if let Ok(ui) = crate::eyes::a11y_events::with_fresh_reads(|| {
+                    inspect_window_ui(window_addr, Some(needle), 40)
+                }) {
                     if let Some(first) = ui.elements.first() {
                         return Ok(WaitReport {
                             condition: "ui_match".to_string(),

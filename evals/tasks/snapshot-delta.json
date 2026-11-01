@@ -1,0 +1,12 @@
+{
+  "id": "snapshot-delta",
+  "scene": "buttons",
+  "tags": ["tool:snapshot", "daemon"],
+  "probe": [
+    {"args": ["snapshot", "--window", "{title}"], "expect_contains": ["{target}"], "save": {"snap": "snap"}},
+    {"args": ["snapshot", "--window", "{title}", "--since", "{snap}"], "expect_contains": ["\"unchanged\": true"], "expect_absent": ["\"elements\""], "save": {"snap2": "snap"}},
+    {"args": ["click-ui", "--window", "{title}", "--name", "{target}"], "settle_ms": 300},
+    {"args": ["snapshot", "--window", "{title}", "--since", "{snap2}"], "expect_contains": ["\"unchanged\": false", "Seçilen: {target}"]}
+  ],
+  "check": {"type": "out_json", "expect": {"clicked": "{target}"}}
+}

@@ -26,6 +26,8 @@ pub fn enforce_action_guard(
     target_window_addr: Option<&str>,
     allow_protected: bool,
 ) -> Result<()> {
+    // Her girdi eylemi buradan geçer: eleman önbellekleri (daemon/MCP) eylemden sonra taze okusun.
+    crate::eyes::a11y_events::bump_action_epoch();
     let desktop = capture_desktop_state()?;
 
     if desktop.auth_guard_tripped {

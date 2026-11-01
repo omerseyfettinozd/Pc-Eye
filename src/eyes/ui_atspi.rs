@@ -1,5 +1,5 @@
 use crate::daemon::ring_buffer::now_ms;
-use crate::eyes::atspi_bus;
+use crate::eyes::{a11y_events, atspi_bus};
 use crate::eyes::compositor::{capture_desktop_state, resolve_window_ref};
 use crate::eyes::process_xray::collect_app_cluster;
 use crate::protocol::types::{TerminalContext, UiElement, UiTreeReport, WindowInfo};
@@ -144,20 +144,32 @@ pub fn inspect_window_ui(
         // sonra gelir; o arada yalnız araç çubuğu görünür. Belge yoksa (yalnız tarayıcıda) en fazla
         // ~2,5 sn yeniden oku: ajanın bir turu boşa gitmesin.
         let browser = is_browser_window(&win.class);
-        let deadline = Instant::now() + Duration::from_millis(2500);
-        loop {
-            let (found, saw_document) = atspi_bus::block_on(collect_atspi_elements_for_window(
-                conn,
-                &win,
-                query_filter,
-                max_elements.max(10),
-            ));
-            elements = found;
-            // Belge varlığı filtreden bağımsız ölçülür: `--name "Ad Soyad"` gibi sorgular da beklemeli.
-            if !browser || saw_document || Instant::now() >= deadline {
-                break;
+        let key = tree_cache_key(&win, query_filter, max_elements.max(10));
+        if let Some(cached) = cached_tree(&key, &win) {
+            elements = cached;
+        } else {
+            let deadline = Instant::now() + Duration::from_millis(2500);
+            loop {
+                let generations_before = a11y_events::generations_snapshot();
+                let (found, saw_document, services) =
+                    atspi_bus::block_on(collect_atspi_elements_for_window(
+                        conn,
+                        &win,
+                        query_filter,
+                        max_elements.max(10),
+                    ));
+                elements = found;
+                // Belge varlığı filtreden bağımsız ölçülür: `--name "Ad Soyad"` gibi sorgular da beklemeli.
+                let done = !browser || saw_document || Instant::now() >= deadline;
+                if done {
+                    // Tarayıcıda belge henüz yoksa sonuç geçicidir; önbelleğe alınmaz.
+                    if !browser || saw_document {
+                        store_tree(key, &win, generations_before, &services, &elements);
+                    }
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(200));
             }
-            std::thread::sleep(Duration::from_millis(200));
         }
     }
 
@@ -351,7 +363,7 @@ async fn collect_atspi_elements_for_window(
     win: &WindowInfo,
     query_filter: Option<&str>,
     max_elements: usize,
-) -> (Vec<UiElement>, bool) {
+) -> (Vec<UiElement>, bool, Vec<String>) {
     let root_children = atspi_bus::children(
         conn,
         "org.a11y.atspi.Registry",
@@ -359,7 +371,7 @@ async fn collect_atspi_elements_for_window(
     )
     .await;
     if root_children.is_empty() {
-        return (Vec::new(), false);
+        return (Vec::new(), false, Vec::new());
     }
 
     let cluster_pids: HashSet<i32> = collect_app_cluster(win.pid)
@@ -399,6 +411,7 @@ async fn collect_atspi_elements_for_window(
     // Ad eşleşmesi yalnız PID çözülemediğinde: aksi halde aynı adlı başka örneklerin
     // (ikinci Firefox, eski bir süreç) elemanları bu pencerenin sonucuna karışır.
     let matching_services = if pid_services.is_empty() { name_services } else { pid_services };
+    let services: Vec<String> = matching_services.iter().map(|(s, _)| s.clone()).collect();
 
     let filter_lower = query_filter.map(|q| q.to_lowercase());
     let started = Instant::now();
@@ -529,7 +542,7 @@ async fn collect_atspi_elements_for_window(
             break;
         }
     }
-    (elements, document_content)
+    (elements, document_content, services)
 }
 
 /// Fareyi hareket ettirmeden doğrudan D-Bus `org.a11y.atspi.Action.DoAction(0)` ile kontrolü tetikler.
@@ -537,6 +550,77 @@ pub fn atspi_invoke_do_action(service: &str, path: &str, action_index: i32) -> R
     let conn = atspi_bus::connection()?;
     atspi_bus::block_on(atspi_bus::do_action(conn, service, path, action_index))
         .ok_or_else(|| anyhow!("AT-SPI DoAction başarısız: {} {}", service, path))
+}
+
+/// Olay güdümlü eleman önbelleği (yalnız olay izleyicisi çalışan uzun yaşayan süreçlerde).
+/// Geçerlilik: ilgili uygulamalardan olay gelmemiş, pc-eye o arada hiçbir eylem yapmamış (eylem
+/// dönemi), pencere yerinde ve okuma 2 sn'den taze. GTK4 etiket metni değişiminde olay
+/// yayınlamadığı ölçüldü; dönem ve yaş sınırı bu açığı kapatır.
+const TREE_CACHE_MAX_AGE: Duration = Duration::from_secs(2);
+
+struct CachedTree {
+    at: Instant,
+    epoch: String,
+    geometry: [i64; 4],
+    generations: Vec<(String, u64)>,
+    elements: Vec<UiElement>,
+}
+
+static TREE_CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, CachedTree>>> =
+    std::sync::OnceLock::new();
+
+fn tree_cache_key(win: &WindowInfo, query: Option<&str>, max: usize) -> String {
+    format!("{}|{}|{}", win.address, query.unwrap_or(""), max)
+}
+
+fn cached_tree(key: &str, win: &WindowInfo) -> Option<Vec<UiElement>> {
+    if a11y_events::cache_bypassed() {
+        return None;
+    }
+    let cache = TREE_CACHE.get()?.lock().ok()?;
+    let entry = cache.get(key)?;
+    let fresh = entry.at.elapsed() < TREE_CACHE_MAX_AGE
+        && entry.epoch == a11y_events::action_epoch()
+        && entry.geometry == [win.x, win.y, win.width, win.height]
+        && entry
+            .generations
+            .iter()
+            .all(|(svc, g)| a11y_events::generation(svc) == Some(*g));
+    fresh.then(|| entry.elements.clone())
+}
+
+fn store_tree(
+    key: String,
+    win: &WindowInfo,
+    generations_before: Option<std::collections::HashMap<String, u64>>,
+    services: &[String],
+    elements: &[UiElement],
+) {
+    let Some(before) = generations_before else { return };
+    let epoch = a11y_events::action_epoch();
+    // Uygulama henüz AT-SPI'a kaydolmamışsa (yeni açılmış) izlenecek servis yoktur: hiçbir olay
+    // bu kaydı geçersiz kılamaz ve boş/eksik sonuç 5 sn boyunca dönerdi. Böyle sonuç saklanmaz.
+    if services.is_empty() || elements.is_empty() {
+        return;
+    }
+    let generations = services
+        .iter()
+        .map(|s| (s.clone(), before.get(s).copied().unwrap_or(0)))
+        .collect();
+    let cache = TREE_CACHE.get_or_init(Default::default);
+    if let Ok(mut map) = cache.lock() {
+        map.retain(|_, v| v.at.elapsed() < TREE_CACHE_MAX_AGE);
+        map.insert(
+            key,
+            CachedTree {
+                at: Instant::now(),
+                epoch,
+                geometry: [win.x, win.y, win.width, win.height],
+                generations,
+                elements: elements.to_vec(),
+            },
+        );
+    }
 }
 
 fn is_browser_window(class: &str) -> bool {

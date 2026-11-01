@@ -107,10 +107,23 @@ pub fn is_daemon_running() -> bool {
         .unwrap_or(false)
 }
 
-/// Arka planda `pc-eye daemon` çalışmıyorsa otomatik olarak sessizce başlatır.
+/// Arka planda `pc-eye daemon` çalışmıyorsa otomatik olarak sessizce başlatır. Çalışan daemon
+/// başka bir build'den (binary yeniden kurulmuş) ya da başka bir oturumdansa yenilenir.
 pub fn ensure_background_daemon() -> bool {
     if is_daemon_running() {
-        return true;
+        let daemon_build = fs::read_to_string(runtime_dir().join("daemon.build")).unwrap_or_default();
+        if daemon_build.trim() == crate::daemon::rpc::build_id() {
+            return true;
+        }
+        if let Some(pid) = fs::read_to_string(runtime_dir().join("daemon.pid"))
+            .ok()
+            .and_then(|p| p.trim().parse::<i32>().ok())
+        {
+            unsafe {
+                libc::kill(pid, libc::SIGTERM);
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
     }
     if let Ok(exe) = std::env::current_exe() {
         let exe_str = exe.to_string_lossy();
@@ -133,7 +146,10 @@ pub fn ensure_background_daemon() -> bool {
 pub fn run_daemon_forever() -> Result<()> {
     let pid_file = runtime_dir().join("daemon.pid");
     let _ = fs::write(&pid_file, std::process::id().to_string());
+    let _ = fs::write(runtime_dir().join("daemon.build"), crate::daemon::rpc::build_id());
     let _state = spawn_background_collectors();
+    crate::eyes::a11y_events::start();
+    crate::daemon::rpc::serve();
     loop {
         thread::sleep(Duration::from_secs(3600));
     }

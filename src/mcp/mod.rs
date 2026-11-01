@@ -29,6 +29,12 @@ const DEFAULT_TOOL_TIMEOUT_MS: u64 = 45_000;
 const TOOL_TIMEOUT_SLACK_MS: u64 = 10_000;
 
 /// Standart Model Context Protocol (MCP) JSON-RPC 2.0 stdio sunucusunu çalıştırır.
+/// Otomatik delta için bu MCP oturumunda pencere başına son snapshot kimliği.
+static LAST_SNAP: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, (u64, std::time::Instant)>>,
+> = std::sync::LazyLock::new(Default::default);
+const AUTO_DELTA_WINDOW: std::time::Duration = std::time::Duration::from_secs(300);
+
 pub fn run_mcp_stdio_server() -> Result<()> {
     let _bg_state = spawn_background_collectors();
     // Uzun yaşayan süreç: AT-SPI olaylarını dinleyip eleman önbelleğini geçerli tut.
@@ -194,8 +200,24 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             let max = args.get("max_elements").and_then(|v| v.as_u64()).unwrap_or(40) as usize;
             let icons = args.get("icons").and_then(|v| v.as_bool()).unwrap_or(false);
             let seq_since = args.get("seq_since").and_then(|v| v.as_u64());
-            let since = args.get("since").and_then(|v| v.as_u64());
+            // Otomatik delta: ajanlar isteğe bağlı `since`'i kendiliğinden kullanmıyordu (ölçüm 045024).
+            // Bu oturumda aynı pencereye yakın zamanda tam snapshot verildiyse yalnız değişenler döner;
+            // mark'lar kararlı olduğu için ajanın elindeki önceki liste geçerli kalır. `full: true` tam liste.
+            let full = args.get("full").and_then(|v| v.as_bool()).unwrap_or(false);
+            let window_key = win.unwrap_or("").to_string();
+            let since = args.get("since").and_then(|v| v.as_u64()).or_else(|| {
+                if full {
+                    return None;
+                }
+                let last = LAST_SNAP.lock().ok()?;
+                last.get(&window_key)
+                    .filter(|(_, at)| at.elapsed() < AUTO_DELTA_WINDOW)
+                    .map(|(id, _)| *id)
+            });
             let snap = crate::eyes::snapshot::build_snapshot(win, max, icons, seq_since, since)?;
+            if let (Some(id), Ok(mut last)) = (snap["snap"].as_u64(), LAST_SNAP.lock()) {
+                last.insert(window_key, (id, std::time::Instant::now()));
+            }
             // Kompakt JSON: girintiler bu araçta yükün belirgin bir kısmı olurdu.
             vec![json!({ "type": "text", "text": serde_json::to_string(&snap)? })]
         }
@@ -436,6 +458,11 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             )?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
+        "pc_eye_run" => {
+            let allow_prot = args.get("allow_protected").and_then(|v| v.as_bool()).unwrap_or(false);
+            let out = crate::director::program::run_program(&args, allow_prot)?;
+            vec![json!({ "type": "text", "text": serde_json::to_string(&out)? })]
+        }
         "pc_eye_launch" => {
             let cmd_arr: Vec<String> = args
                 .get("command")
@@ -568,233 +595,192 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
 }
 
 fn mcp_tools_schema() -> Value {
+    // Model her turda bu şemayı okur: açıklamalar kısa ve İngilizce (Türkçe karakterli metin daha
+    // çok token'a bölünüyor). Ayrıntılı kullanım SKILL.md'de.
+    let win = json!({ "type": "string", "description": "Window address, title or class (default: active)" });
+    let then = json!({ "type": "string", "description": "After the action, also return: snapshot | vision | xray" });
     json!([
         {
             "name": "pc_eye_snapshot",
-            "description": "İLK BUNU ÇAĞIR. Tek çağrıda token-dostu durum: monitörler, pencereler (adres/başlık/çalışma alanı), hedef pencerenin etkileşimli elemanları (mark, rol, ad, değer, durum, tıklama noktası `at`; terminalse görünür satırlar) since ile yalnız değişenler, seq_since ile yalnız yeni olaylar. Tıklamak için pc_eye_click_ui mark/name; ayrıntı gerekirse ui/vision/context.",
+            "description": "CALL FIRST. Compact state: windows + target window's interactive elements (mark, role, name, value, states, click point `at`; terminal lines). Repeat calls return only changes (marks are stable); full=true for everything.",
             "annotations": { "readOnlyHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; boşsa aktif pencere." },
-                    "max_elements": { "type": "integer", "description": "En fazla eleman (varsayılan 40)." },
-                    "icons": { "type": "boolean", "description": "Algısal ikon tahminlerini de ekle (varsayılan: metinli eleman varsa elenir)." },
-                    "since": { "type": "integer", "description": "Önceki snapshot'ın snap değeri: yalnız değişen pencere ve elemanları döner (unchanged: true ise hiçbir şey değişmedi)." },
-                    "seq_since": { "type": "integer", "description": "Önceki snapshot'ın seq değeri: yalnız sonraki pencere olaylarını ekler." }
-                }
-            }
+            "inputSchema": { "type": "object", "properties": {
+                "window": win.clone(),
+                "max_elements": { "type": "integer" },
+                "icons": { "type": "boolean", "description": "Include guessed icon boxes" },
+                "full": { "type": "boolean" },
+                "since": { "type": "integer", "description": "Delta against this snap id" },
+                "seq_since": { "type": "integer", "description": "Window events after this seq" }
+            } }
         },
         {
-            "name": "pc_eye_context",
-            "description": "Tek çağrıda tam Beyaz-Kutu masaüstü + sistem yükü (PSI/RAM/CPU/GPU p50/p95/p99) + ses/MPRIS medya/tarayıcı URL + son olay/log/bildirim delta özeti döner.",
-            "annotations": { "readOnlyHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "seq_since": { "type": "integer", "description": "Sadece bu sıra numarasından sonraki olayları (delta) döndürür." }
-                }
-            }
-        },
-        {
-            "name": "pc_eye_ui",
-            "description": "Hedef pencerenin AT-SPI2 erişilebilirlik ağacını (ekran koordinatları, checked/focused/editable durumları ve metin/değer içerikleriyle) veya terminal ise doğrudan PTY/kabuk durumunu okur.",
-            "annotations": { "readOnlyHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir. Boşsa aktif pencere." },
-                    "query": { "type": "string", "description": "İsim veya rol filtresi." },
-                    "max_elements": { "type": "integer", "description": "Maksimum eleman sayısı (varsayılan 60)." }
-                }
-            }
-        },
-        {
-            "name": "pc_eye_vision",
-            "description": "Sıfır-disk PPM hattı üzerinden tam ekran, pencere, bölge veya zoom görüntüsü alır; dHash/pixel-diff hesaplar ve isteğe bağlı Set-of-Marks numaralı kutularını çizer.",
-            "annotations": { "readOnlyHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
-                    "region": { "type": "array", "items": { "type": "integer" }, "description": "[x, y, w, h] kırpma bölgesi. window ile birlikte verilirse pencereye GÖRELİ, yalnız verilirse ekran (mutlak) koordinatıdır." },
-                    "zoom": { "type": "array", "items": { "type": "integer" }, "description": "[x, y] noktası etrafında hassas yakınlaştırma." },
-                    "marks": { "type": "boolean", "description": "Tıklanabilir bölgelerin üzerine numaralı Set-of-Marks kutuları çizer." },
-                    "frames": { "type": "integer", "description": "Kare dizisi (animasyon izlenebilirliği) modu: bu kadar kare yakalar; her kare için dHash, ortalama parlaklık ve önceki kareye göre pixel_diff_pct, ayrıca süre/aralık/stabil-kare özeti döner. Verilmezse tek kare yakalanır." },
-                    "interval_ms": { "type": "integer", "description": "Kare dizisi modunda kareler arası bekleme (ms, varsayılan 100)." },
-                    "out": { "type": "string", "description": "Kare dizisi modunda SON kareyi bu yola yaz (varsayılan zero-disk: hiç dosya yazılmaz)." },
-                    "include_base64": { "type": "boolean", "description": "Görüntüyü base64 olarak MCP yanıtına ekler." }
-                }
-            }
-        },
-        {
-            "name": "pc_eye_xray",
-            "description": "Bir pencerenin veya PID'nin arkasındaki tüm süreç soy ağacını (AppCluster), açık dosyalarını (fd), aktif TCP/UDP ağ bağlantılarını, p50/p95/p99 bellek/CPU geçmişini ve son hata loglarını röntgenler.",
-            "annotations": { "readOnlyHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
-                    "pid": { "type": "integer", "description": "Kök süreç PID numarası." }
-                }
-            }
-        },
-        {
-            "name": "pc_eye_processes",
-            "description": "Penceresi olmayan arka plan süreçleri dahil, ad/komut satırı parçasına veya dinlediği porta göre süreç arar; her biri için PID, komut satırı, RAM ve dinlediği uç noktaları döner. Ayrıntı için PID'i pc_eye_xray'e ver.",
-            "annotations": { "readOnlyHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "match": { "type": "string", "description": "Ad veya komut satırında geçen metin (büyük/küçük harf duyarsız)." },
-                    "port": { "type": "integer", "description": "Bu TCP/UDP portunu dinleyen süreçler." },
-                    "limit": { "type": "integer", "description": "En fazla sonuç (varsayılan 20)." }
-                }
-            }
-        },
-        {
-            "name": "pc_eye_logs",
-            "description": "Sistem/kullanıcı journald loglarını, başlatılan uygulamaların stdout/stderr kayıtlarını ve masaüstü bildirimlerini (dunst) birleştirerek döner.",
-            "annotations": { "readOnlyHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "pid": { "type": "integer", "description": "Belirli bir PID için filtrele." },
-                    "limit": { "type": "integer", "description": "Maksimum satır sayısı (varsayılan 30)." }
-                }
-            }
-        },
-        {
-            "name": "pc_eye_audio",
-            "description": "PipeWire ses grafiğini, gerçek fiziksel PCM ses sinyalini (RMS/Peak dBFS), D-Bus MPRIS medya/tarayıcı URL durumunu okur, masaüstü sesini WAV olarak kaydeder (op=record) veya ses/medya kontrolü (play/pause/volume/mute) yapar.",
+            "name": "pc_eye_run",
+            "description": "Run several steps in ONE call, verifying each; stops at the first failure and returns the final state (`after`). Use for forms and multi-step flows instead of repeated click_ui. Steps: {\"click\":T}, {\"set\":T,\"text\":\"..\"}, {\"select\":T,\"option\":\"..\"}, {\"type\":\"..\"}, {\"key\":\"ctrl+s\"}, {\"wait\":\"text\"}. T = element name or {\"mark\":N}. Any step may add \"expect\":\"text that must appear\" or {\"gone\":\"..\"} (timeout_ms, default 3000).",
             "annotations": { "readOnlyHint": false },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "op": { "type": "string", "description": "Boş bırakılırsa rapor döner. Kontrol için: play | pause | play-pause | next | previous | stop | set-volume | mute | unmute | toggle-mute | record" },
-                    "arg": { "type": "string", "description": "set-volume için seviye (ör. 0.5), record için süre ms (ör. 2000) veya medya oynatıcı filtresi (ör. firefox)." }
-                }
-            }
+            "inputSchema": { "type": "object", "required": ["steps"], "properties": {
+                "window": win.clone(),
+                "steps": { "type": "array", "items": { "type": "object" } }
+            } }
         },
         {
             "name": "pc_eye_click_ui",
-            "description": "Piksel tahmini yapmadan doğrudan UI elemanının adına veya Set-of-Marks numarasına tıklar (AT-SPI2 ve otomatik bellek-içi OCR destekli), D-Bus DoAction tetikler veya içine metin yazar.",
+            "description": "Click an element by name or mark (AT-SPI or OCR), or type into it with set_text. Returns verification.visible_change; false means it probably missed.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
-                    "name": { "type": "string", "description": "Tıklanacak kontrolün veya ekrandaki OCR metninin adı." },
-                    "mark": { "type": "integer", "description": "Set-of-Marks numarası." },
-                    "button": { "type": "string", "description": "left | right | middle" },
-                    "prefer_dbus": { "type": "boolean", "description": "Fareyi hareket ettirmeden doğrudan D-Bus DoAction(0) kullan." },
-                    "set_text": { "type": "string", "description": "Kontrol bir metin kutusuysa içine bu metni yaz." },
-                    "then": { "type": "string", "description": "Eylemden sonra aynı yanıtta: snapshot (kompakt, önerilen; context/ui da bunu döner) | vision | xray | full_context (~38 KB, gerekmedikçe kullanma)" }
-                }
-            }
+            "inputSchema": { "type": "object", "properties": {
+                "window": win.clone(),
+                "name": { "type": "string" },
+                "mark": { "type": "integer" },
+                "button": { "type": "string", "description": "left | right | middle" },
+                "prefer_dbus": { "type": "boolean", "description": "Invoke via D-Bus without moving the mouse" },
+                "set_text": { "type": "string" },
+                "then": then.clone()
+            } }
         },
         {
             "name": "pc_eye_input",
-            "description": "Wayland yerel sanal işaretçi ve dinamik XKB sanal klavye üzerinden fare tıklaması, taşıma, sürükleme, tekerlek kaydırma, Unicode metin yazma ve kısayol gönderme.",
+            "description": "Raw mouse/keyboard: click, move, drag, scroll, type (Unicode), key (e.g. ctrl+shift+p).",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
-            "inputSchema": {
-                "type": "object",
-                "required": ["op"],
-                "properties": {
-                    "op": { "type": "string", "description": "click | move | drag | scroll | type | key" },
-                    "x": { "type": "integer" },
-                    "y": { "type": "integer" },
-                    "x2": { "type": "integer" },
-                    "y2": { "type": "integer" },
-                    "dx": { "type": "integer" },
-                    "dy": { "type": "integer" },
-                    "button": { "type": "string" },
-                    "clicks": { "type": "integer" },
-                    "text": { "type": "string" },
-                    "keys": { "type": "string" },
-                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
-                    "then": { "type": "string", "description": "Eylemden sonra aynı yanıtta: snapshot (kompakt, önerilen; context/ui da bunu döner) | vision | xray | full_context (~38 KB, gerekmedikçe kullanma)" }
-                }
-            }
+            "inputSchema": { "type": "object", "required": ["op"], "properties": {
+                "op": { "type": "string", "description": "click | move | drag | scroll | type | key" },
+                "x": { "type": "integer" }, "y": { "type": "integer" },
+                "x2": { "type": "integer" }, "y2": { "type": "integer" },
+                "dx": { "type": "integer" }, "dy": { "type": "integer" },
+                "button": { "type": "string" }, "clicks": { "type": "integer" },
+                "text": { "type": "string" }, "keys": { "type": "string" },
+                "window": win.clone(),
+                "then": then.clone()
+            } }
         },
         {
-            "name": "pc_eye_window",
-            "description": "Hyprland IPC üzerinden pencere odaklama, kapatma, çalışma alanı değiştirme, taşıma ve boyutlandırma.",
-            "annotations": { "readOnlyHint": false },
-            "inputSchema": {
-                "type": "object",
-                "required": ["action"],
-                "properties": {
-                    "action": { "type": "string", "description": "focus | close | workspace | movetoworkspace | fullscreen | float | move | resize. fullscreen: window verilirse o pencereye uygulanır; arg on | max | off | toggle" },
-                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
-                    "arg": { "type": "string" },
-                    "then": { "type": "string" }
-                }
-            }
+            "name": "pc_eye_ui",
+            "description": "Full accessibility tree of a window (bounds, states, values, D-Bus paths) or terminal PTY state. Prefer snapshot.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": { "type": "object", "properties": {
+                "window": win.clone(),
+                "query": { "type": "string", "description": "Name or role filter" },
+                "max_elements": { "type": "integer" }
+            } }
         },
         {
-            "name": "pc_eye_display",
-            "description": "Sanal (headless) ekran yönetimi: list | create | mode | remove. create kullanıcının ekranlarından yalıtılmış bir çıkış açar ve workspace_id döner; uygulamayı pc_eye_launch(workspace=...) ile oraya gönderip kullanıcının ekranına dokunmadan gözlemle/kontrol et.",
-            "annotations": { "readOnlyHint": false },
-            "inputSchema": {
-                "type": "object",
-                "required": ["action"],
-                "properties": {
-                    "action": { "type": "string", "description": "list | create | mode | remove" },
-                    "name": { "type": "string", "description": "Çıkış adı (create'te isteğe bağlı)" },
-                    "mode": { "type": "string", "description": "WxH veya WxH@R, ör. 1920x1080@60" },
-                    "position": { "type": "string", "description": "X,Y veya isolated (varsayılan)" },
-                    "scale": { "type": "number" },
-                    "then": { "type": "string" }
-                }
-            }
+            "name": "pc_eye_vision",
+            "description": "Screenshot of a window, region or zoom point (image included for zoom/region). marks=true draws numbered boxes; frames=N samples animation.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": { "type": "object", "properties": {
+                "window": win.clone(),
+                "region": { "type": "array", "items": { "type": "integer" }, "description": "[x,y,w,h]; relative to window if window is given" },
+                "zoom": { "type": "array", "items": { "type": "integer" }, "description": "[x,y] center" },
+                "marks": { "type": "boolean" },
+                "frames": { "type": "integer" },
+                "interval_ms": { "type": "integer" },
+                "out": { "type": "string", "description": "Save last frame to this path" },
+                "include_base64": { "type": "boolean" }
+            } }
         },
         {
-            "name": "pc_eye_launch",
-            "description": "Uygulama başlatır, stdout/stderr akışını yakalar ve Hyprland openwindow olayını bekleyip yeni pencere adresini döner. Satır içi kabuk/yorumlayıcı komutu (`sh -c`, `python -c`) reddedilir; süreç/port için pc_eye_processes kullan.",
-            "annotations": { "readOnlyHint": false, "destructiveHint": true },
-            "inputSchema": {
-                "type": "object",
-                "required": ["command"],
-                "properties": {
-                    "command": { "type": "array", "items": { "type": "string" } },
-                    "workspace": { "type": "string" },
-                    "timeout_ms": { "type": "integer" },
-                    "then": { "type": "string" }
-                }
-            }
+            "name": "pc_eye_processes",
+            "description": "Find processes (also windowless) by name/command-line text or listening port: PID, command line, RAM, listening endpoints.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": { "type": "object", "properties": {
+                "match": { "type": "string" },
+                "port": { "type": "integer" },
+                "limit": { "type": "integer" }
+            } }
+        },
+        {
+            "name": "pc_eye_xray",
+            "description": "Process tree of a window or PID: open files, TCP/UDP connections, CPU/RAM history, recent errors.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": { "type": "object", "properties": {
+                "window": win.clone(),
+                "pid": { "type": "integer" }
+            } }
+        },
+        {
+            "name": "pc_eye_logs",
+            "description": "Merged journald, launched-app stdout/stderr, coredumps (signal, pid) and desktop notifications.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": { "type": "object", "properties": {
+                "pid": { "type": "integer" },
+                "limit": { "type": "integer" }
+            } }
+        },
+        {
+            "name": "pc_eye_context",
+            "description": "Large (~25 KB) full report: desktop, system load/GPU, audio/media, event and log history. Use only when snapshot is not enough.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": { "type": "object", "properties": {
+                "seq_since": { "type": "integer" }
+            } }
         },
         {
             "name": "pc_eye_wait",
-            "description": "Çok-modlu deterministik senkronizasyon bariyeri: visual_settle (ekran durulması), log_match (logda metin), ui_match (UI veya OCR metni belirmesi), port_open (TCP port açılması) veya Hyprland soket olaylarını bekler.",
+            "description": "Wait without sleeping: visual_settle | ui_match (UI/OCR text appears) | log_match | port_open | openwindow | closewindow | activewindow | workspace.",
             "annotations": { "readOnlyHint": true },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "event": { "type": "string", "description": "visual_settle | log_match | ui_match | port_open | openwindow | closewindow | activewindow | workspace" },
-                    "match": { "type": "string", "description": "Aranan metin, UI/OCR eleman adı veya TCP port numarası." },
-                    "window": { "type": "string", "description": "visual_settle veya ui_match için hedef pencere. Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
-                    "timeout_ms": { "type": "integer" }
-                }
-            }
+            "inputSchema": { "type": "object", "properties": {
+                "event": { "type": "string" },
+                "match": { "type": "string" },
+                "window": win.clone(),
+                "timeout_ms": { "type": "integer" }
+            } }
+        },
+        {
+            "name": "pc_eye_window",
+            "description": "Window control: focus | close | workspace | movetoworkspace | fullscreen (arg on|max|off|toggle) | float | move | resize.",
+            "annotations": { "readOnlyHint": false },
+            "inputSchema": { "type": "object", "required": ["action"], "properties": {
+                "action": { "type": "string" },
+                "window": win.clone(),
+                "arg": { "type": "string" },
+                "then": then.clone()
+            } }
+        },
+        {
+            "name": "pc_eye_launch",
+            "description": "Start an app, capture its output, return the new window. Inline shell/interpreter code (sh -c, python -c) is refused.",
+            "annotations": { "readOnlyHint": false, "destructiveHint": true },
+            "inputSchema": { "type": "object", "required": ["command"], "properties": {
+                "command": { "type": "array", "items": { "type": "string" } },
+                "workspace": { "type": "string" },
+                "timeout_ms": { "type": "integer" },
+                "then": then.clone()
+            } }
+        },
+        {
+            "name": "pc_eye_display",
+            "description": "Virtual headless outputs isolated from the user's screens: list | create (returns workspace_id) | mode | remove.",
+            "annotations": { "readOnlyHint": false },
+            "inputSchema": { "type": "object", "required": ["action"], "properties": {
+                "action": { "type": "string" },
+                "name": { "type": "string" },
+                "mode": { "type": "string", "description": "WxH or WxH@R" },
+                "position": { "type": "string" },
+                "scale": { "type": "number" },
+                "then": then.clone()
+            } }
+        },
+        {
+            "name": "pc_eye_audio",
+            "description": "Audio streams, PCM level, MPRIS media/browser URL; op: play | pause | play-pause | next | previous | stop | set-volume | mute | unmute | toggle-mute | record (arg = ms).",
+            "annotations": { "readOnlyHint": false },
+            "inputSchema": { "type": "object", "properties": {
+                "op": { "type": "string" },
+                "arg": { "type": "string" }
+            } }
         },
         {
             "name": "pc_eye_director",
-            "description": "Watchdog korumalı süreç dondurma/çözme (freeze/thaw), çok-adımlı atomik sequence yürütme, Hyprland kısayollarını listeleme/çalıştırma (binds/use_bind) ve zengin çok-formatlı Wayland pano (clipboard: MIME, source_url, cliphist geçmişi, görsel/dosya kopyalama) yönetimi.",
+            "description": "freeze | thaw (watchdog) | clipboard (read; text, file or restore_id to write) | binds | use_bind | sequence (legacy; prefer pc_eye_run).",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
-            "inputSchema": {
-                "type": "object",
-                "required": ["op"],
-                "properties": {
-                    "op": { "type": "string", "description": "freeze | thaw | clipboard | binds | use_bind | sequence" },
-                    "pid": { "type": "integer" },
-                    "max_freeze_ms": { "type": "integer" },
-                    "text": { "type": "string" },
-                    "file": { "type": "string", "description": "clipboard için panoya kopyalanacak görsel (PNG/JPG) veya dosya yolu." },
-                    "restore_id": { "type": "string", "description": "clipboard için cliphist geçmişinden geri yüklenecek ID." },
-                    "steps": { "type": "array", "items": { "type": "object" } },
-                    "then": { "type": "string" }
-                }
-            }
+            "inputSchema": { "type": "object", "required": ["op"], "properties": {
+                "op": { "type": "string" },
+                "pid": { "type": "integer" },
+                "max_freeze_ms": { "type": "integer" },
+                "text": { "type": "string" },
+                "file": { "type": "string" },
+                "restore_id": { "type": "string" },
+                "steps": { "type": "array", "items": { "type": "object" } },
+                "then": then
+            } }
         }
     ])
 }

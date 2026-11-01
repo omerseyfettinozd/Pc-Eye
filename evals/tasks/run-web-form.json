@@ -1,0 +1,29 @@
+{
+  "id": "run-web-form",
+  "scene": "web_form",
+  "tags": [
+    "tool:run",
+    "browser"
+  ],
+  "probe": [
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"{name}\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Şehir\", \"option\": \"{city}\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+      ],
+      "expect_contains": [
+        "\"ok\": true",
+        "\"completed\": 4"
+      ],
+      "timeout": 60
+    }
+  ],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "name": "{name}",
+      "newsletter": true,
+      "city": "{city}"
+    }
+  }
+}

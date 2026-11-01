@@ -101,6 +101,14 @@ enum Commands {
         pid: Option<i32>,
     },
 
+    /// Eylem programı: beklentili adım dizisini tek çağrıda çalıştırır (JSON: {"window":..,"steps":[..]})
+    Run {
+        /// Program JSON'u; `-` ise standart girdiden okunur
+        program: String,
+        #[arg(long)]
+        allow_protected: bool,
+    },
+
     /// Göz 3: Penceresi olmayan süreçleri de ad/komut satırı parçasına veya dinlediği porta göre bulur
     Ps {
         /// Ad veya komut satırında geçen metin
@@ -375,6 +383,18 @@ fn main() -> Result<()> {
         Commands::Xray { window, pid } => {
             let rep = daemon::server::build_xray_for_target(window.as_deref(), pid)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Commands::Run { program, allow_protected } => {
+            let text = if program == "-" {
+                let mut buf = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)?;
+                buf
+            } else {
+                program
+            };
+            let parsed: serde_json::Value = serde_json::from_str(&text)?;
+            let out = director::program::run_program(&parsed, allow_protected)?;
+            println!("{}", serde_json::to_string_pretty(&out)?);
         }
         Commands::Ps { query, port, limit } => {
             let found = eyes::process_xray::find_processes(query.as_deref(), port, limit)?;

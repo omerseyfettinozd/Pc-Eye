@@ -1,0 +1,25 @@
+{
+  "id": "run-stops-on-failure",
+  "scene": "buttons",
+  "tags": [
+    "tool:run"
+  ],
+  "probe": [
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"click\": \"{target}\", \"expect\": \"Seçilen: {target}\"}, {\"click\": \"Böyle Bir Düğme Yok\"}, {\"click\": \"{target}\"}]}"
+      ],
+      "expect_contains": [
+        "\"ok\": false",
+        "\"failed_step\": 2",
+        "\"completed\": 1",
+        "\"after\""
+      ],
+      "timeout": 60
+    }
+  ],
+  "check": {
+    "type": "none"
+  }
+}

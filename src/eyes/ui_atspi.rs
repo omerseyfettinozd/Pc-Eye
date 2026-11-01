@@ -234,6 +234,7 @@ pub fn inspect_window_ui(
     };
 
     if !elements.is_empty() {
+        stabilize_marks(&win.address, &mut elements);
         crate::eyes::vision::save_persisted_marks(&elements);
     }
 
@@ -417,6 +418,7 @@ async fn collect_atspi_elements_for_window(
     let started = Instant::now();
     let mut inspected = 0usize;
     let mut candidates: Vec<(String, NodeInfo)> = Vec::new();
+    let mut document_ready = false;
 
     for (service, root_path) in matching_services {
         let mut visited = HashSet::new();
@@ -459,6 +461,12 @@ async fn collect_atspi_elements_for_window(
                 }
                 let is_document = matches!(node.role.as_str(), "document web" | "document frame");
                 let in_doc = node.in_document || is_document;
+                // Belge hazırlığı filtreden bağımsız: belgenin içinde içerikli bir düğüm görüldüyse
+                // hazırdır. Filtreli sonuca bakmak, belgede olmayan bir şeyi (açılır menü seçeneği,
+                // henüz görünmemiş "Kaydedildi") arayan her sorguyu 2,5 sn bekletiyordu.
+                if node.in_document && (!node.name.is_empty() || is_interactive_role(&node.role)) {
+                    document_ready = true;
+                }
                 for (srv, child) in &node.children {
                     if *srv == service && visited.insert(child.clone()) {
                         frontier.push((child.clone(), in_doc));
@@ -510,15 +518,11 @@ async fn collect_atspi_elements_for_window(
     .await;
 
     let mut elements = Vec::new();
-    // Belge "hazır" ancak içinden boyutlu, görünen bir eleman çıktıysa sayılır: yüklenirken belge
-    // düğümü adıyla vardır ama boyutu sıfırdır ve çocukları henüz yayınlanmamıştır.
-    let mut document_content = false;
     for ((service, node), (extents, description, value)) in candidates.into_iter().zip(details) {
         let Some(([rx, ry, rw, rh], window_relative)) = extents else { continue };
         if rw <= 2 || rh <= 2 {
             continue;
         }
-        document_content |= node.in_document;
         let (sx, sy) = if window_relative {
             (win.x + rx, win.y + ry)
         } else {
@@ -542,7 +546,7 @@ async fn collect_atspi_elements_for_window(
             break;
         }
     }
-    (elements, document_content, services)
+    (elements, document_ready, services)
 }
 
 /// Fareyi hareket ettirmeden doğrudan D-Bus `org.a11y.atspi.Action.DoAction(0)` ile kontrolü tetikler.
@@ -620,6 +624,65 @@ fn store_tree(
                 elements: elements.to_vec(),
             },
         );
+    }
+}
+
+/// Bir elemanın snapshot'lar arası kararlı kimliği (AT-SPI: D-Bus yolu; OCR: rol + ad + konum).
+pub fn element_key(e: &UiElement) -> String {
+    if e.dbus_path.is_empty() {
+        format!("{}|{}|{},{}", e.role, e.name, e.click_point[0], e.click_point[1])
+    } else {
+        format!("{}{}", e.dbus_service, e.dbus_path)
+    }
+}
+
+/// Pencere başına "eleman kimliği → mark" kaydı. Dosyada tutulur ki daemon, MCP ve CLI aynı
+/// numaraları versin (`click-ui --mark` ortak işaret dosyasından okur). Eleman var olduğu sürece
+/// numarası değişmez: üstte yeni bir eleman belirince alttakilerin numarası kaymaz; ajan önceki
+/// snapshot'taki numarayla güvenle tıklar ve delta yalnız gerçekten değişeni taşır.
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+struct WindowMarks {
+    next: usize,
+    keys: std::collections::HashMap<String, usize>,
+    touched: u64,
+}
+
+const MARK_REGISTRY_WINDOWS: usize = 24;
+const MARK_REGISTRY_KEYS: usize = 4000;
+
+fn stabilize_marks(window: &str, elements: &mut [UiElement]) {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = LOCK.lock();
+    let path = crate::eyes::vision::runtime_dir().join("marks_registry.json");
+    let mut registry: std::collections::HashMap<String, WindowMarks> = fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+    let entry = registry.entry(window.to_string()).or_default();
+    if entry.keys.len() > MARK_REGISTRY_KEYS {
+        *entry = WindowMarks::default();
+    }
+    for e in elements.iter_mut() {
+        let key = element_key(e);
+        e.mark = match entry.keys.get(&key) {
+            Some(&m) => m,
+            None => {
+                entry.next += 1;
+                entry.keys.insert(key, entry.next);
+                entry.next
+            }
+        };
+    }
+    entry.touched = now_ms();
+    if registry.len() > MARK_REGISTRY_WINDOWS {
+        let mut by_age: Vec<(u64, String)> = registry.iter().map(|(k, v)| (v.touched, k.clone())).collect();
+        by_age.sort();
+        for (_, k) in by_age.into_iter().take(registry.len() - MARK_REGISTRY_WINDOWS) {
+            registry.remove(&k);
+        }
+    }
+    if let Ok(json) = serde_json::to_string(&registry) {
+        crate::eyes::vision::atomic_write_str(&path, &json);
     }
 }
 

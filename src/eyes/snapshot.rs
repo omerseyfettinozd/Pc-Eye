@@ -6,7 +6,7 @@
 
 use crate::daemon::server::{ensure_background_daemon, PersistedTelemetryState};
 use crate::eyes::compositor::capture_desktop_state;
-use crate::eyes::ui_atspi::inspect_window_ui;
+use crate::eyes::ui_atspi::{element_key, inspect_window_ui};
 use crate::protocol::types::UiElement;
 use anyhow::Result;
 use serde_json::{json, Value};
@@ -79,14 +79,6 @@ fn ocr_conf(e: &UiElement) -> Option<f64> {
 }
 
 /// Algısal ikon dedektörü düz zeminde onlarca sahte kutu üretebilir; metinli eleman varsa onları ele.
-/// Delta karşılaştırması için kararlı kimlik: mark numaraları snapshot'lar arasında kayabilir.
-fn element_key(e: &UiElement) -> String {
-    if e.dbus_path.is_empty() {
-        format!("{}|{}|{},{}", e.role, e.name, e.click_point[0], e.click_point[1])
-    } else {
-        format!("{}{}", e.dbus_service, e.dbus_path)
-    }
-}
 
 fn select_elements(elements: &[UiElement], include_icons: bool, max: usize) -> (Vec<(String, Value)>, usize) {
     let has_text = elements.iter().any(|e| e.role != "icon-button" && !e.name.is_empty());
@@ -267,7 +259,11 @@ fn delta_snapshot(prev: &StoredSnap, cur: &StoredSnap) -> Value {
         .filter(|w| prev_windows.get(&addr(w)).map_or(false, |p| *p != *w))
         .collect();
 
-    let mut out = json!({ "delta": true, "since": prev.id });
+    let mut out = json!({
+        "delta": true,
+        "since": prev.id,
+        "hint": "Yalnız değişenler. Değişmeyen elemanlar önceki snapshot'takiyle aynı (mark'lar kararlı). Tam liste için full: true.",
+    });
     let mut changed_any = !windows_added.is_empty() || !windows_removed.is_empty() || !windows_changed.is_empty();
     if !windows_added.is_empty() {
         out["windows_added"] = json!(windows_added);

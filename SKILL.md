@@ -17,7 +17,12 @@ Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-e
 
 0. **Start with `snapshot` (cheapest orientation, ~4 KB)**:
    - Call `pc_eye_snapshot` (or `pc-eye snapshot --window <addr|title|class>`) first: monitors, windows, and the target window's interactive elements (`mark`, `role`, `name`, `value`, decision states, click point `at`; terminal visible lines) in one call. Pass the returned `seq` back as `seq_since` to get only new window events.
-   - Each snapshot returns `snap`. On the next look pass `since: <snap>` to get only what changed (added/changed/removed windows and elements; `unchanged: true` when nothing did) — ~100 bytes instead of ~4 KB. Unknown ids fall back to a full snapshot (`since_unknown: true`).
+   - Marks are stable: an element keeps its number while it exists (shared across daemon, MCP and CLI), so a mark from an earlier snapshot is still valid.
+   - Via MCP, a repeated snapshot of the same window automatically returns only what changed (`delta: true`, `unchanged: true` when nothing did; ~100 bytes instead of ~4 KB). Pass `full: true` for the whole list, or `since: <snap>` for a specific base. Unknown ids fall back to a full snapshot (`since_unknown: true`).
+
+0b. **Act in one call with a program (`run`)**:
+   - For forms and multi-step flows use `pc_eye_run` (CLI: `pc-eye run '<json>'`) instead of repeated `click_ui`: `{"window": "...", "steps": [{"set": "Ad Soyad", "text": "Öykü"}, {"click": "Bültene abone ol"}, {"select": "Şehir", "option": "İzmir"}, {"click": "Gönder", "expect": "Kaydedildi"}]}`.
+   - Steps: `click`, `set`+`text`, `select`+`option`, `type`, `key`, `wait`; targets are names or `{"mark": N}`; any step may add `expect` (text that must appear) or `{"gone": ".."}`. Execution stops at the first failure and returns per-step results plus the final compact state in `after` — continue from there with a new program.
    - Reads are served from an event-driven cache in the daemon/MCP process (~6–8 ms when warm); any pc-eye action invalidates it, so a look after an action is always fresh.
    - Every `window` parameter accepts an address (`0x…`), a full/partial title, or a class; ambiguous matches return the candidates instead of guessing.
    - Use `context` only when you need system health, audio, or the full event/log history (it is ~25–30 KB).

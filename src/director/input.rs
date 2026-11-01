@@ -727,6 +727,37 @@ pub fn type_text(
         thread::sleep(Duration::from_millis(30));
     }
 
+    // Odaktaki tek satırlı düzenlenebilir alana metin erişilebilirlik arayüzünden eklenir. Klavye
+    // yolu, yazarken açılan tamamlama penceresinde (Dolphin adres çubuğu) bozuluyordu: odak açılır
+    // pencereye geçince sanal klavyenin keymap'i orada geçerli olmuyor, ~120 karakter kayboldu.
+    // Tarayıcıda değil: web sayfaları (React vb.) değeri yalnız klavye olaylarından öğrenir.
+    if !text.contains('\n') && text.chars().count() >= 4 {
+        if let Some(ui) = inspect_window_ui(window_addr, None, 200).ok().filter(|ui| !crate::eyes::ui_atspi::is_browser_class(&ui.window_class)) {
+            let field = ui.elements.iter().find(|e| {
+                e.states.iter().any(|s| s == "focused")
+                    && e.states.iter().any(|s| s == "editable")
+                    && matches!(e.role.as_str(), "text" | "entry" | "text box")
+                    && !e.dbus_service.is_empty()
+                    && !e.value.as_deref().unwrap_or("").contains('\n')
+            });
+            if let Some(f) = field {
+                if crate::eyes::ui_atspi::atspi_insert_text(&f.dbus_service, &f.dbus_path, text) {
+                    return Ok(ActionReceipt {
+                        ok: true,
+                        action: "type_text".to_string(),
+                        target: window_addr.unwrap_or("focused").to_string(),
+                        coordinates: None,
+                        details: format!(
+                            "{} karakter odaktaki alana erişilebilirlik arayüzüyle eklendi (geri okunarak doğrulandı)",
+                            text.chars().count()
+                        ),
+                        verification: None,
+                    });
+                }
+            }
+        }
+    }
+
     let mut path = "wayland";
     if active_window_is_xwayland() {
         match X11Keyboard::connect().and_then(|kb| kb.type_text(text)) {
@@ -993,6 +1024,7 @@ impl WaylandVirtualInput {
             self.upload_keymap(&keymap_str)?;
             self.flush_sync()?;
 
+            let pace = std::env::var("PC_EYE_TYPE_PACE_MS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
             let mut pkt = Vec::new();
             let mut t = wl_time_ms();
             for &ch in &chars[start..end] {
@@ -1002,6 +1034,13 @@ impl WaylandVirtualInput {
                 t += 5;
                 write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 0]);
                 t += 5;
+                if pace > 0 {
+                    self.stream.write_all(&pkt)?;
+                    pkt.clear();
+                    self.flush_sync()?;
+                    thread::sleep(Duration::from_millis(pace));
+                    t = wl_time_ms();
+                }
             }
             self.stream.write_all(&pkt)?;
             self.flush_sync()?;

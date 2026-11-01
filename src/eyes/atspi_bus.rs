@@ -138,6 +138,28 @@ pub async fn set_current_value(conn: &Connection, service: &str, path: &str, val
         .is_ok()
 }
 
+/// Metin, imleç konumu ve (varsa) ilk seçim; karakter (kod noktası) cinsinden.
+pub async fn text_state(conn: &Connection, service: &str, path: &str) -> Option<(String, i32, Option<(i32, i32)>)> {
+    let text: String = call(conn, service, path, "org.a11y.atspi.Text", "GetText", &(0i32, -1i32)).await?;
+    let caret = property(conn, service, path, "org.a11y.atspi.Text", "CaretOffset")
+        .await
+        .and_then(|v| i32::try_from(v).ok())
+        .unwrap_or(text.chars().count() as i32);
+    let n: i32 = call(conn, service, path, "org.a11y.atspi.Text", "GetNSelections", &()).await.unwrap_or(0);
+    let selection = if n > 0 {
+        call::<_, (i32, i32)>(conn, service, path, "org.a11y.atspi.Text", "GetSelection", &(0i32,))
+            .await
+            .filter(|(a, b)| b > a)
+    } else {
+        None
+    };
+    Some((text, caret, selection))
+}
+
+pub async fn set_caret(conn: &Connection, service: &str, path: &str, offset: i32) -> bool {
+    call::<_, bool>(conn, service, path, "org.a11y.atspi.Text", "SetCaretOffset", &(offset,)).await.unwrap_or(false)
+}
+
 pub async fn set_text_contents(conn: &Connection, service: &str, path: &str, text: &str) -> Option<bool> {
     call(conn, service, path, "org.a11y.atspi.EditableText", "SetTextContents", &(text,)).await
 }

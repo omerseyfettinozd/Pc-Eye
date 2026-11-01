@@ -113,10 +113,32 @@ fn pick_named_element(elements: &[UiElement], query: &str) -> Option<UiElement> 
 }
 
 fn verification_region(window_geometry: Option<[i64; 4]>, cx: i64, cy: i64) -> [i64; 4] {
-    match window_geometry {
-        Some(g) if g[2] > 0 && g[3] > 0 => g,
-        _ => [(cx - 300).max(0), (cy - 150).max(0), 600, 300],
+    if let Some(g) = window_geometry.filter(|g| g[2] > 0 && g[3] > 0) {
+        return g;
     }
+    // Mark ile hedeflenince pencere geometrisi bilinmez. Tıklama noktası çevresindeki küçük bir
+    // kutu yetmez: pencere genişliğindeki bir onay kutusunun merkezi sağda, işaret kutucuğu
+    // solda kalır ve değişim hiç görülmez. Noktayı içeren pencerenin tamamı doğrulanır.
+    if let Ok(desk) = capture_desktop_state() {
+        let active_ws: Vec<i64> = desk.monitors.iter().map(|m| m.active_workspace_id).collect();
+        if let Some(w) = desk
+            .windows
+            .iter()
+            .filter(|w| {
+                w.mapped
+                    && !w.hidden
+                    && active_ws.contains(&w.workspace_id)
+                    && cx >= w.x
+                    && cx < w.x + w.width
+                    && cy >= w.y
+                    && cy < w.y + w.height
+            })
+            .min_by_key(|w| (!w.focused, !w.floating, w.width * w.height))
+        {
+            return [w.x, w.y, w.width, w.height];
+        }
+    }
+    [(cx - 300).max(0), (cy - 150).max(0), 600, 300]
 }
 
 /// Fare düğmesi adını Linux evdev koduna çevirir.

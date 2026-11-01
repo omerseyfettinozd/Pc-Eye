@@ -615,7 +615,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_run",
-            "description": "Run several steps in ONE call, verifying each; stops at the first failure and returns the final state (`after`). Use for forms and multi-step flows instead of repeated click_ui. Steps: {\"click\":T}, {\"set\":T,\"text\":\"..\"}, {\"select\":T,\"option\":\"..\"}, {\"type\":\"..\"}, {\"key\":\"ctrl+s\"}, {\"wait\":\"text\"}. T = element name or {\"mark\":N}. Any step may add \"expect\":\"text that must appear\" or {\"gone\":\"..\"} (timeout_ms, default 3000).",
+            "description": "Run several steps in ONE call, verifying each; stops at the first failure and returns the final state (`after`). Use for forms and multi-step flows instead of repeated click_ui. Steps: {\"click\":T}, {\"set\":T,\"text\":\"..\"}, {\"select\":T,\"option\":\"..\"}, {\"type\":\"..\"}, {\"key\":\"ctrl+s\"}, {\"wait\":\"text\"}. T = element name or {\"mark\":N}. Dropdowns: use select with the option's visible text; no need to open it first. Any step may add \"expect\":\"text that must appear\" or {\"gone\":\"..\"} (timeout_ms, default 3000).",
             "annotations": { "readOnlyHint": false },
             "inputSchema": { "type": "object", "required": ["steps"], "properties": {
                 "window": win.clone(),

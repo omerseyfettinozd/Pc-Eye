@@ -1,118 +1,157 @@
-# Pc-Eye V4 Mimarisi: Hız × Kalite × Maliyet
+# Pc-Eye V4 Mimarisi: Hız × Kalite × Maliyet, En Uç Hedef
 
-Durum: öneri (2026-11-01). Yargıç: `evals/` ölçüm seti. Her faz ölçümle kabul edilir.
+Durum: öneri (2026-11-01). Hedef: hız, kalite ve maliyetin üçünde birden piyasadaki her
+bilgisayar kullanan ajandan iyi olmak. Bu iddia ancak aynı görevlerde, rakiplerle yan yana
+ölçülünce söylenir (bkz. §7). Her faz ölçüm setiyle kabul edilir.
 
-## 1. Neden baştan yazmıyoruz
+## 1. Yaklaşım: yeniden yazma değil, sıcak yolu söküp takma
 
-Ölçüm, yavaşlığın tasarımın geneline değil üç sıcak noktaya yığıldığını gösterdi.
-Bugün düzelttiğimiz hatalar (GTK4 koordinatı, OCR önbelleği, coredump sırası, uygulama
-karışması…) ölçüm setiyle kanıtlı. Sıfırdan yazmak bunları yeniden üretir. Yöntem:
-çalışan çekirdeği koru, sıcak yolu parça parça değiştir, her adımı ölçüm seti onaylasın.
+Ölçüm, yavaşlığın tasarımın geneline değil birkaç sıcak noktaya yığıldığını gösterdi.
+Bugün düzeltilen hatalar (GTK4 koordinatı, OCR önbelleği, coredump sırası, uygulama
+karışması…) ölçüm setiyle kanıtlı; sıfırdan yazmak bunları yeniden üretir. Sıcak yol
+parça parça değiştirilir. Ölçüm seti her parçanın hem hızı artırdığını hem de bir şeyi
+bozmadığını kanıtlar.
 
 | Sıcak nokta (2026-11-01 ölçümü) | Şimdi | Kök neden |
 | --- | --- | --- |
-| AT-SPI ağacı | GTK ~400 ms, Firefox 1,4–1,9 s (üstelik 85 düğümde kesilip sayfa içeriğine ulaşamıyor) | Özellik başına ayrı `busctl` süreci, 3,6 ms × yüzlerce |
-| OCR | 1200×600: 1,2 s; Electron penceresi snapshot: 5,8 s | Her çağrıda CPU `tesseract` süreci, tüm pencere |
+| AT-SPI ağacı | GTK ~400 ms, Firefox 1,4–1,9 s (85 düğümde kesilip sayfa içeriğine ulaşamıyor) | Özellik başına ayrı `busctl` süreci, 3,6 ms × yüzlerce |
+| OCR | 1200×600: 1,2 s; Electron penceresinin snapshot'ı: 5,8 s | Her çağrıda CPU `tesseract` süreci, tüm pencere |
 | Ekran yakalama | 36 ms | Her çağrıda `grim` süreci |
 | Ajan taban maliyeti | görev başı ~18K girdi token | Claude Code sistem istemi + 3,8K token araç şeması |
-| Tarayıcı | sayfa içeriği yok, sekmeler karışık | Masaüstü erişilebilirlik ağacı web için yanlış kanal |
+| Tarayıcı | sayfa içeriği yok | Masaüstü erişilebilirlik ağacı web için yanlış kanal |
+| Oturum paylaşımı | imleç, odak ve klavye kullanıcıyla ortak | Ajan, kullanıcının Hyprland oturumunda sanal bir çıkışta çalışıyor |
 
-Korunacaklar: tek Rust binary, Hyprland IPC, Wayland sanal girdi, sanal ekran, AuthGuard,
-`snapshot` sözleşmesi, `click-ui` doğrulaması, ölçüm seti.
+## 2. Hedefler
 
-## 2. Hedefler (ölçülebilir)
-
-| Metrik | Şimdi | V4 hedefi |
+| Metrik | Şimdi | Hedef |
 | --- | --- | --- |
-| `snapshot` p50, AT-SPI uygulaması | 0,4–1,9 s | < 50 ms |
-| Pencere OCR | 1,2–5,8 s | < 150 ms (GPU), yalnız değişen bölgeler |
-| Tarayıcı sayfa özeti | yok | < 30 ms, sayfa başına ~1–2K token |
-| Rutin görev maliyeti | $0.035 (Sonnet, 21 görev $0.74) | < $0.005 |
-| Başarı | 7 görevde %100 | daha zor görevlerde (tarayıcı, çok adımlı) %95+ |
+| Durum okuma (snapshot) p50 | 0,4–1,9 s | < 20 ms (bellekten) |
+| Eylem + doğrulama | ~0,4–1 s | < 100 ms (kare bazlı "uygulama durdu" sinyali) |
+| Pencere OCR | 1,2–5,8 s | < 100 ms GPU, yalnız değişen karolar |
+| Tarayıcı sayfa özeti | yok | < 30 ms, ~1–2K token |
+| Rutin görev başı LLM çağrısı | 2–9 tur | ≤ 1 (tarifli görevde 0) |
+| Rutin görev maliyeti | $0.035 | < $0.002 |
+| Başarı | 7 görevde %100 | OSWorld alt kümesi + kendi zor görevlerimizde rakiplerin üstünde |
+| Kullanıcıya etki | ortak imleç ve odak | sıfır: ayrı oturum, paralel ajanlar |
 
 ## 3. Katmanlar
 
 ```
- Ajan katmanı   tarif oynatma (0 token) → ucuz model → güçlü model (yalnız başarısızlıkta)
-      │          hafif ajan döngüsü (API + önbellekli kısa istem)  |  MCP (Claude Code, Codex)
-      ▼
- Sorgu/eylem    tek JSON-RPC protokolü, unix soketi (~1 ms)
- API            snapshot + delta(seq) · eylem + beklenen sonuç + toplu eylem · güvenlik katmanı
-      ▲
- Dünya modeli   pc-eyed: olay güdümlü, bellekte, her zaman güncel
- (daemon)       ├ kompozitör: socket2 olayları (var)
-                ├ erişilebilirlik: yerel D-Bus (zbus) + AT-SPI Cache toplu okuma + olay aboneliği
-                ├ görüntü: Wayland screencopy, hasar bölgeleri, kare karo hash'leri
-                ├ OCR: yalnız değişen karolar; GPU (ONNX) arka ucu, tesseract yedek
-                ├ tarayıcı: Firefox eklentisi + native messaging, DOM özetini değişimde iter
-                └ arka plan: journald akışı, coredump, inotify, systemd/NetworkManager sinyalleri
+ ┌ Ajan çalışma zamanı ─────────────────────────────────────────────────────────┐
+ │ tarif oynatıcı (0 LLM) → yerel küçük model (yönlendirme, basit adım, $0)      │
+ │ → bulut modeli: PLANLA (tek çağrı, beklentili eylem programı)                  │
+ │ → yerel ÇALIŞTIR + DOĞRULA → yalnız sapmada yeniden planla                     │
+ │ MCP adaptörü: Claude Code / Codex için                                         │
+ └──────────────────────────────────────────────────────────────────────────────┘
+              │ tek JSON-RPC protokolü (unix soketi, ~1 ms)
+ ┌ Dünya modeli: pc-eyed (olay güdümlü, bellekte) ──────────────────────────────┐
+ │ erişilebilirlik: zbus + AT-SPI Cache + olay aboneliği                          │
+ │ tarayıcı: Firefox eklentisi → DOM özetleri (değişimde itilir)                  │
+ │ görüntü: kompozitörden doğrudan tampon + hasar → karo OCR (GPU) + yerel VLM    │
+ │ arka plan: journald akışı, coredump, inotify, systemd/NM, PipeWire             │
+ └──────────────────────────────────────────────────────────────────────────────┘
+              │
+ ┌ Oturumlar ────────────────────────────────────────────────────────────────────┐
+ │ Kullanıcı: günlük Hyprland (dokunulmaz; yalnız kullanıcının oturumu gereken     │
+ │            işler: kendi Firefox'u, açık belgeleri)                              │
+ │ Ajan(lar): pc-eye-wm, ajana özel Rust (Smithay) kompozitörü, oturum başına      │
+ │            ayrı imleç/odak/klavye, istenirse izlemek için pencere içinde         │
+ └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.1 Dünya modeli daemon'u
+### 3.1 pc-eye-wm: ajana özel kompozitör (en uç parça)
 
-Bugün her MCP çağrısı dünyayı baştan okuyor. V4'te `pc-eyed` dünyayı olaylarla güncel tutar.
-Sorgu bellekten okunur.
+Hazır kompozitörler insan için tasarlanmış. Ajan onlara dışarıdan, protokol protokol
+bağlanıyor: screencopy, sanal fare, IPC. pc-eye-wm, Smithay ile yazılan ve ajanı
+birinci sınıf kullanıcı sayan bir Wayland kompozitörü (+ XWayland):
 
-- **Erişilebilirlik**: `busctl` yerine `zbus` (saf Rust D-Bus). Ağaç `org.a11y.atspi.Cache.GetItems`
-  ile tek çağrıda alınır (GTK4, Qt ve at-spi2-atk köprüsünde var; uygulama bazında doğrulanacak).
-  Konumlar eşzamanlı `GetExtents` çağrılarıyla gelir. `state-changed`, `children-changed` ve
-  `text-changed` olaylarıyla ağaç yerinde güncellenir. 85 düğüm sınırı kalkar: sınır
-  token bütçesine göre snapshot'ta uygulanır, okumada değil.
-- **Görüntü**: `grim` yerine Wayland screencopy (wlr veya ext-image-copy-capture). Hasar
-  bölgeleri, değişmeyen kareyi yeniden işlemekten kurtarır. Doğrulama ve `visual_settle`
-  bu akıştan beslenir.
-- **OCR**: pencere 64×64'lük karolara bölünür. Yalnız hash'i değişen karolar yeniden
-  okunur, sonuçlar karo bazında önbelleğe alınır. Arka uç sırası: GPU ONNX (algılama +
-  tanıma, RTX 5070) → `ocrs` (saf Rust CPU) → tesseract. Lisanslar uygun olan modeller
-  seçilir; AGPL bileşen gömülmez.
+- **Kopyasız görüntü**: her yüzeyin tamponuna ve hasar bölgesine doğrudan erişir. Ekran
+  yakalama diye ayrı bir adım kalmaz, OCR ve doğrulama değişen pikselleri anında alır.
+- **Kare doğruluğunda bekleme**: kompozitör hangi istemcinin ne zaman kare gönderdiğini
+  bilir. "Uygulama durdu", piksel yoklamasıyla değil commit/frame-callback sessizliğiyle
+  anlaşılır. `visual_settle` tahmin olmaktan çıkar.
+- **Girdiyi kaynağında verme**: sanal fare ve klavye protokolleri gerekmez. Olay doğrudan
+  hedef yüzeye verilir, imleç kullanıcınınkinden bağımsızdır.
+- **Oturum başına yalıtım**: her ajanın kendi çıkışı, odağı, panosu ve AT-SPI veri yolu.
+  Birden çok ajan paralel çalışır, kullanıcıyı hiç etkilemez. Ajanın başlattığı uygulamalar
+  isteğe bağlı olarak bubblewrap ile kum havuzuna alınabilir.
+- **Çözünürlük bağımsızlığı**: uzun bir sayfa tek seferde 1920×4000 yüzeye çizilip okunabilir.
+- **İzleme**: kullanıcı ajanın oturumunu Hyprland'de bir pencere olarak izleyebilir veya devralabilir.
+
+Ara basamak (F4): pc-eye-wm hazır olana dek ajan oturumu, ayrı bir headless Hyprland
+veya Sway örneğidir. Yalıtım kazancının çoğunu hemen verir; pc-eye-wm onu sonradan yerinden eder.
+
+Kullanıcının oturumu Hyprland'de kalır. Kompozitör katmanı bir arayüzün arkasına alınır;
+Sway/KDE arka uçları sonradan eklenebilir.
+
+### 3.2 Dünya modeli daemon'u
+
+- **Erişilebilirlik**: `busctl` yerine `zbus`. Ağaç `org.a11y.atspi.Cache.GetItems` ile tek
+  çağrıda alınır (GTK4, Qt ve at-spi2-atk köprüsünde var; uygulama bazında doğrulanacak).
+  Konumlar eşzamanlı `GetExtents` ile gelir. `state-changed`, `children-changed` ve
+  `text-changed` olaylarıyla ağaç yerinde güncellenir. Okumada düğüm sınırı yoktur;
+  sınır snapshot'ın token bütçesinde uygulanır.
+- **Tarayıcı**: §3.3.
+- **Görüntü ve OCR**: pencere karolara bölünür, yalnız hash'i değişen karolar okunur ve
+  karo bazında önbelleğe alınır. Arka uç sırası: GPU ONNX (RTX 5070) → `ocrs` (saf Rust
+  CPU) → tesseract. Metin kanalları (AT-SPI, DOM, OCR) boş kaldığında ikon/canvas için
+  yerel bir görsel grounding modeli (UI-TARS / OmniParser sınıfı, 8 GB VRAM'e sığan
+  nicemlenmiş sürüm) devreye girer. Marjinal maliyeti 0'dır. AGPL bileşenler gömülmez,
+  ayrı süreç olarak çalışır.
 - **Arka plan**: `journalctl` süreci yerine journal'ı canlı izleme. coredump, inotify,
-  systemd birim durumu ve NetworkManager sinyalleri aynı `seq` halka belleğine akar.
-  İki çağrı arasında olan hiçbir şey kaybolmaz.
+  systemd birim durumu, NetworkManager ve PipeWire sinyalleri aynı `seq` halka belleğine
+  akar. İki çağrı arasında olay kaybolmaz.
 
-### 3.2 Tarayıcı: Firefox eklentisi + native messaging
+### 3.3 Tarayıcı: Firefox eklentisi + native messaging
 
 Firefox kalır. `Pc-Eye Bridge` eklentisi her sekmede aria-snapshot benzeri bir özet tutar:
 `[e12] button "Gönder"`, `[e7] textbox "Ad Soyad" = ""`, tablolar düz satırlar halinde.
-Özet `MutationObserver` ile değişimde güncellenip native host üzerinden daemon'a itilir.
-Eylemler numara (`ref`) iledir: tıkla, yaz, seç, kaydır, sekme aç/kapat/geç. Koordinat tahmini yoktur.
+Özet `MutationObserver` ile değişimde güncellenip daemon'a itilir. Eylemler numara (`ref`)
+iledir: tıkla, yaz, seç, kaydır, sekme işlemleri.
 
-Güvenlik:
-- varsayılan olarak salt okuma,
-- banka ve şifre yöneticisi siteleri yasak listesinde,
-- şifre ve kart alanları özete girmez,
-- her eylem deftere yazılır.
+Aynı eklenti iki yerde çalışır:
+- kullanıcının günlük Firefox'unda: giriş yapılmış oturumlar,
+- ajan oturumundaki ayrı profilde: yalıtılmış işler.
 
-Dağıtım: AMO'da listelenmeyen ücretsiz imza (kullanıcı bir kez API anahtarı oluşturur).
-Geliştirme sırasında `about:debugging` ile geçici yükleme.
+Güvenlik: varsayılan salt okuma; banka ve şifre yöneticisi siteleri yasak listesinde;
+şifre ve kart alanları özete girmez; her eylem deftere yazılır.
 
-BiDi (uzaktan kontrol protokolü) yalnız ajanın yalıtılmış profili için isteğe bağlı ikinci
-yoldur. Günlük profilde açık bir port, yereldeki her sürece tarayıcının kontrolünü verir.
+Dağıtım: AMO'da listelenmeyen ücretsiz imza; geliştirmede `about:debugging` ile geçici yükleme.
+BiDi, ajan profili için isteğe bağlı ikinci yoldur.
 
-### 3.3 Sorgu/eylem API'si
+### 3.4 Sorgu/eylem API'si
 
 - **Delta snapshot**: `snapshot(seq_since)` yalnız değişen pencereleri ve elemanları döner.
-  Ajan her turda tüm dünyayı değil farkı okur.
-- **Beklentili eylem**: `click(ref, expect={text|state|window|url})`. Daemon koşulu olaylardan
-  bekler (kör uyku yok) ve sonucu aynı çağrıda döner. Görsel doğrulama zaten var; bu, onu
-  anlamsal hale getirir.
-- **Toplu eylem**: UFO²'nin spekülatif çoklu eylemi. Ajan "şunu yaz, şunu seç, Gönder'e bas,
-  'Kaydedildi'yi bekle" adımlarını tek çağrıda gönderir; ilk beklenmeyen durumda dizi durur
-  ve durum döner. Form doldurma 7 turdan 2'ye iner.
-- **Kompakt şema**: araç tanımları kısa tutulur (bugün 3,8K token). Ayrıntılı kullanım SKILL.md'de kalır.
+- **Beklentili eylem**: `click(ref, expect={text|state|window|url})`. Daemon koşulu
+  olaylardan bekler ve sonucu aynı çağrıda döner.
+- **Eylem programı**: beklentili eylem dizisi tek çağrıda yürütülür (UFO²'nin spekülatif
+  çoklu eylemi). İlk sapmada durur ve o anki delta durumu döner. Dallanma (`if-visible`)
+  ve tekrar (`for-each-row`) desteklenir. Model bir kez planlar, çalıştırma yereldedir.
+- **Kompakt şema**: araç tanımları kısa tutulur (bugün 3,8K token); ayrıntı SKILL.md'de.
 
-### 3.4 Ajan katmanı ve maliyet
+### 3.5 Ajan çalışma zamanı: planla, yerelde çalıştır, doğrula
 
-1. **Tarif hafızası** (Agent Workflow Memory): başarılı dökümlerden değerleri yer tutucuya
-   çeviren iş akışları çıkarılır. Eşleşen bir görev modele hiç gitmeden toplu eylemle oynatılır.
-2. **Model yönlendirme**: rutin adımlarda ucuz model (Haiku). Beklenti tutmazsa ya da
-   belirsizlik varsa güçlü modele yükseltme. Hangi modelin hangi görevde yettiğine ölçüm seti karar verir.
-3. **Hafif ajan döngüsü**: sık işler için Claude Code yerine API üzerinde kısa sistem
-   istemi + yalnız pc-eye araçları + istem önbelleği. Görev başı taban 18K'dan birkaç bine iner.
-   MCP, Claude Code ve Codex için kalır.
+Maliyeti rakiplerin altına indiren katman. Rakiplerin çoğu her adımda modele ekran
+görüntüsü gönderip bir sonraki tıklamayı sorar: N adım, N büyük çağrı. Biz:
 
-### 3.5 Güvenlik
+1. **Tarif eşleşmesi** (Agent Workflow Memory): başarılı geçmiş yürütmelerden değerleri yer
+   tutucuya çevrilmiş iş akışları. Eşleşen görev modele hiç gitmeden programla oynatılır.
+2. **Yerel model**: RTX 5070'te küçük bir dil modeli niyet sınıflandırma, tarif seçme ve
+   basit tek adımlı işleri yapar. Maliyeti $0'dır.
+3. **Bulut planlayıcı**: kalan işte model kompakt delta durumu görüp tek çağrıda bir eylem
+   programı yazar. Ucuz model (Haiku) önce denenir.
+4. **Yerel yürütücü**: program beklentilerle çalışır. Sapma olursa yalnız sapma bağlamıyla
+   yeniden planlanır; iki sapmadan sonra güçlü modele yükseltilir.
+5. **İstem önbelleği**: kısa, sabit sistem istemi + araç şeması önbellekte durur.
+   Görev başı taban 18K'dan ~2–3K'ya iner.
 
-AuthGuard ve korumalı pencere (var). Ek olarak:
+Başarılı her yürütme tarif adayıdır. Sistem kullanıldıkça ucuzlar ve hızlanır.
+
+### 3.6 Güvenlik
+
+Ajan varsayılan olarak kendi yalıtılmış oturumunda çalışır, kullanıcının oturumuna yalnız
+gerektiğinde ve görünür biçimde dokunur. Diğer önlemler:
+- AuthGuard ve korumalı pencere (var),
 - eylem sınıfları: okuma / geri alınabilir / geri alınamaz,
 - geri alınamaz eylemde onay,
 - kalıcı eylem defteri,
@@ -121,23 +160,44 @@ AuthGuard ve korumalı pencere (var). Ek olarak:
 
 ## 4. Fazlar
 
-Her faz, ölçüm setinde hedef metriği tutturup gerileme yoksa kabul edilir. Her fazda o
-faza özgü yeni ölçüm görevleri eklenir.
+Sıra, "kazanç ÷ emek" ve bağımlılıklara göredir. Her faz, ölçüm setinde hedef metriği
+tutturup gerileme yoksa kabul edilir ve kendi yeni ölçüm görevlerini getirir.
 
 | Faz | İş | Kabul ölçütü |
 | --- | --- | --- |
-| F1 | `zbus` + AT-SPI Cache + eşzamanlı konum; 85 düğüm sınırı kalkar | GTK snapshot < 50 ms; Firefox sayfa içeriği görünür |
-| F2 | MCP/CLI sorguları daemon'a; delta snapshot; beklentili ve toplu eylem | form doldurma turu ≤ 3; tekrar eden sorgu < 5 ms |
-| F3 | Firefox eklentisi + native host + tarayıcı ölçüm görevleri (form, tablo, sekme) | sayfa özeti < 30 ms; tarayıcı görevlerinde %95+ |
-| F4 | screencopy + karo OCR + GPU arka ucu | pencere OCR < 150 ms; OCR doğruluğu ≥ tesseract |
-| F5 | Haiku ölçümü, model yönlendirme, hafif ajan döngüsü, tarif hafızası | rutin görev < $0.005; tarifli görev 0 token |
-| F6 | journald akışı, inotify, systemd/NM sinyalleri | iki çağrı arası olay kaybı 0 |
+| F0 ✅ | Ölçüm seti + 9 hata düzeltmesi + snapshot (bugün) | ajan %100, $0.74 / 21 görev |
+| F1 | `zbus` + AT-SPI Cache + olay aboneliği; daemon'dan servis edilen sorgular; delta snapshot | snapshot < 20 ms; Firefox sayfa içeriği görünür |
+| F2 | Beklentili eylem + eylem programı; kompakt şema | form doldurma ≤ 2 tur; şema < 1,5K token |
+| F3 | Ajan çalışma zamanı: Haiku ölçümü, model yönlendirme, planla-çalıştır-doğrula, istem önbelleği, tarif hafızası | rutin görev < $0.005; tarifli görev 0 LLM çağrısı |
+| F4 | Ajan oturumu v1: ayrı headless Hyprland/Sway örneği | kullanıcı imleci ve odağı hiç değişmez; 2 paralel ajan |
+| F5 | Firefox eklentisi + native host + tarayıcı görevleri | sayfa özeti < 30 ms; tarayıcı görevlerinde %95+ |
+| F6 | Karo OCR + GPU arka ucu + yerel grounding modeli + yerel küçük dil modeli | pencere OCR < 100 ms; ikon/canvas görevleri; rutin görev < $0.002 |
+| F7 | pc-eye-wm (Smithay): kopyasız tampon, kare doğruluğunda bekleme, kaynağında girdi | eylem + doğrulama < 100 ms; F4'ün yerini alır |
+| F8 | Arka plan akışları: journald, inotify, systemd/NM | iki çağrı arası olay kaybı 0 |
+| Sürekli | Rakip kıyası (§7) | her fazdan sonra tablo güncellenir |
 
-Önerilen başlangıç F1 + F5'in "Haiku ölçümü" kısmı: biri en büyük gecikme kazancı, diğeri
-neredeyse bedava ve en büyük maliyet sinyali.
+## 5. Riskler
 
-## 5. Yeni bağımlılıklar (lisans)
+- **pc-eye-wm büyük iş**: aylar sürebilir; GTK, Qt, Electron, Firefox ve XWayland
+  uyumluluğu ayrı ayrı test edilmeli. F4 ara basamağı sayesinde ona bağımlı kalmayız.
+- **Yerel modeller**: 8 GB VRAM'e sığma, OCR ile aynı anda çalışma ve doğruluk. Bulut
+  yedeği her zaman açık.
+- **AT-SPI Cache desteği** uygulamaya göre değişir; olmayanda eşzamanlı tekil çağrılara düşülür.
+- **Hyprland güncellemeleri** kırılma getirebilir; ölçüm seti her güncellemeden sonra koşulur.
 
-`zbus` (MIT/Apache-2.0), `wayland-client` + `wayland-protocols(-wlr)` (MIT), `ort` /
-ONNX Runtime (MIT/Apache-2.0) veya `ocrs` (MIT/Apache-2.0). Model ağırlıklarının
-lisansı ayrıca kontrol edilir.
+## 6. Bağımlılıklar (lisans)
+
+`zbus` (MIT/Apache-2.0), `smithay` (MIT), `wayland-client` / `wayland-protocols` (MIT),
+`ort` / ONNX Runtime (MIT/Apache-2.0), `ocrs` (MIT/Apache-2.0). Model ağırlıklarının
+lisansı model bazında kontrol edilir.
+
+## 7. "Herkesten iyi" nasıl kanıtlanır
+
+Aynı görevler, aynı makine, üç metrik: başarı, duvar saati süresi, görev başı $.
+
+- **Görevler**: kendi ölçüm setimiz (masaüstü, arka plan, tarayıcı, çok adımlı) +
+  `cua-bench` üzerinden OSWorld-Verified'dan Linux'ta koşturulabilen bir alt küme.
+- **Rakipler**: Anthropic computer use (referans uygulama), OpenAI CUA, UI-TARS Desktop,
+  Agent S3; Linux MCP akranlarından en az ikisi (ör. linux-desktop-mcp, computer-use-linux).
+- **Çıktı**: `evals/LEADERBOARD.md`. "Rakiplerden iyi" ancak bu tabloda üç metrikte birden
+  öndeysek söylenir.

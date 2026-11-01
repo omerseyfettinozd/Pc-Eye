@@ -157,9 +157,25 @@ fn tool_call_budget(args: &Value) -> Duration {
 /// alt süreç zaman aşımlarıyla sonlanır.
 fn dispatch_tool_call_bounded(name: &str, args: &Value) -> Result<Vec<Value>> {
     let (owned_name, owned_args) = (name.to_string(), args.clone());
-    run_with_deadline(name, tool_call_budget(args), move || {
+    let started = std::time::Instant::now();
+    let result = run_with_deadline(name, tool_call_budget(args), move || {
         dispatch_tool_call(&owned_name, &owned_args)
-    })
+    });
+    // `PC_EYE_TRACE=<dosya>`: araç başına süre (hız darboğazlarını ölçmek için).
+    if let Ok(path) = std::env::var("PC_EYE_TRACE") {
+        let line = json!({
+            "tool": name,
+            "ms": started.elapsed().as_millis() as u64,
+            "ok": result.is_ok(),
+            "op": args.get("op").or_else(|| args.get("action")).cloned().unwrap_or(Value::Null),
+            "steps": args.get("steps").and_then(|s| s.as_array()).map(|a| a.len()),
+        });
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+            use std::io::Write;
+            let _ = writeln!(f, "{}", line);
+        }
+    }
+    result
 }
 
 fn run_with_deadline<T, F>(name: &str, budget: Duration, work: F) -> Result<T>

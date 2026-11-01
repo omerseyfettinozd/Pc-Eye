@@ -833,7 +833,7 @@ class ApiUnavailable(RuntimeError):
 
 def run_agent(task, scene, sb, work, args, transcript):
     mcp = work / "mcp.json"
-    env = {k: os.environ[k] for k in ("PC_EYE_RECIPES", "PC_EYE_SESSION") if k in os.environ}
+    env = {k: os.environ[k] for k in ("PC_EYE_RECIPES", "PC_EYE_SESSION", "PC_EYE_TRACE") if k in os.environ}
     if args.toolset == "pixels":
         env["PC_EYE_VISION_INLINE"] = "1"
     mcp.write_text(json.dumps({"mcpServers": {"pc-eye": {"command": PCEYE, "args": ["mcp"], "env": env}}}))

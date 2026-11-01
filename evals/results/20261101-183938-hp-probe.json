@@ -1,0 +1,121 @@
+{
+ "tier": "probe",
+ "started": "20261101-183938-hp",
+ "seed": 700355875,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "6ad22cb",
+ "summary": {
+  "tasks": [
+   {
+    "task": "recipe-replay-cli",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 3295.4
+   },
+   {
+    "task": "run-web-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 2975.4
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "hp",
+ "toolset": "full",
+ "runs": [
+  {
+   "task": "recipe-replay-cli",
+   "attempt": 0,
+   "vars": {
+    "name": "Doğan Öztürk",
+    "city": "Çanakkale",
+    "default_city": "İzmir",
+    "title": "Eval Web Form MNDU",
+    "pid": 3998929
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 3295.4,
+   "steps": [
+    {
+     "args": [
+      "recipe",
+      "list",
+      "--window",
+      "Eval Web Form MNDU"
+     ],
+     "rc": 0,
+     "ms": 104.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "recipe",
+      "run",
+      "Ad Soyad",
+      "--window",
+      "Eval Web Form MNDU",
+      "--arg",
+      "Ad Soyad=Doğan Öztürk",
+      "--arg",
+      "Şehir=Çanakkale"
+     ],
+     "rc": 0,
+     "ms": 3190.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 889,
+      "y": 1432
+     },
+     {
+      "x": 936,
+      "y": 1361
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "run-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Çelik",
+    "city": "İzmir",
+    "default_city": "Ankara",
+    "title": "Eval Web Form JKVC",
+    "pid": 4000033
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 2975.4,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form JKVC\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Ümit Çelik\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Şehir\", \"option\": \"İzmir\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 2975.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 1,
+ "agent_leak_runs": 0
+}

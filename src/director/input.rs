@@ -45,7 +45,10 @@ pub struct ActionVerification {
 const PIXEL_DELTA: u8 = 32;
 /// Odak halkası gibi küçük geri bildirimler de değişim sayılsın diye düşük tutulur.
 const MIN_CHANGED_PIXELS: u64 = 30;
-const VERIFY_SETTLE_MS: u64 = 250;
+/// Tıklamadan sonra değişim aranan en uzun süre (yalnız ıskalamada tamamen beklenir).
+const VERIFY_MAX_MS: u64 = 350;
+/// Değişim görüldükten sonra bir kare daha: yarım çizilmiş ara kare yerine oturan durum ölçülsün.
+const VERIFY_POLL_MS: u64 = 40;
 
 fn compare_frames(region: [i64; 4], before: &image::RgbImage, after: &image::RgbImage) -> ActionVerification {
     let total = (before.width() as u64 * before.height() as u64).max(1);
@@ -72,13 +75,58 @@ where
     F: FnOnce() -> Result<ActionReceipt>,
 {
     let before = crate::eyes::vision::grab_region_ppm(region).ok();
+    with_verification_from(region, before, act)
+}
+
+/// "Önce" karesi hazırsa (bkz. `stable_frame`) onu kullanır. Sonrası sabit 250 ms beklemek yerine
+/// ~40 ms'de bir yoklanır: değişim görülüp bir kare boyunca oturunca biter. Tıklama başına ~1 sn'nin
+/// büyük kısmı sabit beklemelerdi (iz: click_ui ortalama 1065 ms).
+fn with_verification_from<F>(
+    region: [i64; 4],
+    before: Option<image::RgbImage>,
+    act: F,
+) -> Result<(ActionReceipt, Option<ActionVerification>)>
+where
+    F: FnOnce() -> Result<ActionReceipt>,
+{
     let receipt = act()?;
     let verification = before.and_then(|b| {
-        thread::sleep(Duration::from_millis(VERIFY_SETTLE_MS));
-        let after = crate::eyes::vision::grab_region_ppm(region).ok()?;
-        Some(compare_frames(region, &b, &after))
+        let start = std::time::Instant::now();
+        let mut last: Option<(ActionVerification, image::RgbImage)> = None;
+        loop {
+            thread::sleep(Duration::from_millis(VERIFY_POLL_MS));
+            let frame = crate::eyes::vision::grab_region_ppm(region).ok()?;
+            let v = compare_frames(region, &b, &frame);
+            if v.visible_change {
+                if let Some((_, prev)) = &last {
+                    // Önceki kareyle aynıysa değişim oturmuştur.
+                    if !compare_frames(region, prev, &frame).visible_change {
+                        return Some(v);
+                    }
+                }
+            }
+            let done = start.elapsed() >= Duration::from_millis(VERIFY_MAX_MS);
+            last = Some((v, frame));
+            if done {
+                return last.map(|(v, _)| v);
+            }
+        }
     });
     Ok((receipt, verification))
+}
+
+/// Bölge durulana kadar (iki ardışık kare aynı) kare alır, en çok `max_ms`; son kareyi döner.
+fn stable_frame(region: [i64; 4], max_ms: u64) -> Option<image::RgbImage> {
+    let start = std::time::Instant::now();
+    let mut prev = crate::eyes::vision::grab_region_ppm(region).ok()?;
+    loop {
+        thread::sleep(Duration::from_millis(30));
+        let cur = crate::eyes::vision::grab_region_ppm(region).ok()?;
+        if !compare_frames(region, &prev, &cur).visible_change || start.elapsed() >= Duration::from_millis(max_ms) {
+            return Some(cur);
+        }
+        prev = cur;
+    }
 }
 
 fn attach_verification(mut receipt: ActionReceipt, verification: Option<ActionVerification>) -> ActionReceipt {
@@ -535,12 +583,16 @@ pub fn click_ui_element_ext(
         // pencerede düğme üzerine gelme vurgusu tıklamanın düğme olayıyla kalkıyor (~1000 piksel)
         // ve ıskalanan tıklama "değişti" görünüyordu. Gerçek bir hareket "önce" karesinden önce.
         let _ = WaylandVirtualInput::connect().and_then(|mut wl| wl.pointer_nudge());
-        thread::sleep(Duration::from_millis(60));
-        let settle_window = window_containing(cx, cy).map(|(a, _)| a);
-        let _ = crate::director::wait::wait_for_condition("visual_settle", None, settle_window.as_deref(), 400);
+        thread::sleep(Duration::from_millis(30));
     }
+    // Üzerine gelme vurgusu gibi tepkiler bitene kadar bekle; son kare "önce" karesidir.
+    let before = if use_dbus {
+        crate::eyes::vision::grab_region_ppm(region).ok()
+    } else {
+        stable_frame(region, 400)
+    };
 
-    let (receipt, verification) = with_verification(region, || {
+    let (receipt, verification) = with_verification_from(region, before, || {
         if use_dbus {
             if let Ok(true) = crate::eyes::ui_atspi::atspi_invoke_do_action(
                 &matched.dbus_service,

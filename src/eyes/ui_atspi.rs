@@ -847,32 +847,32 @@ pub fn atspi_read_text(service: &str, path: &str) -> Option<String> {
     atspi_bus::block_on(atspi_bus::text_or_value(conn, service, path))
 }
 
-/// İmleçteki metne `text` ekler (seçim varsa onun yerine) ve geri okuyarak doğrular.
-/// Klavye yolu açılır tamamlama penceresi olan alanlarda bozuluyordu (bkz. `type_text`).
-pub fn atspi_insert_text(service: &str, path: &str, text: &str) -> bool {
+/// Alana `text` imleçte (seçim varsa onun yerine) yazılınca oluşması gereken içerik.
+pub fn atspi_expected_after_insert(service: &str, path: &str, text: &str) -> Option<String> {
+    let conn = atspi_bus::connection().ok()?;
+    let (current, caret, selection) = atspi_bus::block_on(atspi_bus::text_state(conn, service, path))?;
+    let chars: Vec<char> = current.chars().collect();
+    let len = chars.len() as i32;
+    let (start, end) = selection.unwrap_or((caret, caret));
+    let (start, end) = (start.clamp(0, len) as usize, end.clamp(0, len) as usize);
+    let mut new: String = chars[..start].iter().collect();
+    new.push_str(text);
+    new.extend(chars[end..].iter());
+    Some(new)
+}
+
+/// İçeriği değiştirir, geri okuyarak doğrular ve imleci sona koyar.
+pub fn atspi_replace_text(service: &str, path: &str, content: &str) -> bool {
     let Ok(conn) = atspi_bus::connection() else { return false };
     atspi_bus::block_on(async {
-        let Some((current, caret, selection)) = atspi_bus::text_state(conn, service, path).await else {
-            return false;
-        };
-        let chars: Vec<char> = current.chars().collect();
-        let len = chars.len() as i32;
-        let (start, end) = selection.unwrap_or((caret, caret));
-        let (start, end) = (start.clamp(0, len) as usize, end.clamp(0, len) as usize);
-        let mut new: String = chars[..start].iter().collect();
-        new.push_str(text);
-        new.extend(chars[end..].iter());
-        if atspi_bus::set_text_contents(conn, service, path, &new).await != Some(true) {
+        if atspi_bus::set_text_contents(conn, service, path, content).await != Some(true) {
             return false;
         }
-        let back = atspi_bus::text_or_value(conn, service, path).await.unwrap_or_default();
-        if back != new {
-            // Yarım/yanlış uygulandıysa önceki içeriği geri koy: klavye yedeği iki kez yazmasın.
-            let _ = atspi_bus::set_text_contents(conn, service, path, &current).await;
-            return false;
+        let ok = atspi_bus::text_or_value(conn, service, path).await.unwrap_or_default() == content;
+        if ok {
+            let _ = atspi_bus::set_caret(conn, service, path, content.chars().count() as i32).await;
         }
-        let _ = atspi_bus::set_caret(conn, service, path, (start + text.chars().count()) as i32).await;
-        true
+        ok
     })
 }
 

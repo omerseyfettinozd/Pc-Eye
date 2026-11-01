@@ -586,9 +586,18 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             }
         }
         "vision" | "screenshot" => {
+            // Görüntünün kendisi: eskiden işaret listesi metin olarak (~27K karakter) dönüyor,
+            // görüntü hiç gelmiyordu; ajan ayrıca vision çağırıyordu.
             let win = args.get("window").and_then(|v| v.as_str());
-            if let Ok(vis) = capture_vision(win, None, None, true) {
-                items.push(json!({ "type": "text", "text": serde_json::to_string_pretty(&vis)? }));
+            if let Ok(vis) = capture_vision(win, None, None, false) {
+                if let Ok(bytes) = std::fs::read(&vis.file_path) {
+                    use base64::Engine;
+                    items.push(json!({
+                        "type": "image",
+                        "data": base64::engine::general_purpose::STANDARD.encode(&bytes),
+                        "mimeType": "image/png"
+                    }));
+                }
             }
         }
         "xray" => {

@@ -727,36 +727,30 @@ pub fn type_text(
         thread::sleep(Duration::from_millis(30));
     }
 
-    // Odaktaki tek satırlı düzenlenebilir alana metin erişilebilirlik arayüzünden eklenir. Klavye
-    // yolu, yazarken açılan tamamlama penceresinde (Dolphin adres çubuğu) bozuluyordu: odak açılır
-    // pencereye geçince sanal klavyenin keymap'i orada geçerli olmuyor, ~120 karakter kayboldu.
-    // Tarayıcıda değil: web sayfaları (React vb.) değeri yalnız klavye olaylarından öğrenir.
-    if !text.contains('\n') && text.chars().count() >= 4 {
-        if let Some(ui) = inspect_window_ui(window_addr, None, 200).ok().filter(|ui| !crate::eyes::ui_atspi::is_browser_class(&ui.window_class)) {
-            let field = ui.elements.iter().find(|e| {
-                e.states.iter().any(|s| s == "focused")
-                    && e.states.iter().any(|s| s == "editable")
-                    && matches!(e.role.as_str(), "text" | "entry" | "text box")
-                    && !e.dbus_service.is_empty()
-                    && !e.value.as_deref().unwrap_or("").contains('\n')
-            });
-            if let Some(f) = field {
-                if crate::eyes::ui_atspi::atspi_insert_text(&f.dbus_service, &f.dbus_path, text) {
-                    return Ok(ActionReceipt {
-                        ok: true,
-                        action: "type_text".to_string(),
-                        target: window_addr.unwrap_or("focused").to_string(),
-                        coordinates: None,
-                        details: format!(
-                            "{} karakter odaktaki alana erişilebilirlik arayüzüyle eklendi (geri okunarak doğrulandı)",
-                            text.chars().count()
-                        ),
-                        verification: None,
-                    });
-                }
-            }
-        }
-    }
+    // Klavye önce (uygulama gerçek düzenleme olayı görür: Qt'de arama `textEdited` ile başlar, AT-SPI
+    // ile yazılan metin aramayı başlatmıyordu). Sonra odaktaki tek satırlı alan geri okunur: yazarken
+    // açılan tamamlama penceresi (Dolphin adres çubuğu) odağı alınca sanal klavyenin keymap'i orada
+    // geçerli olmuyor ve ~120 karakter kayboluyordu. Bozulduysa amaçlanan metin AT-SPI ile yazılır.
+    let field = if !text.contains('\n') && text.chars().count() >= 4 {
+        inspect_window_ui(window_addr, None, 200)
+            .ok()
+            .filter(|ui| !crate::eyes::ui_atspi::is_browser_class(&ui.window_class))
+            .and_then(|ui| {
+                ui.elements.into_iter().find(|e| {
+                    e.states.iter().any(|s| s == "focused")
+                        && e.states.iter().any(|s| s == "editable")
+                        && matches!(e.role.as_str(), "text" | "entry" | "text box")
+                        && !e.dbus_service.is_empty()
+                        && !e.value.as_deref().unwrap_or("").contains('\n')
+                })
+            })
+            .and_then(|f| {
+                let expected = crate::eyes::ui_atspi::atspi_expected_after_insert(&f.dbus_service, &f.dbus_path, text)?;
+                Some((f, expected))
+            })
+    } else {
+        None
+    };
 
     let mut path = "wayland";
     if active_window_is_xwayland() {
@@ -769,6 +763,21 @@ pub fn type_text(
         }
     } else {
         WaylandVirtualInput::connect()?.type_unicode_string(text)?;
+    }
+
+    let mut repaired = false;
+    if let Some((f, expected)) = field {
+        // Tamamlama penceresi metni gecikmeli bozabiliyor: birkaç kez bak (toplam ~400 ms).
+        for wait in [80u64, 120, 200] {
+            thread::sleep(Duration::from_millis(wait));
+            let got = crate::eyes::ui_atspi::atspi_read_text(&f.dbus_service, &f.dbus_path).unwrap_or_default();
+            if got != expected {
+                repaired = crate::eyes::ui_atspi::atspi_replace_text(&f.dbus_service, &f.dbus_path, &expected) || repaired;
+            }
+        }
+    }
+    if repaired {
+        path = "keyboard+atspi-repair";
     }
 
     Ok(ActionReceipt {

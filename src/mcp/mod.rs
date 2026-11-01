@@ -209,10 +209,13 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
         "pc_eye_vision" => {
             let win = args.get("window").and_then(|v| v.as_str());
             let marks = args.get("marks").and_then(|v| v.as_bool()).unwrap_or(false);
+            // Dosya okuyamayan bir ajana yalnız dosya yolu dönmek işe yaramaz: küçük (zoom/bölge)
+            // yakalamalarda görüntü varsayılan olarak yanıta eklenir; büyük yakalamalarda istenirse.
+            let small_capture = args.get("zoom").is_some() || args.get("region").is_some();
             let include_b64 = args
                 .get("include_base64")
                 .and_then(|v| v.as_bool())
-                .unwrap_or(false);
+                .unwrap_or(small_capture);
             let region = args
                 .get("region")
                 .and_then(|v| v.as_array())

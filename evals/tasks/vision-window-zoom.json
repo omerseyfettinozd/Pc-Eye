@@ -1,0 +1,9 @@
+{
+  "id": "vision-window-zoom",
+  "scene": "canvas",
+  "tags": ["tool:vision", "privacy"],
+  "probe": [
+    {"args": ["vision", "--window", "{title}", "--zoom", "40,150"], "expect_contains": ["\"capture_mode\": \"zoom\"", "\"desktop_geometry\": [\n    {win_x},"]}
+  ],
+  "check": {"type": "none"}
+}

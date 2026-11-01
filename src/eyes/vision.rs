@@ -1,5 +1,5 @@
 use crate::daemon::ring_buffer::now_ms;
-use crate::eyes::compositor::{capture_desktop_state, normalize_window_address};
+use crate::eyes::compositor::capture_desktop_state;
 use crate::eyes::ui_atspi::inspect_window_ui;
 use crate::protocol::types::{FrameSample, FrameSequenceReport, UiElement, VisionReport};
 use anyhow::{anyhow, Context, Result};
@@ -100,40 +100,51 @@ pub fn resolve_capture_plan(
         [x, y, w, h]
     };
 
+    // `window` ile verilen nokta/bölge: pencerenin içine düşüyorsa mutlak (snapshot'ın `at` değerleri),
+    // değilse pencereye göreli sayılır. Mutlak sayılıp pencere yok sayıldığında ajanların "göreli"
+    // varsayımı kullanıcının ekranından alakasız bir parça yakalatıyordu.
+    let target_win = match window_addr {
+        Some(addr) => {
+            let norm = crate::eyes::compositor::resolve_window_ref(addr, &desktop.windows)?;
+            desktop.windows.iter().find(|w| w.address == norm).cloned()
+        }
+        None => None,
+    };
+    let to_abs = |x: i64, y: i64| -> (i64, i64) {
+        match &target_win {
+            Some(w) if !(x >= w.x && x < w.x + w.width && y >= w.y && y < w.y + w.height) => (w.x + x, w.y + y),
+            _ => (x, y),
+        }
+    };
+
     let (mode, target_window, geom) = if let Some([zx, zy]) = zoom_point {
         let zw = 480i64;
         let zh = 320i64;
-        let x = (zx - zw / 2).clamp(bx0, (bx1 - zw).max(bx0));
-        let y = (zy - zh / 2).clamp(by0, (by1 - zh).max(by0));
+        let (zx, zy) = to_abs(zx, zy);
+        // Pencere verildiyse kutu pencerenin içinde kalsın (komşu ekran/boşluk yakalanmasın).
+        let (lx0, ly0, lx1, ly1) = match &target_win {
+            Some(w) if w.width >= zw && w.height >= zh => (w.x, w.y, w.x + w.width, w.y + w.height),
+            _ => (bx0, by0, bx1, by1),
+        };
+        let x = (zx - zw / 2).clamp(lx0, (lx1 - zw).max(lx0));
+        let y = (zy - zh / 2).clamp(ly0, (ly1 - zh).max(ly0));
         (
             "zoom".to_string(),
-            window_addr.map(normalize_window_address),
+            target_win.as_ref().map(|w| w.address.clone()),
             [x, y, zw, zh],
         )
-    } else if let (Some(r), Some(addr)) = (region, window_addr) {
-        // Pencereyle birlikte verilen bölge pencereye GÖRELİDİR: ajanlar bunu doğal varsayıyor ve
-        // mutlak sayılınca kullanıcının ekranından alakasız bir parça yakalanıyordu.
-        let norm = crate::eyes::compositor::resolve_window_ref(addr, &desktop.windows)?;
-        let win = desktop
-            .windows
-            .iter()
-            .find(|w| w.address == norm)
-            .ok_or_else(|| anyhow!("Pencere bulunamadı: {}", norm))?;
-        let x = win.x + r[0].clamp(0, (win.width - 10).max(0));
-        let y = win.y + r[1].clamp(0, (win.height - 10).max(0));
+    } else if let (Some(r), Some(win)) = (region, target_win.as_ref()) {
+        let norm = win.address.clone();
+        let (ax, ay) = to_abs(r[0], r[1]);
+        let x = ax.clamp(win.x, (win.x + win.width - 10).max(win.x));
+        let y = ay.clamp(win.y, (win.y + win.height - 10).max(win.y));
         let w = r[2].clamp(10, (win.x + win.width - x).max(10));
         let h = r[3].clamp(10, (win.y + win.height - y).max(10));
         ("window-region".to_string(), Some(norm), clamp_rect(x, y, w, h))
     } else if let Some(r) = region {
         ("region".to_string(), None, clamp_rect(r[0], r[1], r[2], r[3]))
-    } else if let Some(addr) = window_addr {
-        let norm = crate::eyes::compositor::resolve_window_ref(addr, &desktop.windows)?;
-        let win = desktop
-            .windows
-            .iter()
-            .find(|w| w.address == norm)
-            .ok_or_else(|| anyhow!("Pencere bulunamadı: {}", norm))?;
-        ("window".to_string(), Some(norm), clamp_rect(win.x, win.y, win.width, win.height))
+    } else if let Some(win) = target_win.as_ref() {
+        ("window".to_string(), Some(win.address.clone()), clamp_rect(win.x, win.y, win.width, win.height))
     } else {
         let g = primary_mon.as_ref().map(logical).unwrap_or([0, 0, 2560, 1600]);
         ("monitor".to_string(), None, g)

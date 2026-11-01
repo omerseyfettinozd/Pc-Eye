@@ -220,7 +220,8 @@ def scene_canvas(sb, rng, work):
     text = f"{token(rng, 3)}-{token(rng, 4)}"
     title = f"Eval Tuval {token(rng, 4)}"
     window, pid = sb.launch_window(fixture_cmd("canvas", work / "out.json", title, text=text))
-    return Scene({"token": text, "window": window, "pid": pid, "title": title})
+    win = next(c for c in hyprctl_json("clients") if c["address"] == window)
+    return Scene({"token": text, "window": window, "pid": pid, "title": title, "win_x": win["at"][0]})
 
 
 def scene_terminal(sb, rng, work):

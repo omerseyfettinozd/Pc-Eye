@@ -35,6 +35,13 @@ fn compact_element(e: &UiElement) -> Value {
     if let Some(v) = e.value.as_ref().filter(|v| !v.is_empty() && !v.starts_with("conf:")) {
         obj["value"] = json!(truncate(v, 120));
     }
+    // OCR güveni karar bilgisidir: düşükse ajan görüntüyle doğrular (0/O, 9/O karışıklıkları).
+    // Snapshot'ın ilk sürümü bunu atınca ajan %95'e düştü.
+    if e.role == "ocr-text" {
+        if let Some(c) = ocr_conf(e) {
+            obj["conf"] = json!(c.round() as i64);
+        }
+    }
     let states: Vec<&str> = e
         .states
         .iter()
@@ -47,7 +54,8 @@ fn compact_element(e: &UiElement) -> Value {
     obj
 }
 
-const MIN_OCR_CONF: f64 = 60.0;
+/// Bunun altı neredeyse her zaman ikon kenarı; üstü (ör. %51'lik gizli kod) `conf` ile gösterilir.
+const MIN_OCR_CONF: f64 = 30.0;
 
 /// İkon kenarlarından çıkan OCR çöpü ("pi,", "io) «"): iki harf/rakamdan az, sembolü harfi kadar
 /// ya da daha çok, veya düşük güvenli. "Ortam »", "© Klasör seç..." gibi gerçek etiketler kalır.
@@ -57,12 +65,14 @@ fn is_ocr_noise(e: &UiElement) -> bool {
     }
     let alnum = e.name.chars().filter(|c| c.is_alphanumeric()).count();
     let symbols = e.name.chars().filter(|c| !c.is_alphanumeric() && !c.is_whitespace()).count();
-    let conf = e
-        .value
+    alnum < 2 || symbols >= alnum || ocr_conf(e).map_or(false, |c| c < MIN_OCR_CONF)
+}
+
+fn ocr_conf(e: &UiElement) -> Option<f64> {
+    e.value
         .as_deref()
         .and_then(|v| v.strip_prefix("conf:"))
-        .and_then(|v| v.trim_end_matches('%').parse::<f64>().ok());
-    alnum < 2 || symbols >= alnum || conf.map_or(false, |c| c < MIN_OCR_CONF)
+        .and_then(|v| v.trim_end_matches('%').parse::<f64>().ok())
 }
 
 /// Algısal ikon dedektörü düz zeminde onlarca sahte kutu üretebilir; metinli eleman varsa onları ele.
@@ -209,8 +219,11 @@ mod tests {
         let mut junk = el(3, "ocr-text", "io) «", &[]);
         assert!(is_ocr_noise(&junk));
         junk.name = "Kaydet".to_string();
-        junk.value = Some("conf:42%".to_string());
-        assert!(is_ocr_noise(&junk), "düşük güven");
+        junk.value = Some("conf:25%".to_string());
+        assert!(is_ocr_noise(&junk), "çok düşük güven");
+        junk.value = Some("conf:51%".to_string());
+        assert!(!is_ocr_noise(&junk), "orta güvenli metin elenmez, conf ile gösterilir");
+        assert_eq!(compact_element(&junk)["conf"], 51);
         junk.value = Some("conf:88%".to_string());
         assert!(!is_ocr_noise(&junk));
         let (picked, _) = select_elements(&els, true, 40);

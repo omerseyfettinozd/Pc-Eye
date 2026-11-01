@@ -118,6 +118,12 @@ Başarı ve maliyette öndeyiz; medyan sürede hâlâ geride. `PC_EYE_TRACE` izi
 ~%70'i model turları; araç tarafında tıklama doğrulaması 1065 → ~390 ms'e indi (ajan içinde
 `then: snapshot` ile birlikte medyan 783 ms). Sıradaki hız işi: tur sayısı (Dolphin 17, sihirbaz 15).
 
+Tur azaltma turu (191943 Sonnet, 194220 Haiku): vision görüntüyü her zaman döndürür, `then: snapshot`
+delta ve kapanan pencerede sonraki pencereye geçer, `clicks: 2` / `open`, aynı adlı adaylarda pencere
+başlığıyla eşleşen kap, kaymalı pencerede düğmelere D-Bus, yazma klavye önce + bozulursa AT-SPI onarımı
+(Dolphin adres çubuğu tamamlama penceresi ~120 karakter yutuyordu). Sihirbaz 15 → 9–10 tur (Sonnet 60 →
+23 s), Dolphin Sonnet 33 → 10 tur / 68 → 27 s (194220-g8s), Haiku tüm set 24/24, $0.116.
+
 **Gerçek site (`--tag live`):** `live-youtube-play` — YouTube'da arama, video açma; başarı tarayıcının
 MPRIS durumundan (gerçekten "Playing" mi) denetlenir. Haiku 3/3 (biri Shorts), ~45 s, $0.011.
 Ajan oturumundaki uygulamaların sesi oturumun boş ses çıkışına gider (kullanıcının hoparlörüne değil);

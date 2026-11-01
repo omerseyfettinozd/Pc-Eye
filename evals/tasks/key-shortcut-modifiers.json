@@ -1,0 +1,13 @@
+{
+  "id": "key-shortcut-modifiers",
+  "scene": "web_form",
+  "tags": ["browser", "action:key"],
+  "probe": [
+    {"args": ["click-ui", "--window", "{title}", "--name", "Ad Soyad"], "settle_ms": 150},
+    {"args": ["input", "type", "--text", "silinecek", "--window", "{title}"], "settle_ms": 150},
+    {"args": ["input", "key", "--keys", "ctrl+a", "--window", "{title}"], "settle_ms": 150},
+    {"args": ["input", "type", "--text", "{name}", "--window", "{title}"], "settle_ms": 150},
+    {"args": ["click-ui", "--window", "{title}", "--name", "Gönder"], "settle_ms": 500}
+  ],
+  "check": {"type": "out_json", "expect": {"name": "{name}"}}
+}

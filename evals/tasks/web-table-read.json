@@ -1,0 +1,10 @@
+{
+  "id": "web-table-read",
+  "scene": "web_table",
+  "tags": ["browser", "perception:atspi", "tool:snapshot"],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasındaki fiyat listesine göre \"{item}\" ürününün fiyatı nedir? Fiyatı sayfada yazdığı gibi yaz.",
+  "probe": [
+    {"args": ["snapshot", "--window", "{title}"], "expect_contains": ["{item}", "{price}"]}
+  ],
+  "check": {"type": "answer", "expect": "{price}"}
+}

@@ -356,33 +356,51 @@ pub fn click_ui_element_ext(
     let region = verification_region(window_geometry, cx, cy);
 
     if let Some(txt) = set_text {
+        let has_dbus = !matched.dbus_service.is_empty();
+        let reads_back = |want: &str| {
+            has_dbus
+                && crate::eyes::ui_atspi::atspi_read_text(&matched.dbus_service, &matched.dbus_path)
+                    .as_deref()
+                    == Some(want)
+        };
         let (receipt, verification) = with_verification(region, || {
-            if !matched.dbus_service.is_empty()
+            // SetTextContents bazı araç takımlarında (Firefox) "başarılı" döner ama alanın gerçek
+            // değerini değiştirmez; ancak geri okunan metin tutarsa D-Bus yolu kabul edilir.
+            if has_dbus
                 && crate::eyes::ui_atspi::atspi_set_editable_text(
                     &matched.dbus_service,
                     &matched.dbus_path,
                     txt,
                 )
                 .unwrap_or(false)
+                && reads_back(txt)
             {
                 return Ok(ActionReceipt {
                     ok: true,
                     action: "set_ui_text_dbus".to_string(),
                     target: target.clone(),
                     coordinates: Some([cx, cy]),
-                    details: format!("D-Bus EditableText ile `{}` metni yazıldı", txt),
+                    details: format!("D-Bus EditableText ile `{}` metni yazıldı (geri okunarak doğrulandı)", txt),
                     verification: None,
                 });
             }
+            // Gerçek klavye girdisi uygulamanın kendi olaylarını tetikler. Ctrl+A ile mevcut içerik
+            // seçilir ki "yaz" eklemek değil değiştirmek olsun.
             click_at(Some(cx), Some(cy), "left", 1, allow_protected)?;
             thread::sleep(Duration::from_millis(25));
+            press_key_combo("ctrl+a", window_addr, allow_protected)?;
             type_text(txt, window_addr, allow_protected)?;
+            let confirmed = reads_back(txt);
             Ok(ActionReceipt {
                 ok: true,
                 action: "set_ui_text_pointer".to_string(),
                 target: target.clone(),
                 coordinates: Some([cx, cy]),
-                details: format!("Kontrole tıklanıp `{}` metni yazıldı", txt),
+                details: if confirmed {
+                    format!("Kontrole tıklanıp `{}` metni yazıldı (geri okunarak doğrulandı)", txt)
+                } else {
+                    format!("Kontrole tıklanıp `{}` metni yazıldı (geri okunamadı; görsel doğrulamaya bak)", txt)
+                },
                 verification: None,
             })
         })?;
@@ -743,11 +761,29 @@ impl WaylandVirtualInput {
         let keymap_str = build_evdev_xkb_keymap(&entries);
         self.upload_keymap(&keymap_str)?;
 
+        // Gerçek XKB modifier indeksleri sabittir: Shift=0, Lock=1, Control=2, Mod1=3, Mod4=6.
+        let mask: u32 = mods
+            .iter()
+            .map(|(name, _)| match name.as_str() {
+                "Shift_L" => 1 << 0,
+                "Control_L" => 1 << 2,
+                "Alt_L" => 1 << 3,
+                "Super_L" => 1 << 6,
+                _ => 0,
+            })
+            .sum();
+
         let mut pkt = Vec::new();
         let mut t = wl_time_ms();
         for (_, code) in &mods {
             write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, *code, 1]);
             t += 10;
+        }
+        // GTK/Firefox modifier durumunu kompozitörün wl_keyboard.modifiers olayından okur; Hyprland
+        // bunu sanal klavyede yalnız `modifiers` isteğinden (opcode 2) üretir. Yalnız fiziksel tuş
+        // gönderildiğinde Ctrl+A, "a" olarak yazılıyordu. SDL3 için fiziksel basışlar da kalır.
+        if mask != 0 {
+            write_wl_msg(&mut pkt, self.kbd_id, 2, &[mask, 0, 0, 0]);
         }
         for (_, code) in &keys {
             write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, *code, 1]);
@@ -758,6 +794,9 @@ impl WaylandVirtualInput {
         for (_, code) in mods.iter().rev() {
             write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, *code, 0]);
             t += 10;
+        }
+        if mask != 0 {
+            write_wl_msg(&mut pkt, self.kbd_id, 2, &[0, 0, 0, 0]);
         }
         self.stream.write_all(&pkt)?;
         self.flush_sync()

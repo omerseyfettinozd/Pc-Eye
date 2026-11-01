@@ -16,6 +16,8 @@ Tüm sahneler kullanıcının ekranından yalıtılmış `PCEYE-EVAL` sanal ekra
 """
 
 import argparse
+import html
+import http.server
 import json
 import os
 import random
@@ -26,6 +28,7 @@ import socket
 import statistics
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -101,6 +104,7 @@ class Sandbox:
     def __init__(self):
         self.workspace = None
         self.pids = []
+        self.cleanups = []
         self.user_cursor = None
         self.user_window = None
 
@@ -171,6 +175,9 @@ class Sandbox:
             if Path(f"/proc/{pid}").exists():
                 send(pid, signal.SIGKILL)
         self.pids.clear()
+        for fn in self.cleanups:
+            fn()
+        self.cleanups.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +282,8 @@ def scene_crash(sb, rng, work):
     # systemd-coredump kaydı birkaç saniye sürebilir; ölçülen şey pc-eye olsun, kayıt gecikmesi değil.
     deadline = time.time() + 8
     while time.time() < deadline:
-        out = subprocess.run(["coredumpctl", "list", "--json=short", "-n", "10", "--no-pager"],
+        # `-r` şart: `-n` tek başına journal'ın en eski kayıtlarını verir (pc-eye'da düzeltilen hata).
+        out = subprocess.run(["coredumpctl", "list", "--json=short", "-r", "-n", "10", "--no-pager"],
                              capture_output=True, text=True).stdout
         if f'"pid":{p.pid},' in out.replace(" ", ""):
             break
@@ -284,7 +292,88 @@ def scene_crash(sb, rng, work):
                   "signal_num": signal.Signals[f"SIG{sig}"].value})
 
 
+WEB_DIR = ROOT / "fixtures" / "web"
+# Geçici profilde ilk açılış sekmeleri ve uyarılar kapalı: sahne yalnız test sayfasını göstersin.
+FIREFOX_PREFS = """
+user_pref("browser.aboutwelcome.enabled", false);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("datareporting.policy.firstRunURL", "");
+user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
+user_pref("browser.tabs.warnOnClose", false);
+user_pref("browser.sessionstore.resume_from_crash", false);
+"""
+
+
+def serve_page(sb, page_html, out_path):
+    """Sayfayı 127.0.0.1'de sunar; `POST /submit` gövdesini `out_path`e yazar (gerçek durum denetimi)."""
+    body = page_html.encode("utf-8")
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            data = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            out_path.write_bytes(data)
+            self.send_response(204)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    sb.cleanups.append(server.shutdown)
+    return f"http://127.0.0.1:{server.server_address[1]}/"
+
+
+def open_in_firefox(sb, work, url, ready_text):
+    profile = work / "ffprofile"
+    profile.mkdir(exist_ok=True)
+    (profile / "user.js").write_text(FIREFOX_PREFS)
+    window, pid = sb.launch_window(["firefox", "--new-instance", "--profile", str(profile), url])
+    pceye("wait", "ui_match", "--window", window, "--match", ready_text, "--timeout-ms", "8000")
+    return window, pid
+
+
+def scene_web_form(sb, rng, work):
+    name = f"{rng.choice(FIRST_NAMES)} {rng.choice(LAST_NAMES)}"
+    cities = rng.sample(CITIES, 4)
+    city = rng.choice(cities[1:])
+    title = f"Eval Web Form {token(rng, 4)}"
+    options = "".join(f"<option>{html.escape(c)}</option>" for c in cities)
+    page = (WEB_DIR / "form.html").read_text(encoding="utf-8")
+    page = page.replace("{title}", title).replace("{options}", options)
+    out = work / "out.json"
+    window, pid = open_in_firefox(sb, work, serve_page(sb, page, out), "Sipariş formu")
+    return Scene({"name": name, "city": city, "default_city": cities[0], "title": title,
+                  "window": window, "pid": pid}, out)
+
+
+def scene_web_table(sb, rng, work):
+    items = rng.sample(["Kalem", "Defter", "Silgi", "Cetvel", "Pergel", "Makas", "Boya", "Zımba"], 6)
+    prices = {it: f"{rng.randint(3, 400)},{rng.randint(0, 99):02d} TL" for it in items}
+    target = rng.choice(items)
+    title = f"Eval Fiyatlar {token(rng, 4)}"
+    rows = "".join(
+        f"<tr><td>{html.escape(it)}</td><td>{rng.randint(0, 50)}</td><td>{prices[it]}</td></tr>"
+        for it in items
+    )
+    page = (WEB_DIR / "table.html").read_text(encoding="utf-8")
+    page = page.replace("{title}", title).replace("{rows}", rows)
+    window, pid = open_in_firefox(sb, work, serve_page(sb, page, work / "out.json"), "Fiyat listesi")
+    return Scene({"item": target, "price": prices[target], "title": title,
+                  "window": window, "pid": pid})
+
+
 SCENES = {
+    "web_form": scene_web_form,
+    "web_table": scene_web_table,
     "buttons": scene_buttons,
     "form": scene_form,
     "canvas": scene_canvas,

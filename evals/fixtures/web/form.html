@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>{title}</title>
+<style>body{font:18px sans-serif;margin:32px} label{display:block;margin:12px 0} #durum{margin-top:16px;font-weight:bold}</style>
+<h1>Sipariş formu</h1>
+<form id="f">
+  <label>Ad Soyad <input name="ad" autocomplete="off"></label>
+  <label><input type="checkbox" name="bulten"> Bültene abone ol</label>
+  <label>Şehir <select name="sehir">{options}</select></label>
+  <button type="submit">Gönder</button>
+</form>
+<p id="durum" role="status"></p>
+<script>
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const body = JSON.stringify({ name: f.ad.value, newsletter: f.bulten.checked, city: f.sehir.value });
+  const r = await fetch("/submit", { method: "POST", body });
+  document.getElementById("durum").textContent = r.ok ? "Kaydedildi" : "Hata";
+});
+</script>
+</html>

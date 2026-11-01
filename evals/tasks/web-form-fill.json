@@ -1,0 +1,15 @@
+{
+  "id": "web-form-fill",
+  "scene": "web_form",
+  "tags": ["browser", "perception:atspi", "action:type", "action:dropdown", "turkish"],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasındaki formu doldur: ad soyad \"{name}\", bültene abone olsun, şehir \"{city}\". Sonra Gönder'e bas.",
+  "probe": [
+    {"args": ["snapshot", "--window", "{title}"], "expect_contains": ["Ad Soyad", "Gönder", "{default_city}"]},
+    {"args": ["click-ui", "--window", "{title}", "--name", "Ad Soyad", "--set-text", "{name}"], "settle_ms": 200},
+    {"args": ["click-ui", "--window", "{title}", "--name", "Bültene abone ol"], "settle_ms": 200},
+    {"args": ["click-ui", "--window", "{title}", "--name", "Şehir"], "settle_ms": 500},
+    {"args": ["click-ui", "--window", "{title}", "--name", "{city}"], "settle_ms": 400},
+    {"args": ["click-ui", "--window", "{title}", "--name", "Gönder"], "settle_ms": 500}
+  ],
+  "check": {"type": "out_json", "expect": {"name": "{name}", "newsletter": true, "city": "{city}"}}
+}

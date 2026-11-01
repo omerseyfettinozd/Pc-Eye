@@ -1,12 +1,15 @@
 use crate::daemon::ring_buffer::now_ms;
+use crate::eyes::atspi_bus;
 use crate::eyes::compositor::{capture_desktop_state, resolve_window_ref};
 use crate::eyes::process_xray::collect_app_cluster;
 use crate::protocol::types::{TerminalContext, UiElement, UiTreeReport, WindowInfo};
 use anyhow::{anyhow, Result};
 use serde_json::Value;
-use std::collections::{HashSet, VecDeque};
+use futures_util::future::join_all;
+use std::collections::HashSet;
 use std::fs;
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 const TERMINAL_CLASSES: &[&str] = &[
     "kitty",
@@ -136,13 +139,23 @@ pub fn inspect_window_ui(
 
     let mut elements = Vec::new();
     let mut used_ocr = false;
-    if let Some(bus_addr) = resolve_atspi_bus_address() {
-        elements = collect_atspi_elements_for_window(
-            &bus_addr,
-            &win,
-            query_filter,
-            max_elements.max(10),
-        );
+    if let Ok(conn) = atspi_bus::connection() {
+        // Tarayıcılar sayfa yüklendikten sonra belge ağacını gecikmeli yayınlar; o arada yalnız
+        // araç çubuğu görünür. Belge henüz yoksa kısa aralıklarla birkaç kez yeniden oku.
+        let browser = is_browser_window(&win.class);
+        for attempt in 0..4 {
+            elements = atspi_bus::block_on(collect_atspi_elements_for_window(
+                conn,
+                &win,
+                query_filter,
+                max_elements.max(10),
+            ));
+            let has_document = elements.iter().any(|e| e.role.starts_with("document"));
+            if !browser || has_document || query_filter.is_some() || attempt == 3 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(150));
+        }
     }
 
     // V4 Yükseltmesi (TRIVIAL ağaç düzeltmesi): AT-SPI2 ağacı "boş" olmasa bile ANLAMLI İÇERİK taşımıyorsa
@@ -299,19 +312,52 @@ fn read_kitty_socket_lines(term_pid: i32) -> Vec<String> {
     Vec::new()
 }
 
-fn collect_atspi_elements_for_window(
-    bus_addr: &str,
+/// Okuma bütçesi: bu sınırlar içinde ağaç tam okunur, çıktı sınırı (`max_elements`) ayrıca uygulanır.
+/// Eski 85 düğüm sınırı Firefox'ta araç çubuğunda tükenip sayfa içeriğine hiç ulaşmıyordu.
+const NODE_BUDGET: usize = 3000;
+const TIME_BUDGET: Duration = Duration::from_millis(1500);
+
+struct NodeInfo {
+    path: String,
+    role: String,
+    name: String,
+    states: Vec<String>,
+    children: Vec<(String, String)>,
+    in_document: bool,
+}
+
+async fn read_node(conn: &zbus::Connection, service: &str, path: String, in_document: bool) -> NodeInfo {
+    let (role, name, states, children) = futures_util::join!(
+        atspi_bus::role_name(conn, service, &path),
+        atspi_bus::name(conn, service, &path),
+        atspi_bus::states(conn, service, &path),
+        atspi_bus::children(conn, service, &path),
+    );
+    NodeInfo {
+        path,
+        role: role.unwrap_or_else(|| "unknown".to_string()),
+        name: name.unwrap_or_default(),
+        states,
+        children,
+        in_document,
+    }
+}
+
+async fn collect_atspi_elements_for_window(
+    conn: &zbus::Connection,
     win: &WindowInfo,
     query_filter: Option<&str>,
     max_elements: usize,
 ) -> Vec<UiElement> {
-    let Some(root_children) = atspi_get_children(
-        bus_addr,
+    let root_children = atspi_bus::children(
+        conn,
         "org.a11y.atspi.Registry",
         "/org/a11y/atspi/accessible/root",
-    ) else {
+    )
+    .await;
+    if root_children.is_empty() {
         return Vec::new();
-    };
+    }
 
     let cluster_pids: HashSet<i32> = collect_app_cluster(win.pid)
         .map(|(m, _)| m.into_iter().map(|p| p.pid).collect())
@@ -327,12 +373,16 @@ fn collect_atspi_elements_for_window(
     let mut pid_services = Vec::new();
     let mut name_services = Vec::new();
 
-    for (service, root_path) in root_children {
-        let conn_pid = atspi_get_service_pid(bus_addr, &service);
-        let app_name = atspi_get_string_prop(bus_addr, &service, &root_path, "Name")
-            .unwrap_or_default()
-            .to_ascii_lowercase();
+    let apps = join_all(root_children.into_iter().map(|(service, root_path)| async move {
+        let (pid, name) = futures_util::join!(
+            atspi_bus::service_pid(conn, &service),
+            atspi_bus::name(conn, &service, &root_path),
+        );
+        (service, root_path, pid, name.unwrap_or_default().to_ascii_lowercase())
+    }))
+    .await;
 
+    for (service, root_path, conn_pid, app_name) in apps {
         let pid_matches = conn_pid.map(|p| cluster_pids.contains(&p)).unwrap_or(false);
         let name_matches = !app_name.is_empty()
             && (win_class_lower.contains(&app_name) || app_name.contains(&win_class_lower));
@@ -347,171 +397,159 @@ fn collect_atspi_elements_for_window(
     // (ikinci Firefox, eski bir süreç) elemanları bu pencerenin sonucuna karışır.
     let matching_services = if pid_services.is_empty() { name_services } else { pid_services };
 
-    let mut elements = Vec::new();
-    let filter_lower = query_filter.map(|q| q.to_ascii_lowercase());
+    let filter_lower = query_filter.map(|q| q.to_lowercase());
+    let started = Instant::now();
+    let mut inspected = 0usize;
+    let mut candidates: Vec<(String, NodeInfo)> = Vec::new();
 
     for (service, root_path) in matching_services {
-        let mut queue = VecDeque::new();
         let mut visited = HashSet::new();
         visited.insert(root_path.clone());
         // Uygulamanın birden çok penceresi varsa yalnız başlığı bu pencereninki olanı tara.
-        let top_level = atspi_get_children(bus_addr, &service, &root_path).unwrap_or_default();
+        let top_level = atspi_bus::children(conn, &service, &root_path).await;
+        let top_names =
+            join_all(top_level.iter().map(|(_, p)| atspi_bus::name(conn, &service, p))).await;
         let same_title: Vec<String> = top_level
             .iter()
-            .filter(|(srv, p)| {
-                *srv == service
-                    && atspi_get_string_prop(bus_addr, &service, p, "Name").as_deref()
-                        == Some(win.title.as_str())
-            })
-            .map(|(_, p)| p.clone())
+            .zip(top_names)
+            .filter(|((srv, _), name)| *srv == service && name.as_deref() == Some(win.title.as_str()))
+            .map(|((_, p), _)| p.clone())
             .collect();
-        if top_level.len() > 1 && !same_title.is_empty() {
-            for p in same_title {
-                visited.insert(p.clone());
-                queue.push_back(p);
-            }
+        let mut frontier: Vec<(String, bool)> = if top_level.len() > 1 && !same_title.is_empty() {
+            same_title.into_iter().map(|p| (p, false)).collect()
         } else {
-            queue.push_back(root_path);
+            vec![(root_path, false)]
+        };
+        for (p, _) in &frontier {
+            visited.insert(p.clone());
         }
 
-        let mut inspected_nodes = 0usize;
-        while let Some(path) = queue.pop_front() {
-            if inspected_nodes >= 85 || elements.len() >= max_elements {
-                break;
-            }
-            inspected_nodes += 1;
+        // Seviye seviye: bir seviyedeki tüm düğümler aynı anda okunur.
+        let mut depth = 0usize;
+        while !frontier.is_empty() && inspected < NODE_BUDGET && started.elapsed() < TIME_BUDGET {
+            frontier.truncate(NODE_BUDGET - inspected);
+            inspected += frontier.len();
+            let level = join_all(
+                frontier
+                    .drain(..)
+                    .map(|(path, in_doc)| read_node(conn, &service, path, in_doc)),
+            )
+            .await;
 
-            let role = atspi_call_string(bus_addr, &service, &path, "GetRoleName")
-                .unwrap_or_else(|| "unknown".to_string());
-            let name =
-                atspi_get_string_prop(bus_addr, &service, &path, "Name").unwrap_or_default();
-
-            // Wayland'de istemci ekrandaki yerini bilmez: GTK4 `SCREEN` için her elemanı (0,0)
-            // döndürür. `WINDOW` araç takımlarında pencereye göreli doğru konumu verir.
-            let extents = atspi_get_extents(bus_addr, &service, &path, ATSPI_COORD_WINDOW)
-                .map(|e| (e, true))
-                .or_else(|| {
-                    atspi_get_extents(bus_addr, &service, &path, ATSPI_COORD_SCREEN)
-                        .map(|e| (e, false))
+            for node in level {
+                // Görünmeyen alt ağaçlar (arka plan sekmeleri, kapalı menüler) gürültüdür ve bütçeyi yer.
+                if depth > 0 && !node.states.iter().any(|s| s == "showing") {
+                    continue;
+                }
+                let in_doc = node.in_document
+                    || matches!(node.role.as_str(), "document web" | "document frame");
+                for (srv, child) in &node.children {
+                    if *srv == service && visited.insert(child.clone()) {
+                        frontier.push((child.clone(), in_doc));
+                    }
+                }
+                if node.name.is_empty() && !is_interactive_role(&node.role) {
+                    continue;
+                }
+                let matches_query = filter_lower.as_ref().map_or(true, |q| {
+                    node.name.to_lowercase().contains(q) || node.role.to_lowercase().contains(q)
                 });
-            if let Some(([rx, ry, rw, rh], window_relative)) = extents {
-                if rw > 2 && rh > 2 && (!name.is_empty() || is_interactive_role(&role)) {
-                    let (sx, sy) = if window_relative {
-                        (win.x + rx, win.y + ry)
-                    } else {
-                        resolve_screen_coordinates(rx, ry, rw, rh, win)
-                    };
-                    let matches_query = filter_lower
-                        .as_ref()
-                        .map(|q| {
-                            name.to_ascii_lowercase().contains(q)
-                                || role.to_ascii_lowercase().contains(q)
-                        })
-                        .unwrap_or(true);
-
-                    if matches_query {
-                        let states = atspi_get_states(bus_addr, &service, &path);
-                        let value = if is_value_or_text_role(&role)
-                            || states.iter().any(|s| s == "editable")
-                        {
-                            atspi_get_text_or_value(bus_addr, &service, &path)
-                        } else {
-                            None
-                        };
-                        let description =
-                            atspi_get_string_prop(bus_addr, &service, &path, "Description")
-                                .filter(|d| !d.is_empty());
-
-                        let mark = elements.len() + 1;
-                        let cx = sx + rw / 2;
-                        let cy = sy + rh / 2;
-                        elements.push(UiElement {
-                            mark,
-                            role: role.clone(),
-                            name: name.clone(),
-                            value,
-                            description,
-                            states,
-                            actions: vec!["click".to_string(), "dbus_do_action".to_string()],
-                            rel_bounds: [rx, ry, rw, rh],
-                            screen_bounds: [sx, sy, rw, rh],
-                            click_point: [cx, cy],
-                            dbus_service: service.clone(),
-                            dbus_path: path.clone(),
-                        });
-                    }
+                if matches_query {
+                    candidates.push((service.clone(), NodeInfo { in_document: in_doc, ..node }));
                 }
             }
-
-            if let Some(children) = atspi_get_children(bus_addr, &service, &path) {
-                for (child_srv, child_path) in children {
-                    if child_srv == service && visited.insert(child_path.clone()) {
-                        queue.push_back(child_path);
-                    }
-                }
-            }
+            depth += 1;
         }
     }
 
+    // Sayfa/belge içeriği önce: tarayıcıda araç çubuğu düğmeleri sayfanın önüne geçip çıktı
+    // sınırını doldurmasın. Sıralama kararlı; her grupta ağaç sırası korunur.
+    candidates.sort_by_key(|(_, n)| !n.in_document);
+    // Boyutsuz düğümler sonradan elenir; sınırı tutturmak için biraz fazlasının konumu istenir.
+    candidates.truncate(max_elements.saturating_mul(2) + 20);
+
+    let details = join_all(candidates.iter().map(|(service, node)| async move {
+        // Wayland'de istemci ekrandaki yerini bilmez: GTK4 `SCREEN` için her elemanı (0,0)
+        // döndürür. `WINDOW` araç takımlarında pencereye göreli doğru konumu verir.
+        let (window_ext, description) = futures_util::join!(
+            atspi_bus::extents(conn, service, &node.path, atspi_bus::COORD_WINDOW),
+            atspi_bus::description(conn, service, &node.path),
+        );
+        let extents = match window_ext {
+            Some(e) => Some((e, true)),
+            None => atspi_bus::extents(conn, service, &node.path, atspi_bus::COORD_SCREEN)
+                .await
+                .map(|e| (e, false)),
+        };
+        // Şifre alanlarının içeriği hiçbir zaman okunmaz.
+        let wants_value = node.role != "password text"
+            && (is_value_or_text_role(&node.role) || node.states.iter().any(|s| s == "editable"));
+        let value = if wants_value {
+            atspi_bus::text_or_value(conn, service, &node.path).await
+        } else {
+            None
+        };
+        (extents, description, value)
+    }))
+    .await;
+
+    let mut elements = Vec::new();
+    for ((service, node), (extents, description, value)) in candidates.into_iter().zip(details) {
+        let Some(([rx, ry, rw, rh], window_relative)) = extents else { continue };
+        if rw <= 2 || rh <= 2 {
+            continue;
+        }
+        let (sx, sy) = if window_relative {
+            (win.x + rx, win.y + ry)
+        } else {
+            resolve_screen_coordinates(rx, ry, rw, rh, win)
+        };
+        elements.push(UiElement {
+            mark: elements.len() + 1,
+            role: node.role,
+            name: node.name,
+            value,
+            description,
+            states: node.states,
+            actions: vec!["click".to_string(), "dbus_do_action".to_string()],
+            rel_bounds: [rx, ry, rw, rh],
+            screen_bounds: [sx, sy, rw, rh],
+            click_point: [sx + rw / 2, sy + rh / 2],
+            dbus_service: service,
+            dbus_path: node.path,
+        });
+        if elements.len() >= max_elements {
+            break;
+        }
+    }
     elements
 }
 
 /// Fareyi hareket ettirmeden doğrudan D-Bus `org.a11y.atspi.Action.DoAction(0)` ile kontrolü tetikler.
 pub fn atspi_invoke_do_action(service: &str, path: &str, action_index: i32) -> Result<bool> {
-    let bus_addr =
-        resolve_atspi_bus_address().ok_or_else(|| anyhow!("AT-SPI veri yolu bulunamadı"))?;
-    let out = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "call",
-            service,
-            path,
-            "org.a11y.atspi.Action",
-            "DoAction",
-            "i",
-            &action_index.to_string(),
-            "--json=short",
-        ])
-        .output()?;
-    if !out.status.success() {
-        return Err(anyhow!(
-            "AT-SPI DoAction başarısız: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
-    let val: Value = serde_json::from_slice(&out.stdout)?;
-    Ok(val
-        .get("data")
-        .and_then(|d| d.as_array())
-        .and_then(|a| a.first())
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true))
+    let conn = atspi_bus::connection()?;
+    atspi_bus::block_on(atspi_bus::do_action(conn, service, path, action_index))
+        .ok_or_else(|| anyhow!("AT-SPI DoAction başarısız: {} {}", service, path))
+}
+
+fn is_browser_window(class: &str) -> bool {
+    let c = class.to_ascii_lowercase();
+    ["firefox", "librewolf", "floorp", "zen", "chromium", "chrome", "brave", "vivaldi", "msedge"]
+        .iter()
+        .any(|b| c.contains(b))
+}
+
+/// Bir metin kutusunun güncel içeriği (yazma sonrası doğrulama için).
+pub fn atspi_read_text(service: &str, path: &str) -> Option<String> {
+    let conn = atspi_bus::connection().ok()?;
+    atspi_bus::block_on(atspi_bus::text_or_value(conn, service, path))
 }
 
 /// Düzenlenebilir bir AT-SPI metin kutusunun içeriğini doğrudan D-Bus (`EditableText.SetTextContents`) üzerinden değiştirir.
 pub fn atspi_set_editable_text(service: &str, path: &str, new_text: &str) -> Result<bool> {
-    let bus_addr =
-        resolve_atspi_bus_address().ok_or_else(|| anyhow!("AT-SPI veri yolu bulunamadı"))?;
-    let out = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "call",
-            service,
-            path,
-            "org.a11y.atspi.EditableText",
-            "SetTextContents",
-            "s",
-            new_text,
-            "--json=short",
-        ])
-        .output()?;
-    if !out.status.success() {
-        return Err(anyhow!(
-            "AT-SPI SetTextContents başarısız: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
-    Ok(true)
+    let conn = atspi_bus::connection()?;
+    atspi_bus::block_on(atspi_bus::set_text_contents(conn, service, path, new_text))
+        .ok_or_else(|| anyhow!("AT-SPI SetTextContents başarısız: {} {}", service, path))
 }
 
 /// K1 Kuralı: Wayland pencere-içi `(rx, ry)` koordinatlarını Hyprland ekran `(sx, sy)` koordinatlarına dönüştürür.
@@ -567,102 +605,6 @@ pub fn decode_atspi_states(low: u32, high: u32) -> Vec<String> {
     out
 }
 
-fn atspi_get_states(bus_addr: &str, service: &str, path: &str) -> Vec<String> {
-    let Ok(out) = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "call",
-            service,
-            path,
-            "org.a11y.atspi.Accessible",
-            "GetState",
-            "--json=short",
-        ])
-        .output()
-    else {
-        return Vec::new();
-    };
-    if !out.status.success() {
-        return Vec::new();
-    }
-    let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) else {
-        return Vec::new();
-    };
-    let Some(arr) = val
-        .get("data")
-        .and_then(|d| d.as_array())
-        .and_then(|a| a.first())
-        .and_then(|a| a.as_array())
-    else {
-        return Vec::new();
-    };
-    if arr.len() >= 2 {
-        let low = arr[0].as_u64().unwrap_or(0) as u32;
-        let high = arr[1].as_u64().unwrap_or(0) as u32;
-        decode_atspi_states(low, high)
-    } else {
-        Vec::new()
-    }
-}
-
-fn atspi_get_text_or_value(bus_addr: &str, service: &str, path: &str) -> Option<String> {
-    // 1. Önce `org.a11y.atspi.Text.GetText(0, 500)` dene
-    if let Ok(out) = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "call",
-            service,
-            path,
-            "org.a11y.atspi.Text",
-            "GetText",
-            "ii",
-            "0",
-            "500",
-            "--json=short",
-        ])
-        .output()
-    {
-        if out.status.success() {
-            if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
-                if let Some(txt) = val
-                    .get("data")
-                    .and_then(|d| d.as_array())
-                    .and_then(|a| a.first())
-                    .and_then(|v| v.as_str())
-                {
-                    if !txt.is_empty() {
-                        return Some(txt.to_string());
-                    }
-                }
-            }
-        }
-    }
-
-    // 2. Sayısal kontroller (slider/spin/progress) için `org.a11y.atspi.Value.CurrentValue` dene
-    if let Ok(out) = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "get-property",
-            service,
-            path,
-            "org.a11y.atspi.Value",
-            "CurrentValue",
-            "--json=short",
-        ])
-        .output()
-    {
-        if out.status.success() {
-            if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
-                if let Some(num) = val.get("data").and_then(|v| v.as_f64()) {
-                    return Some(format!("{:.2}", num));
-                }
-            }
-        }
-    }
-
-    None
-}
-
 fn is_value_or_text_role(role: &str) -> bool {
     matches!(
         role,
@@ -695,138 +637,6 @@ fn is_interactive_role(role: &str) -> bool {
             | "slider"
             | "spin button"
     )
-}
-
-fn atspi_get_service_pid(bus_addr: &str, service: &str) -> Option<i32> {
-    let out = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "call",
-            "org.freedesktop.DBus",
-            "/org/freedesktop/DBus",
-            "org.freedesktop.DBus",
-            "GetConnectionUnixProcessID",
-            "s",
-            service,
-            "--json=short",
-        ])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let val: Value = serde_json::from_slice(&out.stdout).ok()?;
-    val.get("data")?.as_array()?.first()?.as_i64().map(|n| n as i32)
-}
-
-fn atspi_get_children(bus_addr: &str, service: &str, path: &str) -> Option<Vec<(String, String)>> {
-    let out = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "call",
-            service,
-            path,
-            "org.a11y.atspi.Accessible",
-            "GetChildren",
-            "--json=short",
-        ])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let val: Value = serde_json::from_slice(&out.stdout).ok()?;
-    let outer = val.get("data")?.as_array()?.first()?.as_array()?;
-    let mut res = Vec::new();
-    for item in outer {
-        if let Some(pair) = item.as_array() {
-            if pair.len() == 2 {
-                let srv = pair[0].as_str()?.to_string();
-                let pth = pair[1].as_str()?.to_string();
-                res.push((srv, pth));
-            }
-        }
-    }
-    Some(res)
-}
-
-fn atspi_call_string(bus_addr: &str, service: &str, path: &str, method: &str) -> Option<String> {
-    let out = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "call",
-            service,
-            path,
-            "org.a11y.atspi.Accessible",
-            method,
-            "--json=short",
-        ])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let val: Value = serde_json::from_slice(&out.stdout).ok()?;
-    val.get("data")?
-        .as_array()?
-        .first()?
-        .as_str()
-        .map(|s| s.to_string())
-}
-
-fn atspi_get_string_prop(bus_addr: &str, service: &str, path: &str, prop: &str) -> Option<String> {
-    let out = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "get-property",
-            service,
-            path,
-            "org.a11y.atspi.Accessible",
-            prop,
-            "--json=short",
-        ])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let val: Value = serde_json::from_slice(&out.stdout).ok()?;
-    val.get("data")?.as_str().map(|s| s.to_string())
-}
-
-const ATSPI_COORD_SCREEN: u32 = 0;
-const ATSPI_COORD_WINDOW: u32 = 1;
-
-fn atspi_get_extents(bus_addr: &str, service: &str, path: &str, coord_type: u32) -> Option<[i64; 4]> {
-    let out = Command::new("busctl")
-        .arg(format!("--address={}", bus_addr))
-        .args([
-            "call",
-            service,
-            path,
-            "org.a11y.atspi.Component",
-            "GetExtents",
-            "u",
-            &coord_type.to_string(),
-            "--json=short",
-        ])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let val: Value = serde_json::from_slice(&out.stdout).ok()?;
-    let tuple = val.get("data")?.as_array()?.first()?.as_array()?;
-    if tuple.len() == 4 {
-        Some([
-            tuple[0].as_i64()?,
-            tuple[1].as_i64()?,
-            tuple[2].as_i64()?,
-            tuple[3].as_i64()?,
-        ])
-    } else {
-        None
-    }
 }
 
 #[cfg(test)]

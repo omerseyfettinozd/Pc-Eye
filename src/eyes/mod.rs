@@ -1,3 +1,4 @@
+pub mod atspi_bus;
 pub mod audio_pipewire;
 pub mod compositor;
 pub mod logs_notify;

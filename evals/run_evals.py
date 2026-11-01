@@ -489,6 +489,19 @@ def check_task(check, scene, final_text=None):
 # Katmanlar
 # ---------------------------------------------------------------------------
 
+def redact_user_titles(text, scene):
+    """Sonuç dosyaları depoya girer (depo herkese açık): kullanıcının kendi pencere başlıkları
+    (tarayıcı sekmeleri vb.) başarısız adımın çıktısıyla birlikte yazılmasın."""
+    own = {str(v) for v in scene.vars.values()}
+
+    def mask(m):
+        title = m.group(2)
+        keep = title.startswith(("Eval ", "PCEYE")) or any(o and o in title for o in own if len(o) > 3)
+        return m.group(0) if keep else f'{m.group(1)}"<kullanıcı penceresi>"'
+
+    return re.sub(r'("title":\s*)"((?:[^"\\]|\\.)*)"', mask, text)
+
+
 def run_probe(task, scene):
     steps = []
     ok = True
@@ -518,7 +531,7 @@ def run_probe(task, scene):
             note = "ok"
         steps.append({"args": args, "rc": r.rc, "ms": round(r.ms, 1), "ok": step_ok, "note": note})
         if not step_ok:
-            steps[-1]["stdout"] = r.stdout[:30000]
+            steps[-1]["stdout"] = redact_user_titles(r.stdout[:30000], scene)
         ok = ok and step_ok
         if step.get("settle_ms"):
             time.sleep(step["settle_ms"] / 1000)

@@ -101,3 +101,13 @@ class TaskFileTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RedactTest(unittest.TestCase):
+    def test_user_titles_masked_scene_titles_kept(self):
+        scene = ev.Scene({"title": "Eval Form AB12"})
+        out = '{"windows":[{"title": "Eval Form AB12"},{"title": "Banka hesabım — Mozilla Firefox"}]}'
+        red = ev.redact_user_titles(out, scene)
+        self.assertIn("Eval Form AB12", red)
+        self.assertNotIn("Banka", red)
+

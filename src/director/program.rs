@@ -45,6 +45,58 @@ fn describe(name: &Option<String>, mark: Option<usize>) -> String {
     }
 }
 
+/// Penceredeki eleman adları (taze okuma): beklenen metnin yerine ne çıktığını görmek için.
+fn visible_names(window: Option<&str>) -> Option<std::collections::BTreeSet<String>> {
+    with_fresh_reads(|| inspect_window_ui(window, None, 150))
+        .ok()
+        .map(|ui| ui.elements.into_iter().map(|e| e.name).filter(|n| !n.is_empty()).collect())
+}
+
+/// Değişim oturduktan sonra bu kadar beklenir; beklenen metin hâlâ yoksa erken bırakılır.
+const SETTLED_FAIL_MS: u64 = 1200;
+
+/// Metin görünene ya da kaybolana kadar taze okumayla bekler. Ekran değişip durulduğu hâlde metin
+/// gelmediyse süreyi doldurmadan biter ve yerine çıkan metni söyler ("Hata: Telefon 10 haneli
+/// olmalı"): başarısız beklenti her seferinde tam 3 sn sürüyor, ajan nedenini ayrıca arıyordu.
+fn wait_text_with_baseline(
+    window: Option<&str>,
+    text: &str,
+    timeout_ms: u64,
+    baseline: Option<&std::collections::BTreeSet<String>>,
+) -> Result<u64> {
+    let start = Instant::now();
+    let needle = text.to_lowercase();
+    let mut last_names = baseline.cloned();
+    let mut last_change: Option<Instant> = None;
+    loop {
+        let names = visible_names(window);
+        if let Some(n) = &names {
+            if n.iter().any(|x| x.to_lowercase().contains(&needle)) {
+                return Ok(start.elapsed().as_millis() as u64);
+            }
+            if last_names.as_ref() != Some(n) {
+                if last_names.is_some() {
+                    last_change = Some(Instant::now());
+                }
+                last_names = Some(n.clone());
+            }
+        }
+        let settled = last_change.map_or(false, |t| t.elapsed() >= Duration::from_millis(SETTLED_FAIL_MS));
+        if settled || start.elapsed() >= Duration::from_millis(timeout_ms) {
+            let appeared: Vec<String> = match (baseline, &last_names) {
+                (Some(b), Some(n)) => n.difference(b).take(6).cloned().collect(),
+                _ => Vec::new(),
+            };
+            return Err(if appeared.is_empty() {
+                anyhow!("`{}` {} ms içinde görünmedi", text, start.elapsed().as_millis())
+            } else {
+                anyhow!("`{}` görünmedi; bunun yerine çıkan: {:?}", text, appeared)
+            });
+        }
+        thread::sleep(Duration::from_millis(120));
+    }
+}
+
 /// Metin görünene ya da kaybolana kadar taze okumayla bekler.
 fn wait_text(window: Option<&str>, text: &str, gone: bool, timeout_ms: u64) -> Result<u64> {
     let start = Instant::now();
@@ -66,7 +118,11 @@ fn wait_text(window: Option<&str>, text: &str, gone: bool, timeout_ms: u64) -> R
 }
 
 /// Adımın beklentisi: `"Kaydedildi"` | `{"text": ".."}` | `{"gone": ".."}` (+ `timeout_ms`).
-fn check_expect(window: Option<&str>, step: &Value) -> Result<Option<String>> {
+fn check_expect(
+    window: Option<&str>,
+    step: &Value,
+    baseline: Option<&std::collections::BTreeSet<String>>,
+) -> Result<Option<String>> {
     let Some(exp) = step.get("expect") else { return Ok(None) };
     let timeout = step
         .get("timeout_ms")
@@ -82,7 +138,7 @@ fn check_expect(window: Option<&str>, step: &Value) -> Result<Option<String>> {
         },
         _ => return Err(anyhow!("expect metin ya da nesne olmalı")),
     };
-    let ms = wait_text(window, text, gone, timeout)?;
+    let ms = if gone { wait_text(window, text, true, timeout)? } else { wait_text_with_baseline(window, text, timeout, baseline)? };
     Ok(Some(format!("{} `{}` ({} ms)", if gone { "kayboldu" } else { "göründü" }, text, ms)))
 }
 
@@ -203,8 +259,10 @@ pub fn run_program(program: &Value, allow_protected: bool) -> Result<Value> {
     let mut portable: Option<Vec<Value>> = Some(Vec::new());
     for (i, step) in steps.iter().enumerate() {
         let step_started = Instant::now();
+        // Beklentili adımda önceki durum: beklenen metin yerine ne çıktığını söyleyebilmek için.
+        let baseline = step.get("expect").and_then(|_| visible_names(window));
         let outcome = run_step(window, step, allow_protected)
-            .and_then(|o| Ok((o, check_expect(window, step)?)));
+            .and_then(|o| Ok((o, check_expect(window, step, baseline.as_ref())?)));
         let ms = step_started.elapsed().as_millis() as u64;
         match outcome {
             Ok((o, expect)) => {

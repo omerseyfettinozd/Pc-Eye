@@ -150,6 +150,7 @@ pub fn inspect_window_ui(
             elements = cached;
         } else {
             let deadline = Instant::now() + Duration::from_millis(2500);
+            let started_at = Instant::now();
             loop {
                 let generations_before = a11y_events::generations_snapshot();
                 let (found, saw_document, services) =
@@ -165,7 +166,15 @@ pub fn inspect_window_ui(
                 // başlatıyor; kullanıcının açık Firefox'unda ilk okuma 0 eleman döndü) biraz daha bekle.
                 let sparse = browser && query_filter.is_none()
                     && found_named(&elements) < 3;
-                let done = !browser || (saw_document && !sparse) || Instant::now() >= deadline;
+                // Yeni açılmış uygulama: AT-SPI'ye kayıtlı ama ağacında pencere bile yok. Hemen OCR'a
+                // düşmek birkaç saniye sürüyordu (ilk snapshot 5,3 sn); ~1 sn ağacın dolmasını bekle.
+                // Ağacı seyrek ama var olan pencereler (tuval, açılır menü) beklemez.
+                let app_warming = !browser
+                    && query_filter.is_none()
+                    && !services.is_empty()
+                    && elements.is_empty()
+                    && started_at.elapsed() < Duration::from_millis(1000);
+                let done = (!browser && !app_warming) || (browser && saw_document && !sparse) || Instant::now() >= deadline;
                 if done {
                     // Tarayıcıda belge henüz yoksa sonuç geçicidir; önbelleğe alınmaz.
                     if !browser || saw_document {

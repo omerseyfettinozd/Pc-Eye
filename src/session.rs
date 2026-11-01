@@ -26,6 +26,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 const START_TIMEOUT: Duration = Duration::from_secs(10);
 pub const DEFAULT_MODE: &str = "1600x900";
 const TAG_VAR: &str = "PC_EYE_SESSION_TAG";
+static ACTIVATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn valid_name(name: &str) -> bool {
     !name.is_empty() && name.len() <= 32 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
@@ -69,6 +70,7 @@ pub fn activate(autostart: bool) -> Result<()> {
         None => return Err(anyhow!("ajan oturumu çalışmıyor: {} (`pc-eye session start {}`)", name, name)),
     };
     std::env::set_var("HYPRLAND_INSTANCE_SIGNATURE", info["signature"].as_str().unwrap_or(""));
+    ACTIVATED.store(true, std::sync::atomic::Ordering::SeqCst);
     std::env::set_var("WAYLAND_DISPLAY", info["wayland_display"].as_str().unwrap_or(""));
     // Yalnız X11 konuşan bir uygulama kullanıcının Xwayland'ine, yani onun ekranına açılırdı.
     std::env::remove_var("DISPLAY");
@@ -79,6 +81,9 @@ pub fn activate(autostart: bool) -> Result<()> {
 /// masaüstü yerine açık bir hata görür.
 pub fn ensure_alive() -> Result<()> {
     let Some(name) = active_name() else { return Ok(()) };
+    if !ACTIVATED.load(std::sync::atomic::Ordering::SeqCst) {
+        return activate(true);
+    }
     match load(&name) {
         // Aynı adla yeniden açılmışsa bu süreç hâlâ eski örneğe bakıyordur.
         Some(info)

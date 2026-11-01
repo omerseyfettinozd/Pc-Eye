@@ -337,7 +337,9 @@ enum RecipeOp {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    if !matches!(cli.command, Commands::Session { .. }) {
+    // MCP sunucusu Claude Code her açıldığında başlar: oturum ilk araç çağrısında açılır ki
+    // kullanılmayan her oturum için boşta bir iç Hyprland çalışmasın.
+    if !matches!(cli.command, Commands::Session { .. } | Commands::Mcp { .. }) {
         session::activate(!matches!(cli.command, Commands::Daemon))?;
     }
 

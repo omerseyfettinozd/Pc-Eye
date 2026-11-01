@@ -184,6 +184,9 @@ enum Commands {
         /// Korumalı pencere kilidini aş
         #[arg(long)]
         allow_protected: bool,
+        /// 2 = çift tıklama (klasör/dosya açmak)
+        #[arg(long, default_value_t = 1)]
+        clicks: u32,
     },
 
     /// Wayland yerel sanal fare ve dinamik XKB klavye enjeksiyonu
@@ -513,8 +516,9 @@ fn main() -> Result<()> {
             prefer_dbus,
             set_text,
             allow_protected,
+            clicks,
         } => {
-            let rec = director::input::click_ui_element_ext(
+            let rec = director::input::click_ui_element_n(
                 window.as_deref(),
                 name.as_deref(),
                 mark,
@@ -522,6 +526,7 @@ fn main() -> Result<()> {
                 prefer_dbus,
                 set_text.as_deref(),
                 allow_protected,
+                clicks.clamp(1, 3),
             )?;
             println!("{}", serde_json::to_string_pretty(&rec)?);
         }

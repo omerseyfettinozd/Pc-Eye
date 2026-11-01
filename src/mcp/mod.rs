@@ -2,7 +2,7 @@ use crate::daemon::server::{
     build_context_report, build_xray_for_target, spawn_background_collectors,
 };
 use crate::director::input::{
-    click_at, click_ui_element_ext, drag_mouse, move_cursor, press_key_combo, scroll_wheel,
+    click_at, drag_mouse, move_cursor, press_key_combo, scroll_wheel,
     type_text,
 };
 use crate::director::process_ctl::{
@@ -221,21 +221,8 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             // Bu oturumda aynı pencereye yakın zamanda tam snapshot verildiyse yalnız değişenler döner;
             // mark'lar kararlı olduğu için ajanın elindeki önceki liste geçerli kalır. `full: true` tam liste.
             let full = args.get("full").and_then(|v| v.as_bool()).unwrap_or(false);
-            let window_key = win.unwrap_or("").to_string();
-            let since = args.get("since").and_then(|v| v.as_u64()).or_else(|| {
-                if full {
-                    return None;
-                }
-                let last = LAST_SNAP.lock().ok()?;
-                last.get(&window_key)
-                    .filter(|(_, at)| at.elapsed() < AUTO_DELTA_WINDOW)
-                    .map(|(id, _)| *id)
-            });
-            let mut snap = crate::eyes::snapshot::build_snapshot(win, max, icons, seq_since, since)?;
-            crate::director::recipes::annotate_snapshot(&mut snap);
-            if let (Some(id), Ok(mut last)) = (snap["snap"].as_u64(), LAST_SNAP.lock()) {
-                last.insert(window_key, (id, std::time::Instant::now()));
-            }
+            let since = args.get("since").and_then(|v| v.as_u64());
+            let snap = auto_snapshot(win, max, icons, seq_since, since, full)?;
             // Kompakt JSON: girintiler bu araçta yükün belirgin bir kısmı olurdu.
             vec![json!({ "type": "text", "text": serde_json::to_string(&snap)? })]
         }
@@ -252,16 +239,9 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
         "pc_eye_vision" => {
             let win = args.get("window").and_then(|v| v.as_str());
             let marks = args.get("marks").and_then(|v| v.as_bool()).unwrap_or(false);
-            // Dosya okuyamayan bir ajana yalnız dosya yolu dönmek işe yaramaz: küçük (zoom/bölge)
-            // yakalamalarda görüntü varsayılan olarak yanıta eklenir; büyük yakalamalarda istenirse.
-            let small_capture = args.get("zoom").is_some() || args.get("region").is_some();
-            // `PC_EYE_VISION_INLINE=1`: her yakalama yanıta eklenir (yalnız ekran görüntüsüyle
-            // çalışan piksel tabanı ajan kıyası için; dosya okuyamaz).
-            let inline_all = std::env::var("PC_EYE_VISION_INLINE").map_or(false, |v| v == "1");
-            let include_b64 = args
-                .get("include_base64")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(small_capture || inline_all);
+            // Görüntü her zaman yanıta eklenir: MCP istemcisi dosya okuyamaz; tam pencere yakalamada
+            // yalnız yol dönmek ajana boşa bir tur yaktırıyordu ("ekran görüntüsü dönmedi").
+            let include_b64 = args.get("include_base64").and_then(|v| v.as_bool()).unwrap_or(true);
             let region = args
                 .get("region")
                 .and_then(|v| v.as_array())
@@ -381,8 +361,10 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 .get("allow_protected")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
-            let rec =
-                click_ui_element_ext(win, name_q, mark, btn, prefer_dbus, set_text, allow_prot)?;
+            let clicks = args.get("clicks").and_then(|v| v.as_u64()).unwrap_or(1).clamp(1, 3) as u32;
+            let rec = crate::director::input::click_ui_element_n(
+                win, name_q, mark, btn, prefer_dbus, set_text, allow_prot, clicks,
+            )?;
             note_click_for_recipes(win, name_q, set_text, btn, &rec);
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
@@ -594,7 +576,7 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
         // tek çağrıda bütün bir görevin taban maliyeti kadar token yiyordu (ajan ölçümü 045024).
         "context" | "ui" | "snapshot" => {
             let win = args.get("window").and_then(|v| v.as_str());
-            if let Ok(snap) = crate::eyes::snapshot::build_snapshot(win, 40, false, None, None) {
+            if let Ok(snap) = after_action_snapshot(win) {
                 items.push(json!({ "type": "text", "text": serde_json::to_string(&snap)? }));
             }
         }
@@ -643,7 +625,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_run",
-            "description": "Run several steps in ONE call, verifying each; stops at the first failure and returns the final state (`after`). Use for forms and multi-step flows instead of repeated click_ui; include the final submit click and its expected result. Steps: {\"click\":T}, {\"set\":T,\"text\":\"..\"}, {\"select\":T,\"option\":\"..\"}, {\"type\":\"..\"}, {\"key\":\"ctrl+s\"}, {\"wait\":\"text\"}. T = element name or {\"mark\":N}. Dropdowns: use select with the option's visible text; no need to open it first. Any step may add \"expect\":\"text that must appear\" or {\"gone\":\"..\"} (timeout_ms, default 3000). Or replay a recipe offered by snapshot: {\"recipe\":ID,\"args\":{..}}.",
+            "description": "Run several steps in ONE call, verifying each; stops at the first failure and returns the final state (`after`). Use for forms and multi-step flows instead of repeated click_ui; include the final submit click and its expected result. Steps: {\"click\":T}, {\"open\":T} (double-click), {\"set\":T,\"text\":\"..\"}, {\"select\":T,\"option\":\"..\"}, {\"type\":\"..\"}, {\"key\":\"ctrl+s\"}, {\"wait\":\"text\"}. T = element name or {\"mark\":N}. Dropdowns: use select with the option's visible text; no need to open it first. Any step may add \"expect\":\"text that must appear\" or {\"gone\":\"..\"} (timeout_ms, default 3000). Or replay a recipe offered by snapshot: {\"recipe\":ID,\"args\":{..}}.",
             "annotations": { "readOnlyHint": false },
             "inputSchema": { "type": "object", "properties": {
                 "window": win.clone(),
@@ -663,6 +645,7 @@ fn mcp_tools_schema() -> Value {
                 "button": { "type": "string", "description": "left | right | middle" },
                 "prefer_dbus": { "type": "boolean", "description": "Invoke via D-Bus without moving the mouse" },
                 "set_text": { "type": "string" },
+                "clicks": { "type": "integer", "description": "2 = double-click (open a folder/file)" },
                 "then": then.clone()
             } }
         },
@@ -869,4 +852,54 @@ fn note_click_for_recipes(
     };
     let names: Vec<String> = ui.elements.iter().map(|e| e.name.clone()).collect();
     crate::director::recipes::record(&ui.window_address, &ui.window_class, &[step], &names);
+}
+
+/// Otomatik delta: ajanlar isteğe bağlı `since`'i kendiliğinden kullanmıyordu (ölçüm 045024). Bu
+/// oturumda aynı pencereye yakın zamanda tam snapshot verildiyse yalnız değişenler döner; mark'lar
+/// kararlı olduğu için ajanın elindeki önceki liste geçerli kalır. `full` tam liste.
+fn auto_snapshot(
+    win: Option<&str>,
+    max: usize,
+    icons: bool,
+    seq_since: Option<u64>,
+    since: Option<u64>,
+    full: bool,
+) -> Result<Value> {
+    let window_key = win.unwrap_or("").to_string();
+    let since = since.or_else(|| {
+        if full {
+            return None;
+        }
+        let last = LAST_SNAP.lock().ok()?;
+        last.get(&window_key).filter(|(_, at)| at.elapsed() < AUTO_DELTA_WINDOW).map(|(id, _)| *id)
+    });
+    let mut snap = crate::eyes::snapshot::build_snapshot(win, max, icons, seq_since, since)?;
+    crate::director::recipes::annotate_snapshot(&mut snap);
+    if let (Some(id), Ok(mut last)) = (snap["snap"].as_u64(), LAST_SNAP.lock()) {
+        last.insert(window_key, (id, std::time::Instant::now()));
+    }
+    Ok(snap)
+}
+
+/// Eylemden sonraki durum (`then: snapshot`): delta olarak (eskiden her seferinde ~3,5 KB tam liste).
+/// Eylem pencereyi kapattıysa (diyalogda Tamam, sihirbazda sonraki adım) kısa süre yeni pencereyi
+/// bekleyip ona bakar: ajan "pencere kayboldu" görüp ayrıca tam snapshot istiyordu.
+fn after_action_snapshot(win: Option<&str>) -> Result<Value> {
+    let snap = auto_snapshot(win, 40, false, None, None, false)?;
+    let target_gone = snap["target"].get("error").is_some();
+    if !target_gone || win.is_none() {
+        return Ok(snap);
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(1500);
+    while std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        let again = auto_snapshot(win, 40, false, None, None, true)?;
+        if again["target"].get("error").is_none() {
+            return Ok(again);
+        }
+    }
+    // Aynı adla açılan pencere yok: odaktaki pencereye bak.
+    let mut focused = auto_snapshot(None, 40, false, None, None, true)?;
+    focused["note"] = json!("The window you acted on closed; this is the focused window now.");
+    Ok(focused)
 }

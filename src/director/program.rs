@@ -123,6 +123,12 @@ fn run_step(window: Option<&str>, step: &Value, allow_protected: bool) -> Result
         let portable = portable_target(&name, &r).map(|n| json!({ "click": n }));
         return Ok(done("click", describe(&name, mark), note_of(&r), portable));
     }
+    if let Some(t) = step.get("open") {
+        let (name, mark) = target(t)?;
+        let r = crate::director::input::click_ui_element_n(window, name.as_deref(), mark, "left", false, None, allow_protected, 2)?;
+        let portable = portable_target(&name, &r).map(|n| json!({ "open": n }));
+        return Ok(done("open", describe(&name, mark), note_of(&r), portable));
+    }
     if let Some(t) = step.get("set") {
         let (name, mark) = target(t)?;
         let text = step.get("text").and_then(Value::as_str).ok_or_else(|| anyhow!("set için text gerekli"))?;
@@ -163,7 +169,7 @@ fn run_step(window: Option<&str>, step: &Value, allow_protected: bool) -> Result
         let ms = wait_text(window, text, false, timeout)?;
         return Ok(done("wait", text.to_string(), format!("{} ms", ms), Some(json!({ "wait": text }))));
     }
-    Err(anyhow!("bilinmeyen adım: click | set | select | type | key | wait bekleniyor"))
+    Err(anyhow!("bilinmeyen adım: click | open | set | select | type | key | wait bekleniyor"))
 }
 
 /// Programı yürütür. Dönüş: adım özetleri, ilk hata (varsa) ve son kompakt durum.

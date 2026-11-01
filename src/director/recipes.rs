@@ -73,7 +73,7 @@ fn fnv1a(s: &str) -> u32 {
 }
 
 fn step_target(step: &Value) -> Option<(&'static str, &str)> {
-    for op in ["click", "set", "select"] {
+    for op in ["click", "open", "set", "select"] {
         if let Some(t) = step.get(op).and_then(Value::as_str) {
             return Some((op, t));
         }

@@ -190,6 +190,26 @@ pub fn resolve_chooser(window_addr: Option<&str>, name: &str) -> Option<usize> {
     control_beside(&ui.elements, &found, is_chooser).map(|c| c.mark)
 }
 
+/// Aynı adlı adaylar farklı kaplardaysa (Dolphin'de "Yerler" panelindeki Belgeler = kullanıcının ev
+/// klasörü, açık klasördeki Belgeler = hedef) kabı pencere başlığında geçen tercih edilir: içerik
+/// görünümleri çoğunlukla açık belgenin/klasörün adını taşır.
+fn pick_named_element_in(elements: &[UiElement], query: &str, window_title: &str) -> Option<UiElement> {
+    let q = query.to_lowercase();
+    let title = window_title.to_lowercase();
+    let rank = |e: &UiElement| {
+        let name = e.name.to_lowercase();
+        let name_rank = if name == q { 0 } else if name.contains(&q) { 1 } else { 2 };
+        let role_rank = if ACTIONABLE_ROLES.contains(&e.role.as_str()) { 0 } else { 1 };
+        let container_rank = match &e.container {
+            Some(c) if !c.is_empty() && title.contains(&c.to_lowercase()) => 0,
+            None => 1,
+            Some(_) => 2,
+        };
+        (name_rank, role_rank, container_rank, e.mark)
+    };
+    elements.iter().min_by_key(|e| rank(e)).cloned()
+}
+
 /// Ada göre en uygun elemanı seçer: tam eşleşme > içerme, aynı adlılar arasında eylem alabilen rol
 /// (düğme, onay kutusu…) kapsayıcıdan (`grid cell`, `label`, `filler`) önce gelir.
 fn pick_named_element(elements: &[UiElement], query: &str) -> Option<UiElement> {
@@ -437,14 +457,34 @@ pub fn click_ui_element_ext(
     set_text: Option<&str>,
     allow_protected: bool,
 ) -> Result<ActionReceipt> {
+    click_ui_element_n(window_addr, name_query, mark_id, button, prefer_dbus, set_text, allow_protected, 1)
+}
+
+/// `clicks: 2` çift tıklama: dosya yöneticisinde klasör açmak tek tıkla seçmekten ayrı bir eylem
+/// (ajan önce tıklayıp sonra koordinatla çift tıklıyordu: fazladan tur).
+#[allow(clippy::too_many_arguments)]
+pub fn click_ui_element_n(
+    window_addr: Option<&str>,
+    name_query: Option<&str>,
+    mark_id: Option<usize>,
+    button: &str,
+    prefer_dbus: bool,
+    set_text: Option<&str>,
+    allow_protected: bool,
+    clicks: u32,
+) -> Result<ActionReceipt> {
     enforce_action_guard(window_addr, allow_protected)?;
 
     // Pencerenin AT-SPI koordinatları ilk tıklamadan önce bir kez OCR ile doğrulanır (bkz.
     // `calibrate`): kayık bir araç takımında "görünür değişiklik" (üzerine gelme vurgusu) olsa
     // bile tıklama yanlış satıra düşebiliyordu ve bu ıskalama algılanamıyordu.
+    let mut window_shifted = false;
     let recalibrated = !prefer_dbus
         && inspect_window_ui(window_addr, None, 10).map_or(false, |ui| {
-            crate::eyes::calibrate::ensure_calibrated(&ui.window_address, ui.window_geometry)
+            let changed = crate::eyes::calibrate::ensure_calibrated(&ui.window_address, ui.window_geometry);
+            window_shifted = crate::eyes::calibrate::current_offset(&ui.window_address, ui.window_geometry)
+                .map_or(false, |o| o != (0, 0));
+            changed
         });
 
     let (matched, window_geometry): (UiElement, Option<[i64; 4]>) = if let Some(m_id) = mark_id {
@@ -463,7 +503,7 @@ pub fn click_ui_element_ext(
         }
     } else if let Some(q) = name_query {
         let ui = inspect_window_ui(window_addr, Some(q), 80)?;
-        let mut found = pick_named_element(&ui.elements, q).ok_or_else(|| {
+        let mut found = pick_named_element_in(&ui.elements, q, &ui.window_title).ok_or_else(|| {
             anyhow!(
                 "`{}` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın)",
                 q
@@ -570,7 +610,12 @@ pub fn click_ui_element_ext(
     }
 
     // Eylemi olmayan bir kapsayıcıda DoAction yanlış olumlu verir; yalnız eylem alabilen rollerde dene.
-    let use_dbus = prefer_dbus
+    // Kaymalı (kalibre edilmiş) pencerede tek bir pencere kayması her kaba uymayabilir (zenity'de
+    // içerik kayık, alt düğme çubuğu değil): düğmeler koordinatsız D-Bus eylemiyle tıklanır.
+    let auto_dbus = window_shifted
+        && clicks == 1
+        && matches!(matched.role.as_str(), "push button" | "button" | "toggle button" | "check box" | "radio button");
+    let use_dbus = (prefer_dbus || auto_dbus)
         && !matched.dbus_service.is_empty()
         && ACTIONABLE_ROLES.contains(&matched.role.as_str());
     if !use_dbus {
@@ -613,10 +658,10 @@ pub fn click_ui_element_ext(
             }
         }
 
-        click_at(Some(cx), Some(cy), button, 1, allow_protected)?;
+        click_at(Some(cx), Some(cy), button, clicks.max(1), allow_protected)?;
         Ok(ActionReceipt {
             ok: true,
-            action: "click_ui".to_string(),
+            action: if clicks > 1 { "double_click_ui".to_string() } else { "click_ui".to_string() },
             target: target.clone(),
             coordinates: Some([cx, cy]),
             details: format!(

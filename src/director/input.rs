@@ -830,29 +830,43 @@ impl WaylandVirtualInput {
         if text.is_empty() {
             return Ok(());
         }
-        // Metindeki benzersiz karakterler için dinamik XKB keymap oluştur
-        let mut unique_chars: Vec<char> = Vec::new();
-        for ch in text.chars() {
-            if !unique_chars.contains(&ch) {
-                unique_chars.push(ch);
+        // Her parçada en çok SAFE_EVDEV.len() benzersiz karakter: her biri bir "güvenli" fiziksel
+        // tuş koduna bağlanır (bkz. SAFE_EVDEV). Daha uzun metinler parça parça, her parça kendi
+        // keymap'iyle yazılır.
+        let chars: Vec<char> = text.chars().collect();
+        let mut start = 0;
+        while start < chars.len() {
+            let mut unique_chars: Vec<char> = Vec::new();
+            let mut end = start;
+            while end < chars.len() {
+                let ch = chars[end];
+                if !unique_chars.contains(&ch) {
+                    if unique_chars.len() == SAFE_EVDEV.len() {
+                        break;
+                    }
+                    unique_chars.push(ch);
+                }
+                end += 1;
             }
-        }
+            let keymap_str = build_dynamic_xkb_keymap(&unique_chars, &[]);
+            self.upload_keymap(&keymap_str)?;
+            self.flush_sync()?;
 
-        let keymap_str = build_dynamic_xkb_keymap(&unique_chars, &[]);
-        self.upload_keymap(&keymap_str)?;
-
-        let mut pkt = Vec::new();
-        let mut t = wl_time_ms();
-        for ch in text.chars() {
-            let idx = unique_chars.iter().position(|&c| c == ch).unwrap_or(0);
-            let evdev_keycode = (idx as u32) + 1; // XKB keycode = evdev + 8 -> 9 + idx
-            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 1]);
-            t += 5;
-            write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 0]);
-            t += 5;
+            let mut pkt = Vec::new();
+            let mut t = wl_time_ms();
+            for &ch in &chars[start..end] {
+                let idx = unique_chars.iter().position(|&c| c == ch).unwrap_or(0);
+                let evdev_keycode = SAFE_EVDEV[idx];
+                write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 1]);
+                t += 5;
+                write_wl_msg(&mut pkt, self.kbd_id, 1, &[t, evdev_keycode, 0]);
+                t += 5;
+            }
+            self.stream.write_all(&pkt)?;
+            self.flush_sync()?;
+            start = end;
         }
-        self.stream.write_all(&pkt)?;
-        self.flush_sync()
+        Ok(())
     }
 
     /// Kısayol gönderir. SDL3/oyun istemcileri tuşları evdev scancode'undan okur ve modifier'ları
@@ -1105,19 +1119,31 @@ fn char_to_xkb_keysym(ch: char) -> String {
     }
 }
 
+/// Metin yazarken karakterlerin bağlandığı fiziksel (evdev) tuş kodları: yalnız ana bloktaki harf,
+/// rakam ve noktalama tuşları. Sıralı 1, 2, 3… kodları kullanılınca 14. karakter Backspace'in,
+/// 15. karakter Tab'ın, 1. karakter Esc'in koduna düşüyordu; Qt (Kate) bu tuşları fiziksel kodundan
+/// tanıyıp karakteri yutuyordu ("(H9EC)" → "(9EC)", "Şğİ" → "ğİ").
+const SAFE_EVDEV: [u32; 48] = [
+    2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, // 1..0 - =
+    16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, // q..]
+    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, // a..`
+    43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 57, // \ z../ space
+];
+
 fn build_dynamic_xkb_keymap(chars: &[char], named_keysyms: &[String]) -> String {
     let mut all_syms: Vec<String> = chars.iter().map(|&c| char_to_xkb_keysym(c)).collect();
     all_syms.extend_from_slice(named_keysyms);
     if all_syms.is_empty() {
         all_syms.push("NoSymbol".to_string());
     }
+    all_syms.truncate(SAFE_EVDEV.len());
 
-    let max_kc = 8 + all_syms.len();
+    let max_kc = 8 + *SAFE_EVDEV.iter().max().unwrap() as usize;
     let mut keycode_lines = String::new();
     let mut symbol_lines = String::new();
 
     for (idx, sym) in all_syms.iter().enumerate() {
-        let kc = 9 + idx;
+        let kc = 8 + SAFE_EVDEV[idx] as usize;
         keycode_lines.push_str(&format!("        <K{}> = {};\n", idx, kc));
         symbol_lines.push_str(&format!("        key <K{}> {{ [ {} ] }};\n", idx, sym));
     }

@@ -55,6 +55,16 @@ CITIES = ["İstanbul", "Ankara", "İzmir", "Muğla", "Çanakkale", "Şanlıurfa"
 TOKEN_CHARS = "ACDEFGHJKLMNPRTUVWXY2346789"
 CRASH_SIGNALS = ["SEGV", "ABRT", "BUS", "FPE", "ILL"]
 
+# Rakip kıyası: Anthropic computer use / OpenAI CUA mimarisi — model yalnız ekran görüntüsü görür,
+# fare ve klavyeyle koordinata göre çalışır. Aynı model, aynı görevler; yalnız araç katmanı farklı.
+PIXEL_TOOLS = ["mcp__pc-eye__pc_eye_vision", "mcp__pc-eye__pc_eye_input"]
+ALL_TOOLS = ["audio", "click_ui", "context", "director", "display", "input", "launch", "logs", "processes",
+             "run", "snapshot", "ui", "vision", "wait", "window", "xray"]
+PIXEL_SYSTEM = (
+    " Yalnız ekran görüntüsü (pc_eye_vision, pencere vermeden: tüm ekran) ve fare/klavye (pc_eye_input) "
+    "kullanabilirsin; koordinatlar ekran görüntüsündeki piksel koordinatlarıdır."
+)
+
 AGENT_SYSTEM = (
     "Bir PC-Eye ölçüm görevindesin. Bilgisayarı yalnız pc_eye_* araçlarıyla kullan. "
     "Görev uygulaması kullanıcının ekranından yalıtılmış `{display}` sanal ekranında, "
@@ -763,21 +773,31 @@ class ApiUnavailable(RuntimeError):
 
 def run_agent(task, scene, sb, work, args, transcript):
     mcp = work / "mcp.json"
-    mcp.write_text(json.dumps({"mcpServers": {"pc-eye": {
-        "command": PCEYE, "args": ["mcp"],
-        "env": {k: os.environ[k] for k in ("PC_EYE_RECIPES", "PC_EYE_SESSION") if k in os.environ},
-    }}}))
+    env = {k: os.environ[k] for k in ("PC_EYE_RECIPES", "PC_EYE_SESSION") if k in os.environ}
+    if args.toolset == "pixels":
+        env["PC_EYE_VISION_INLINE"] = "1"
+    mcp.write_text(json.dumps({"mcpServers": {"pc-eye": {"command": PCEYE, "args": ["mcp"], "env": env}}}))
+    system = AGENT_SYSTEM.format(display=sb.label, workspace=sb.workspace)
+    allowed = ["mcp__pc-eye"]
+    disallowed = []
+    if args.toolset == "pixels":
+        system += PIXEL_SYSTEM
+        allowed = PIXEL_TOOLS
+        # İzin verilmeyen araçlar modelin listesinden de çıkar (yoksa deneyip reddedilir, tur harcar).
+        disallowed = [f"mcp__pc-eye__pc_eye_{t}" for t in ALL_TOOLS if f"mcp__pc-eye__pc_eye_{t}" not in PIXEL_TOOLS]
     cmd = [
         "claude", "-p", fill(task["prompt"], scene.vars),
         "--output-format", "stream-json", "--verbose",
         "--mcp-config", str(mcp), "--strict-mcp-config",
         "--tools", "",
-        "--allowedTools", "mcp__pc-eye",
+        "--allowedTools", ",".join(allowed),
         "--setting-sources", "project,local",
         "--no-session-persistence",
         "--max-budget-usd", str(args.budget),
-        "--append-system-prompt", AGENT_SYSTEM.format(display=sb.label, workspace=sb.workspace),
+        "--append-system-prompt", system,
     ]
+    if disallowed:
+        cmd += ["--disallowedTools", ",".join(disallowed)]
     if args.model:
         cmd += ["--model", args.model]
     start = time.perf_counter()
@@ -902,6 +922,8 @@ def main():
     ap.add_argument("--timeout", type=int, default=300, help="agent görev süresi sınırı (sn)")
     ap.add_argument("--budget", type=float, default=1.0, help="agent görev başı $ sınırı")
     ap.add_argument("--no-save", action="store_true")
+    ap.add_argument("--toolset", choices=["full", "pixels"], default="full",
+                    help="pixels: yalnız ekran görüntüsü + fare/klavye (rakip mimarisi kıyası)")
     ap.add_argument("--session", help="görevleri bu adla açılan ayrı ajan oturumunda (iç içe Hyprland) koş")
     args = ap.parse_args()
 
@@ -916,7 +938,8 @@ def main():
     seed = args.seed if args.seed is not None else random.randrange(1 << 30)
     rng = random.Random(seed)
     # Paralel koşucular (farklı oturumlar) aynı saniyede başlayabilir: dosyalar çakışmasın.
-    stamp = time.strftime("%Y%m%d-%H%M%S") + (f"-{args.session}" if args.session else "")
+    stamp = (time.strftime("%Y%m%d-%H%M%S") + (f"-{args.session}" if args.session else "")
+             + ("-pixels" if args.toolset == "pixels" else ""))
     work_root = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "pc-eye-eval" / stamp
     transcripts = RESULTS_DIR / "transcripts" / stamp
     if args.tier == "agent":
@@ -977,6 +1000,7 @@ def main():
                                      capture_output=True, text=True).stdout.strip(),
         "summary": summarize(runs),
         "session": args.session,
+        "toolset": args.toolset,
         "runs": runs,
     }
     if args.session:

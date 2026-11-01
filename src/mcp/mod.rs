@@ -239,10 +239,13 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             // Dosya okuyamayan bir ajana yalnız dosya yolu dönmek işe yaramaz: küçük (zoom/bölge)
             // yakalamalarda görüntü varsayılan olarak yanıta eklenir; büyük yakalamalarda istenirse.
             let small_capture = args.get("zoom").is_some() || args.get("region").is_some();
+            // `PC_EYE_VISION_INLINE=1`: her yakalama yanıta eklenir (yalnız ekran görüntüsüyle
+            // çalışan piksel tabanı ajan kıyası için; dosya okuyamaz).
+            let inline_all = std::env::var("PC_EYE_VISION_INLINE").map_or(false, |v| v == "1");
             let include_b64 = args
                 .get("include_base64")
                 .and_then(|v| v.as_bool())
-                .unwrap_or(small_capture);
+                .unwrap_or(small_capture || inline_all);
             let region = args
                 .get("region")
                 .and_then(|v| v.as_array())

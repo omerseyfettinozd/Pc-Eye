@@ -166,7 +166,8 @@ tutturup gerileme yoksa kabul edilir ve kendi yeni ölçüm görevlerini getirir
 | Faz | İş | Kabul ölçütü |
 | --- | --- | --- |
 | F0 ✅ | Ölçüm seti + 9 hata düzeltmesi + snapshot (bugün) | ajan %100, $0.74 / 21 görev |
-| F1 | `zbus` + AT-SPI Cache + olay aboneliği; daemon'dan servis edilen sorgular; delta snapshot | snapshot < 20 ms; Firefox sayfa içeriği görünür |
+| F1a ✅ | `zbus` + seviye seviye paralel okuma, görünmeyen alt ağaç eleme, belge önceliği, tarayıcı belge beklemesi | GTK 298→32 ms, Firefox 1311→40 ms, sayfa içeriği görünür; ajan 27/27 |
+| F1b | AT-SPI Cache hızlı yolu (GTK4/Qt) + olay aboneliği; daemon'dan servis edilen sorgular; delta snapshot | snapshot < 20 ms; tekrar eden sorgu < 5 ms |
 | F2 | Beklentili eylem + eylem programı; kompakt şema | form doldurma ≤ 2 tur; şema < 1,5K token |
 | F3 | Ajan çalışma zamanı: Haiku ölçümü, model yönlendirme, planla-çalıştır-doğrula, istem önbelleği, tarif hafızası | rutin görev < $0.005; tarifli görev 0 LLM çağrısı |
 | F4 | Ajan oturumu v1: ayrı headless Hyprland/Sway örneği | kullanıcı imleci ve odağı hiç değişmez; 2 paralel ajan |

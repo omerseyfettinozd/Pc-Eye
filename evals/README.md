@@ -64,11 +64,15 @@ Ajan katmanı, Sonnet 5.5 ×3, aynı 7 görev:
 | 031039 | koordinat, click doğrulama, OCR önbelleği, başlıkla pencere, `ps`, launch kısıtı, coredump | 21/21 | $1.04 | 26.6K | 72 |
 | 031813 | + `snapshot` | 20/21 | $0.77 | 26.6K | 70 |
 | 032721 | snapshot'a OCR güveni geri, pencereye göreli zoom/region | 21/21 | $0.74 | 25.9K | 63 |
+| 042455 | F1: yerel zbus, paralel AT-SPI okuma, Ctrl düzeltmesi (+2 tarayıcı görevi) | 27/27 (aynı 7: 21/21) | $0.85 (aynı 7: $0.63) | 24.6K | 85 (aynı 7: 68) |
+
+F1 okuma süreleri: GTK formu 298 → 32 ms, Firefox sayfası 1311 → 40 ms (form ve tablo artık görünür).
+Tarayıcı: tablo okuma 2 tur; form doldurma 10 tur ($0.15) → F2'nin (eylem programı) hedefi.
 
 Probe katmanı: %50 → %100 (11 görev, 33/33). Aşağıdaki iki bölüm başlangıçtaki
 durumu anlatır; listelenen hataların hepsi `feat/eval-harness` dalında düzeltildi.
 
-Bilinen sınırlar: tesseract tuval metninde ~10 denemede 1 karakter karıştırır (ajan
+Bilinen sınırlar: tesseract tuval metninde koda göre değişen sıklıkta karakter karıştırır ya da boşluk ekler (bazı seed'lerde 3'te 2) (ajan
 `conf` düşükse yakınlaştırıp doğrular); `click-ui` doğrulaması eylem başına ~400 ms ekler;
 Electron gibi AT-SPI'sız pencerelerde tam pencere OCR'ı birkaç saniye sürer.
 

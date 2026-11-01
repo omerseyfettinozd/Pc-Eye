@@ -110,6 +110,20 @@ pub fn resolve_capture_plan(
             window_addr.map(normalize_window_address),
             [x, y, zw, zh],
         )
+    } else if let (Some(r), Some(addr)) = (region, window_addr) {
+        // Pencereyle birlikte verilen bölge pencereye GÖRELİDİR: ajanlar bunu doğal varsayıyor ve
+        // mutlak sayılınca kullanıcının ekranından alakasız bir parça yakalanıyordu.
+        let norm = crate::eyes::compositor::resolve_window_ref(addr, &desktop.windows)?;
+        let win = desktop
+            .windows
+            .iter()
+            .find(|w| w.address == norm)
+            .ok_or_else(|| anyhow!("Pencere bulunamadı: {}", norm))?;
+        let x = win.x + r[0].clamp(0, (win.width - 10).max(0));
+        let y = win.y + r[1].clamp(0, (win.height - 10).max(0));
+        let w = r[2].clamp(10, (win.x + win.width - x).max(10));
+        let h = r[3].clamp(10, (win.y + win.height - y).max(10));
+        ("window-region".to_string(), Some(norm), clamp_rect(x, y, w, h))
     } else if let Some(r) = region {
         ("region".to_string(), None, clamp_rect(r[0], r[1], r[2], r[3]))
     } else if let Some(addr) = window_addr {

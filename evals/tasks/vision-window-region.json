@@ -1,0 +1,9 @@
+{
+  "id": "vision-window-region",
+  "scene": "canvas",
+  "tags": ["tool:vision", "privacy"],
+  "probe": [
+    {"args": ["vision", "--window", "{title}", "--region", "0,0,300,120"], "expect_contains": ["\"capture_mode\": \"window-region\"", "{window}"]}
+  ],
+  "check": {"type": "none"}
+}

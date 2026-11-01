@@ -15,8 +15,13 @@ Binary path: `/home/chaple/.local/bin/pc-eye` (also registered as MCP server `pc
 
 Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-eye vision`) only when visual verification or pixel-art inspection is needed**:
 
-1. **Orient (`context`)**:
-   - Call `pc_eye_context` (or `pc-eye context`) to get the entire desktop state in `<5ms`:
+0. **Start with `snapshot` (cheapest orientation, ~4 KB)**:
+   - Call `pc_eye_snapshot` (or `pc-eye snapshot --window <addr|title|class>`) first: monitors, windows, and the target window's interactive elements (`mark`, `role`, `name`, `value`, decision states, click point `at`; terminal visible lines) in one call. Pass the returned `seq` back as `seq_since` to get only new window events.
+   - Every `window` parameter accepts an address (`0x…`), a full/partial title, or a class; ambiguous matches return the candidates instead of guessing.
+   - Use `context` only when you need system health, audio, or the full event/log history (it is ~25–30 KB).
+
+1. **Full context (`context`)**:
+   - Call `pc_eye_context` (or `pc-eye context`) for the entire desktop + system state:
      - All monitors, workspaces, windows (`address`, `class`, `title`, `pid`, `[x,y]`, `[w,h]`), layer-shell overlays (`waybar`, `rofi`, `dunst`), `auth_guard_tripped`, `protected_window` flags, and `daemon_running` (auto-starts continuous `.socket2.sock` flight recorder).
      - System health (`load_avg`, RAM, Linux PSI pressure stalls, NVIDIA & AMD GPU utilization/VRAM/temp).
      - Audio & media summary (default sink volume, active streams, real PCM RMS/Peak dBFS, MPRIS active media title/artist/URL).
@@ -30,6 +35,8 @@ Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-e
 
 3. **Inspect Process X-Ray (`xray`)**:
    - Call `pc_eye_xray` (or `pc-eye xray --window <addr>` / `--pid <pid>`) to inspect the entire **Application Process Cluster** (all descendant threads/helper processes), CPU/RSS/Disk I/O, `p50/p95/p99` spike statistics, open file descriptors (`/proc/<pid>/fd`), and live `TCP/UDP` network connections.
+
+   - **Find windowless processes (`processes`)**: `pc_eye_processes` / `pc-eye ps --match <text>` or `--port <n>` returns PID, command line, RAM and listening endpoints — use it to get the PID for `xray`. `pc_eye_launch` refuses inline shell/interpreter code (`sh -c`, `python -c`); it is for starting apps.
 
 4. **Inspect Audio, Physical Waveform, WAV Recording & Browser URL (`audio`)**:
    - Call `pc_eye_audio` (or `pc-eye audio`) to read PipeWire streams, **real physical PCM 16-bit audio signal metrics** (`rms_dbfs`, `peak_dbfs`, `audible_signal`), and **D-Bus MPRIS media metadata** (including active browser tab URL `xesam:url` and playback status).
@@ -53,6 +60,7 @@ Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-e
      - `pc-eye click-ui --name "Save" --prefer-dbus` (triggers `org.a11y.atspi.Action.DoAction(0)` directly without moving the mouse, or clicks the AT-SPI2 / OCR text coordinates).
      - `pc-eye click-ui --name "Search" --set-text "query"` (writes directly via `EditableText.SetTextContents` or virtual keyboard).
      - `pc-eye click-ui --mark 4` (clicks Set-of-Marks or `pc-eye ui` element `#4`).
+     - Every `click-ui` returns `verification` (`changed_pixels`, `change_pct`, `visible_change`) from before/after captures of the target window. `ok: true` only means the action was sent; if `visible_change` is `false` the details start with `UYARI` — the click probably missed, so re-inspect instead of reporting success. Among same-named elements the actionable role (button, check box…) wins over containers (grid cell, label).
    - **Pure-Rust Wayland Virtual Pointer & Keyboard (`input`)**:
      - `pc-eye input click --x 500 --y 300`
      - `pc-eye input type --text "Merhaba Dünya! ŞĞÜÖÇİ"` (supports full UTF-8/Turkish via dynamic XKB `memfd` keymap, no `wtype`/`ydotool` needed).

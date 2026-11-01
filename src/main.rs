@@ -68,7 +68,7 @@ enum Commands {
         /// Hedef pencere adresi
         #[arg(long)]
         window: Option<String>,
-        /// Kırpma bölgesi: "x,y,w,h"
+        /// Kırpma bölgesi: "x,y,w,h" (--window ile pencereye göreli, tek başına ekran koordinatı)
         #[arg(long)]
         region: Option<String>,
         /// Yakınlaştırma merkezi: "x,y"

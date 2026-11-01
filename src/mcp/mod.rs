@@ -607,7 +607,7 @@ fn mcp_tools_schema() -> Value {
                 "type": "object",
                 "properties": {
                     "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
-                    "region": { "type": "array", "items": { "type": "integer" }, "description": "[x, y, w, h] kırpma bölgesi." },
+                    "region": { "type": "array", "items": { "type": "integer" }, "description": "[x, y, w, h] kırpma bölgesi. window ile birlikte verilirse pencereye GÖRELİ, yalnız verilirse ekran (mutlak) koordinatıdır." },
                     "zoom": { "type": "array", "items": { "type": "integer" }, "description": "[x, y] noktası etrafında hassas yakınlaştırma." },
                     "marks": { "type": "boolean", "description": "Tıklanabilir bölgelerin üzerine numaralı Set-of-Marks kutuları çizer." },
                     "frames": { "type": "integer", "description": "Kare dizisi (animasyon izlenebilirliği) modu: bu kadar kare yakalar; her kare için dHash, ortalama parlaklık ve önceki kareye göre pixel_diff_pct, ayrıca süre/aralık/stabil-kare özeti döner. Verilmezse tek kare yakalanır." },

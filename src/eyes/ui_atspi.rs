@@ -144,14 +144,15 @@ pub fn inspect_window_ui(
         // araç çubuğu görünür. Belge henüz yoksa kısa aralıklarla birkaç kez yeniden oku.
         let browser = is_browser_window(&win.class);
         for attempt in 0..4 {
-            elements = atspi_bus::block_on(collect_atspi_elements_for_window(
+            let (found, saw_document) = atspi_bus::block_on(collect_atspi_elements_for_window(
                 conn,
                 &win,
                 query_filter,
                 max_elements.max(10),
             ));
-            let has_document = elements.iter().any(|e| e.role.starts_with("document"));
-            if !browser || has_document || query_filter.is_some() || attempt == 3 {
+            elements = found;
+            // Belge varlığı filtreden bağımsız ölçülür: `--name "Ad Soyad"` gibi sorgular da beklemeli.
+            if !browser || saw_document || attempt == 3 {
                 break;
             }
             std::thread::sleep(Duration::from_millis(150));
@@ -348,7 +349,7 @@ async fn collect_atspi_elements_for_window(
     win: &WindowInfo,
     query_filter: Option<&str>,
     max_elements: usize,
-) -> Vec<UiElement> {
+) -> (Vec<UiElement>, bool) {
     let root_children = atspi_bus::children(
         conn,
         "org.a11y.atspi.Registry",
@@ -356,7 +357,7 @@ async fn collect_atspi_elements_for_window(
     )
     .await;
     if root_children.is_empty() {
-        return Vec::new();
+        return (Vec::new(), false);
     }
 
     let cluster_pids: HashSet<i32> = collect_app_cluster(win.pid)
@@ -401,6 +402,7 @@ async fn collect_atspi_elements_for_window(
     let started = Instant::now();
     let mut inspected = 0usize;
     let mut candidates: Vec<(String, NodeInfo)> = Vec::new();
+    let mut saw_document = false;
 
     for (service, root_path) in matching_services {
         let mut visited = HashSet::new();
@@ -441,8 +443,9 @@ async fn collect_atspi_elements_for_window(
                 if depth > 0 && !node.states.iter().any(|s| s == "showing") {
                     continue;
                 }
-                let in_doc = node.in_document
-                    || matches!(node.role.as_str(), "document web" | "document frame");
+                let is_document = matches!(node.role.as_str(), "document web" | "document frame");
+                saw_document |= is_document;
+                let in_doc = node.in_document || is_document;
                 for (srv, child) in &node.children {
                     if *srv == service && visited.insert(child.clone()) {
                         frontier.push((child.clone(), in_doc));
@@ -522,7 +525,7 @@ async fn collect_atspi_elements_for_window(
             break;
         }
     }
-    elements
+    (elements, saw_document)
 }
 
 /// Fareyi hareket ettirmeden doğrudan D-Bus `org.a11y.atspi.Action.DoAction(0)` ile kontrolü tetikler.

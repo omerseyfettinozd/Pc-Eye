@@ -124,6 +124,12 @@ başlığıyla eşleşen kap, kaymalı pencerede düğmelere D-Bus, yazma klavye
 (Dolphin adres çubuğu tamamlama penceresi ~120 karakter yutuyordu). Sihirbaz 15 → 9–10 tur (Sonnet 60 →
 23 s), Dolphin Sonnet 33 → 10 tur / 68 → 27 s (194220-g8s), Haiku tüm set 24/24, $0.116.
 
+**Adil kıyas, aynı build (200615 pc-eye, 201745 piksel tabanı; 7 ortak görev × 3):** pc-eye+Haiku 21/21,
+medyan 21,7 s, $0.005; pc-eye+Sonnet 21/21, 24,2 s, $0.049; piksel tabanı+Sonnet 19/21, 18,9 s, $0.075
+(iki uygulama arası görevde tutarı yanlış okudu, 1/3). Başarı ve maliyette öndeyiz; uzun sayfa, form
+hatası ve iki uygulama arası görevlerde hızda da öndeyiz. Gerideyiz: Dolphin (51–56 s'e karşı 19 s,
+yüksek değişkenlik), sihirbaz ve Kate. Başarısız beklenti artık erken biter ve yerine çıkan metni söyler.
+
 **Gerçek site (`--tag live`):** `live-youtube-play` — YouTube'da arama, video açma; başarı tarayıcının
 MPRIS durumundan (gerçekten "Playing" mi) denetlenir. Haiku 3/3 (biri Shorts), ~45 s, $0.011.
 Ajan oturumundaki uygulamaların sesi oturumun boş ses çıkışına gider (kullanıcının hoparlörüne değil);

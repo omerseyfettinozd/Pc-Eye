@@ -1,0 +1,817 @@
+{
+ "tier": "agent",
+ "started": "20261101-200615-g9s",
+ "seed": 589524484,
+ "model": "claude-sonnet-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "60919c3",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-cross-app",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 16664.8,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 38009,
+    "median_output_tokens": 394,
+    "cost_usd": 0.109
+   },
+   {
+    "task": "hard-dolphin-move",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 55942.5,
+    "median_turns": 17,
+    "median_tool_calls": 16,
+    "median_input_tokens": 145421,
+    "median_output_tokens": 1985,
+    "cost_usd": 0.2546
+   },
+   {
+    "task": "hard-kate-save-as",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 28752.9,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 41315,
+    "median_output_tokens": 667,
+    "cost_usd": 0.1476
+   },
+   {
+    "task": "hard-process-form",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 12571.2,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 24155,
+    "median_output_tokens": 300,
+    "cost_usd": 0.0657
+   },
+   {
+    "task": "hard-settings",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 31760.9,
+    "median_turns": 12,
+    "median_tool_calls": 11,
+    "median_input_tokens": 102536,
+    "median_output_tokens": 1262,
+    "cost_usd": 0.1853
+   },
+   {
+    "task": "hard-web-long",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 11754.8,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 26844,
+    "median_output_tokens": 154,
+    "cost_usd": 0.0782
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 17449.2,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 39378,
+    "median_output_tokens": 467,
+    "cost_usd": 0.1188
+   },
+   {
+    "task": "hard-wizard",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 31285.6,
+    "median_turns": 9,
+    "median_tool_calls": 8,
+    "median_input_tokens": 66827,
+    "median_output_tokens": 736,
+    "cost_usd": 0.1294
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 1.0887
+ },
+ "session": "g9s",
+ "toolset": "full",
+ "runs": [
+  {
+   "task": "hard-cross-app",
+   "attempt": 0,
+   "vars": {
+    "src": "Eval Siparişler M2NT",
+    "dst": "Eval İade KN4W",
+    "customer": "Burak Yıldız",
+    "order": "S-96474",
+    "amount": "9630,72 TL",
+    "pid": 128904,
+    "title": "Eval İade KN4W"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 16664.8,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0365138,
+   "input_tokens": 38028,
+   "output_tokens": 414,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2448,
+      "y": 1021
+     },
+     {
+      "x": 2317,
+      "y": 429
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 1,
+   "vars": {
+    "src": "Eval Siparişler A6M7",
+    "dst": "Eval İade PJWE",
+    "customer": "Deniz Kara",
+    "order": "S-61241",
+    "amount": "3232,58 TL",
+    "pid": 132596,
+    "title": "Eval İade PJWE"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 14553.1,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0362446,
+   "input_tokens": 37770,
+   "output_tokens": 392,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 2,
+   "vars": {
+    "src": "Eval Siparişler XP78",
+    "dst": "Eval İade FYKH",
+    "customer": "Emre Şahin",
+    "order": "S-73120",
+    "amount": "2721,30 TL",
+    "pid": 135141,
+    "title": "Eval İade FYKH"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19709.8,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0362027,
+   "input_tokens": 38009,
+   "output_tokens": 394,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2317,
+      "y": 429
+     },
+     {
+      "x": 2441,
+      "y": 1520
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Dosyalar LKXY",
+    "pid": 137075,
+    "file": "rapor-NAV3.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-dolphin-move-0/Eval Dosyalar LKXY/Belgeler/2025/Mart/rapor-NAV3.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-dolphin-move-0/Eval Dosyalar LKXY/Arşiv/rapor-NAV3.txt",
+    "content": "rapor içeriği ET9AJEGC"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 24229.8,
+   "is_error": false,
+   "turns": 9,
+   "cost_usd": 0.050494399999999995,
+   "input_tokens": 64074,
+   "output_tokens": 1061,
+   "tool_calls": 8,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_input": 6,
+    "pc_eye_click_ui": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Dosyalar F768",
+    "pid": 138268,
+    "file": "rapor-M9GX.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-dolphin-move-1/Eval Dosyalar F768/Belgeler/2025/Mart/rapor-M9GX.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-dolphin-move-1/Eval Dosyalar F768/Arşiv/rapor-M9GX.txt",
+    "content": "rapor içeriği KEJTGUWP"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 55942.5,
+   "is_error": false,
+   "turns": 17,
+   "cost_usd": 0.09013370000000001,
+   "input_tokens": 145421,
+   "output_tokens": 1985,
+   "tool_calls": 16,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_input": 11,
+    "pc_eye_click_ui": 2,
+    "pc_eye_processes": 1,
+    "pc_eye_vision": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Dosyalar GDYX",
+    "pid": 141039,
+    "file": "rapor-KF7W.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-dolphin-move-2/Eval Dosyalar GDYX/Belgeler/2025/Mart/rapor-KF7W.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-dolphin-move-2/Eval Dosyalar GDYX/Arşiv/rapor-KF7W.txt",
+    "content": "rapor içeriği 2PEKE4H4"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 60403.1,
+   "is_error": false,
+   "turns": 23,
+   "cost_usd": 0.11400689999999997,
+   "input_tokens": 209565,
+   "output_tokens": 2768,
+   "tool_calls": 22,
+   "tools": {
+    "pc_eye_snapshot": 4,
+    "pc_eye_input": 11,
+    "pc_eye_click_ui": 6,
+    "pc_eye_vision": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-kate-save-as",
+   "attempt": 0,
+   "vars": {
+    "title": "notlar-wgv2.txt",
+    "pid": 143877,
+    "file": "notlar-wgv2.txt",
+    "line": "Karar: tarih ertelendi (D2JX)",
+    "new_name": "ozet-j3cc.txt",
+    "new_path": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-kate-save-as-0/eval-notlar-3kep/ozet-j3cc.txt",
+    "folder": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-kate-save-as-0/eval-notlar-3kep",
+    "first_line": "Toplantı notları 8EMXEL"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 30664.7,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0453161,
+   "input_tokens": 41315,
+   "output_tokens": 667,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_input": 2,
+    "pc_eye_click_ui": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-kate-save-as",
+   "attempt": 1,
+   "vars": {
+    "title": "notlar-tum9.txt",
+    "pid": 145467,
+    "file": "notlar-tum9.txt",
+    "line": "Karar: bütçe onaylandı (2MFV)",
+    "new_name": "ozet-7gp8.txt",
+    "new_path": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-kate-save-as-1/eval-notlar-gl77/ozet-7gp8.txt",
+    "folder": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-kate-save-as-1/eval-notlar-gl77",
+    "first_line": "Toplantı notları CR6Y8H"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 28752.9,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.0572408,
+   "input_tokens": 57033,
+   "output_tokens": 856,
+   "tool_calls": 6,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_input": 4,
+    "pc_eye_click_ui": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-kate-save-as",
+   "attempt": 2,
+   "vars": {
+    "title": "notlar-c7mx.txt",
+    "pid": 146763,
+    "file": "notlar-c7mx.txt",
+    "line": "Karar: bütçe onaylandı (PLLA)",
+    "new_name": "ozet-m377.txt",
+    "new_path": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-kate-save-as-2/eval-notlar-tvmf/ozet-m377.txt",
+    "folder": "/run/user/1000/pc-eye-eval/20261101-200615-g9s/hard-kate-save-as-2/eval-notlar-tvmf",
+    "first_line": "Toplantı notları 8W2DVF"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 15851.9,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0450799,
+   "input_tokens": 41257,
+   "output_tokens": 658,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_input": 2,
+    "pc_eye_click_ui": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2441,
+      "y": 1520
+     },
+     {
+      "x": 2441,
+      "y": 1522
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-process-form",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-svc-gnx9",
+    "port": "47103",
+    "pid": 147673,
+    "title": "Eval PID DCAT",
+    "target_pid": "147673"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 12571.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.021864300000000003,
+   "input_tokens": 24154,
+   "output_tokens": 296,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_processes": 1,
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-process-form",
+   "attempt": 1,
+   "vars": {
+    "marker": "eval-svc-4nay",
+    "port": "51882",
+    "pid": 148477,
+    "title": "Eval PID 2GLE",
+    "target_pid": "148477"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 18186.7,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0219083,
+   "input_tokens": 24155,
+   "output_tokens": 300,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_processes": 1,
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-process-form",
+   "attempt": 2,
+   "vars": {
+    "marker": "eval-svc-2l9d",
+    "port": "20213",
+    "pid": 149538,
+    "title": "Eval PID MKK6",
+    "target_pid": "149538"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 12501.5,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.021916900000000003,
+   "input_tokens": 24163,
+   "output_tokens": 300,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_processes": 1,
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-settings",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Ayarlar 6TEV",
+    "pid": 150345,
+    "username": "kullanici89",
+    "font": 21,
+    "theme": "Yüksek karşıtlık"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 31760.9,
+   "is_error": false,
+   "turns": 12,
+   "cost_usd": 0.0650252,
+   "input_tokens": 102653,
+   "output_tokens": 1353,
+   "tool_calls": 11,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 9,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-settings",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Ayarlar UVUY",
+    "pid": 151988,
+    "username": "kullanici54",
+    "font": 21,
+    "theme": "Yüksek karşıtlık"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 41215.6,
+   "is_error": false,
+   "turns": 12,
+   "cost_usd": 0.0640294,
+   "input_tokens": 102536,
+   "output_tokens": 1262,
+   "tool_calls": 11,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 9,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-settings",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Ayarlar APER",
+    "pid": 153953,
+    "username": "kullanici85",
+    "font": 16,
+    "theme": "Sistem"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 25632.0,
+   "is_error": false,
+   "turns": 11,
+   "cost_usd": 0.0562549,
+   "input_tokens": 95061,
+   "output_tokens": 1078,
+   "tool_calls": 10,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 8,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok 79J8",
+    "pid": 155276,
+    "code": "G7-8550",
+    "stock": "328"
+   },
+   "ok": true,
+   "detail": "cevap='328'",
+   "ms": 11754.8,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0258713,
+   "input_tokens": 26866,
+   "output_tokens": 154,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_ui": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Stok HWTY",
+    "pid": 156768,
+    "code": "62-4467",
+    "stock": "215"
+   },
+   "ok": true,
+   "detail": "cevap='215'",
+   "ms": 8874.8,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0265737,
+   "input_tokens": 26831,
+   "output_tokens": 232,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_ui": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Stok HWGD",
+    "pid": 158914,
+    "code": "UT-1036",
+    "stock": "836"
+   },
+   "ok": true,
+   "detail": "cevap='836'",
+   "ms": 20718.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.025797900000000002,
+   "input_tokens": 26844,
+   "output_tokens": 150,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_ui": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim LXCW",
+    "pid": 161645,
+    "phone_pretty": "0538 136 20 43",
+    "phone": "5381362043",
+    "email": "ali11@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 17449.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.039739899999999995,
+   "input_tokens": 39378,
+   "output_tokens": 470,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval İletişim XLHJ",
+    "pid": 165116,
+    "phone_pretty": "0514 997 66 51",
+    "phone": "5149976651",
+    "email": "ali76@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 16646.3,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0397255,
+   "input_tokens": 39378,
+   "output_tokens": 467,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval İletişim 9YU8",
+    "pid": 167652,
+    "phone_pretty": "0510 434 34 87",
+    "phone": "5104343487",
+    "email": "ali69@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19186.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.039365699999999997,
+   "input_tokens": 39407,
+   "output_tokens": 428,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-wizard",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Sihirbaz 2LDA",
+    "pid": 170369,
+    "package": "takvim",
+    "folder": "kurulum_gk7v"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 30626.1,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.0411138,
+   "input_tokens": 66455,
+   "output_tokens": 674,
+   "tool_calls": 7,
+   "tools": {
+    "pc_eye_snapshot": 3,
+    "pc_eye_click_ui": 3,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-wizard",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Sihirbaz HYNE",
+    "pid": 171969,
+    "package": "goruntu-araci",
+    "folder": "kurulum_vjau"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 36996.8,
+   "is_error": false,
+   "turns": 9,
+   "cost_usd": 0.0449025,
+   "input_tokens": 78484,
+   "output_tokens": 745,
+   "tool_calls": 8,
+   "tools": {
+    "pc_eye_snapshot": 4,
+    "pc_eye_click_ui": 3,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2441,
+      "y": 1522
+     },
+     {
+      "x": 2442,
+      "y": 1521
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-wizard",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Sihirbaz H7LN",
+    "pid": 173890,
+    "package": "metin-editoru",
+    "folder": "kurulum_h97g"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 31285.6,
+   "is_error": false,
+   "turns": 9,
+   "cost_usd": 0.043346600000000006,
+   "input_tokens": 66827,
+   "output_tokens": 736,
+   "tool_calls": 8,
+   "tools": {
+    "pc_eye_snapshot": 3,
+    "pc_eye_click_ui": 5
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2442,
+      "y": 1521
+     },
+     {
+      "x": 1280,
+      "y": 800
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  }
+ ],
+ "user_disturbed_runs": 5,
+ "agent_leak_runs": 0
+}

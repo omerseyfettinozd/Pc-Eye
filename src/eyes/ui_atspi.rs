@@ -161,7 +161,11 @@ pub fn inspect_window_ui(
                     ));
                 elements = found;
                 // Belge varlığı filtreden bağımsız ölçülür: `--name "Ad Soyad"` gibi sorgular da beklemeli.
-                let done = !browser || saw_document || Instant::now() >= deadline;
+                // Belge görüldü ama neredeyse boşsa (Firefox içerik erişilebilirliğini ilk sorguda
+                // başlatıyor; kullanıcının açık Firefox'unda ilk okuma 0 eleman döndü) biraz daha bekle.
+                let sparse = browser && query_filter.is_none()
+                    && found_named(&elements) < 3;
+                let done = !browser || (saw_document && !sparse) || Instant::now() >= deadline;
                 if done {
                     // Tarayıcıda belge henüz yoksa sonuç geçicidir; önbelleğe alınmaz.
                     if !browser || saw_document {
@@ -209,7 +213,7 @@ pub fn inspect_window_ui(
         }
     }
 
-    let sparse_page = browser_window && !page_loading && elements.iter().filter(|e| !e.name.is_empty()).count() < 8;
+    let sparse_page = browser_window && !page_loading && elements.iter().filter(|e| !e.name.is_empty()).count() < 3;
     let perception_mode = if page_loading || sparse_page {
         "at-spi2-page-loading".to_string()
     } else if used_ocr && atspi_count > 0 {
@@ -819,6 +823,10 @@ fn stabilize_marks(window: &str, elements: &mut [UiElement]) {
 
 /// Sınıf adının parçalarından biri tarayıcı adı mı. Alt dize araması "zenity"yi Zen tarayıcısı
 /// sanıyordu: her okuma belge için 2,5 sn bekliyor, sihirbaz görevi 18 sn yerine 95 sn sürüyordu.
+fn found_named(elements: &[UiElement]) -> usize {
+    elements.iter().filter(|e| !e.name.is_empty()).count()
+}
+
 fn is_browser_window(class: &str) -> bool {
     const BROWSERS: &[&str] = &[
         "firefox", "librewolf", "floorp", "zen", "zen-browser", "chromium", "chrome", "google-chrome",

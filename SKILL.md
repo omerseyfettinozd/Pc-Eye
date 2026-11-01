@@ -1,6 +1,6 @@
 ---
 name: pc-eye
-description: Full White-Box OS Observability & Deterministic Control Engine (V3.0) for Linux Wayland/Hyprland. Use whenever inspecting desktop windows, UI accessibility trees (AT-SPI2 + Zero-Disk In-Memory OCR eng+tur fallback), Terminal PTY context & visible screen lines, screenshots with Set-of-Marks/dHash, process descendant trees/sockets/VRAM (X-Ray), PipeWire physical PCM audio signals/WAV recording & MPRIS media/browser URLs, merged journald/coredump/notification logs, rich clipboard/cliphist, or controlling mouse/keyboard/windows/apps deterministically.
+description: 'Use pc-eye to see and operate this Linux desktop (CachyOS + Hyprland) like a person, through accessibility trees instead of screenshots: test and debug a GUI/web app being developed (launch it in an isolated agent session, read its UI, click, type, check logs/crashes), do things in apps or Firefox for the user (open a YouTube video, fill a form, move files in Dolphin, read a page), and inspect background state (processes, ports, logs, coredumps, audio/media). Trigger on "pc eye kullan", "ekranda", "Firefox''ta", "uygulamayı aç/test et", desktop or GUI requests. MCP servers: `pc-eye` (user''s own desktop) and `pc-eye-agent` (isolated session).'
 ---
 
 # PC-Eye V3.0: Full White-Box OS Observability & Deterministic Director Engine
@@ -10,6 +10,16 @@ description: Full White-Box OS Observability & Deterministic Control Engine (V3.
 Binary path: `/home/chaple/.local/bin/pc-eye` (also registered as MCP server `pc-eye` with `pc_eye_*` tools).
 
 ---
+
+## Where to act (decide first)
+
+| Request | Server / mode | Why |
+| --- | --- | --- |
+| Test or debug an app being developed; any autonomous multi-step work | `pc-eye-agent` (or `PC_EYE_SESSION=<name> pc-eye ...`) | Isolated nested Hyprland: the user's cursor, focus, clipboard and speakers are untouched; several agents can run in parallel. |
+| Something the user wants to see or use themselves ("open a video for me", "go to this site in my Firefox") | `pc-eye` (user's desktop) | Needs the user's own logged-in Firefox profile and screen. Touch only the window the task is about. |
+| Account creation, login, passwords, payments, OAuth/"Sign in with Google" consent | Navigate up to the screen, then stop and hand over | Credentials and consent are the user's step; never type passwords. |
+
+Developing a GUI app with pc-eye: build it, then `pc_eye_launch` (agent server) the dev binary or open `http://localhost:<port>` in Firefox inside the session → `snapshot` → act with `run` programs → verify with `snapshot`/`media`/`logs` (`logs` with the app pid shows its stderr; crashes appear as coredumps) → screenshots only for visual layout review. Recipes learned this way replay the flow later without a model.
 
 ## Core White-Box Workflow for AI Agents
 

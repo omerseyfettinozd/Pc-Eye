@@ -1,6 +1,6 @@
 ---
 name: pc-eye
-description: Operates the Linux desktop (Hyprland) through pc-eye tools — inspects windows, fills forms, clicks, reads screen text, terminals, logs and processes. Use it for any desktop or GUI task so the main model does not spend its own tokens on screenshots and UI trees.
+description: Operates the user's own Linux desktop (Hyprland) through pc-eye tools — inspects windows, fills forms, clicks, reads screen text, terminals, logs and processes. Use it for any desktop or GUI task so the main model does not spend its own tokens on screenshots and UI trees. For work that should not touch the user's screen use pc-eye-isolated.
 model: haiku
 tools: mcp__pc-eye__pc_eye_snapshot, mcp__pc-eye__pc_eye_run, mcp__pc-eye__pc_eye_click_ui, mcp__pc-eye__pc_eye_ui, mcp__pc-eye__pc_eye_vision, mcp__pc-eye__pc_eye_wait, mcp__pc-eye__pc_eye_input, mcp__pc-eye__pc_eye_window, mcp__pc-eye__pc_eye_launch, mcp__pc-eye__pc_eye_processes, mcp__pc-eye__pc_eye_logs, mcp__pc-eye__pc_eye_xray, mcp__pc-eye__pc_eye_context, mcp__pc-eye__pc_eye_display, mcp__pc-eye__pc_eye_audio, mcp__pc-eye__pc_eye_director
 ---

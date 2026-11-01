@@ -49,8 +49,10 @@ pub fn query_recent_journal_logs(
 
 /// `coredumpctl list --json=short` üzerinden sistemde çöken (SIGSEGV, SIGABRT vb.) süreçleri okur.
 pub fn read_coredump_entries(filter_pids: Option<&[i32]>, limit: usize) -> Result<Vec<LogEntry>> {
+    // `-n` tek başına journal'ın EN ESKİ kayıtlarını verir (systemd 262); `-r` ile en yeniler önce gelir.
+    // Aksi halde yeni bir çökme hiç görünmez, eski çökmeler "son çökme" gibi raporlanır.
     let out = Command::new("coredumpctl")
-        .args(["list", "--json=short", "-n", "15", "--no-pager"])
+        .args(["list", "--json=short", "-r", "-n", "15", "--no-pager"])
         .output()?;
     if !out.status.success() || out.stdout.is_empty() {
         return Ok(Vec::new());
@@ -58,7 +60,7 @@ pub fn read_coredump_entries(filter_pids: Option<&[i32]>, limit: usize) -> Resul
     let items: Vec<Value> = serde_json::from_slice(&out.stdout).unwrap_or_default();
     let mut entries = Vec::new();
 
-    for item in items.into_iter().rev() {
+    for item in items {
         let pid = item.get("pid").and_then(|v| v.as_i64()).map(|n| n as i32);
         if let Some(pids) = filter_pids {
             if let Some(p) = pid {
@@ -104,8 +106,12 @@ pub fn read_coredump_entries(filter_pids: Option<&[i32]>, limit: usize) -> Resul
             pid,
             unit_or_app: app_name,
             message: format!(
-                "PROCESS CRASHED ({} / sig={}): exe={} [core={}]",
-                sig_name, sig, exe, corefile
+                "PROCESS CRASHED ({} / sig={}): pid={} exe={} [core={}]",
+                sig_name,
+                sig,
+                pid.map_or("?".to_string(), |p| p.to_string()),
+                exe,
+                corefile
             ),
         });
         if entries.len() >= limit {

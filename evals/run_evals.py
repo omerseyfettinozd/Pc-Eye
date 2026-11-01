@@ -269,9 +269,18 @@ def scene_crash(sb, rng, work):
     script = work / name
     script.write_text(f"#!/bin/sh\nkill -{sig} $$\n")
     script.chmod(0o755)
-    subprocess.run([str(script)])
-    time.sleep(1.5)  # systemd-coredump kaydı için
-    return Scene({"marker": name, "signal": f"SIG{sig}", "signal_short": sig})
+    p = subprocess.Popen([str(script)])
+    p.wait()
+    # systemd-coredump kaydı birkaç saniye sürebilir; ölçülen şey pc-eye olsun, kayıt gecikmesi değil.
+    deadline = time.time() + 8
+    while time.time() < deadline:
+        out = subprocess.run(["coredumpctl", "list", "--json=short", "-n", "10", "--no-pager"],
+                             capture_output=True, text=True).stdout
+        if f'"pid":{p.pid},' in out.replace(" ", ""):
+            break
+        time.sleep(0.25)
+    return Scene({"marker": name, "signal": f"SIG{sig}", "signal_short": sig, "crash_pid": p.pid,
+                  "signal_num": signal.Signals[f"SIG{sig}"].value})
 
 
 SCENES = {
@@ -365,7 +374,7 @@ def run_probe(task, scene):
         note = r.stderr.strip()[:200] if r.rc else (f"eksik: {missing}" if missing else "ok")
         steps.append({"args": args, "rc": r.rc, "ms": round(r.ms, 1), "ok": step_ok, "note": note})
         if not step_ok:
-            steps[-1]["stdout"] = r.stdout[:4000]
+            steps[-1]["stdout"] = r.stdout[:30000]
         ok = ok and step_ok
         if step.get("settle_ms"):
             time.sleep(step["settle_ms"] / 1000)

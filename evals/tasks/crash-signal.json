@@ -1,10 +1,28 @@
 {
   "id": "crash-signal",
   "scene": "crash",
-  "tags": ["background:crash"],
+  "tags": [
+    "background:crash"
+  ],
   "prompt": "Son birkaç dakika içinde \"{marker}\" adlı bir program çöktü. Hangi sinyalle sonlandı? Sinyal adını yaz (ör. SIGTERM).",
   "probe": [
-    {"args": ["logs", "--limit", "100"], "expect_contains": ["{marker}", "{signal}"]}
+    {
+      "args": [
+        "logs",
+        "--limit",
+        "100"
+      ],
+      "expect_contains": [
+        "{marker}",
+        "({signal} / sig={signal_num}): pid={crash_pid} exe="
+      ]
+    }
   ],
-  "check": {"type": "answer", "expect": ["{signal}", "{signal_short}"]}
+  "check": {
+    "type": "answer",
+    "expect": [
+      "{signal}",
+      "{signal_short}"
+    ]
+  }
 }

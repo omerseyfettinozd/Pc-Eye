@@ -67,6 +67,11 @@ Ajan katmanı, Sonnet 5.5 ×3, aynı 7 görev:
 | 042455 | F1: yerel zbus, paralel AT-SPI okuma, Ctrl düzeltmesi (+2 tarayıcı görevi) | 27/27 (aynı 7: 21/21) | $0.85 (aynı 7: $0.63) | 24.6K | 85 (aynı 7: 68) |
 
 | 045024 | F1b: olay güdümlü önbellek, daemon soketi, delta snapshot | 27/27 | $1.11 | 24.8K | 91 |
+| 054034 | F2: eylem programı, kararlı mark'lar, otomatik delta, kısa şema | 27/27 | $0.81 | 20.3K | 70 |
+| 074248 | F2 düzeltmeleri: mark yolunda doğrulama, select ipucu | 26/27 (1 OCR: 8→S) | $0.74 | 20.2K | 62 |
+
+F2 form görevleri: web formu 10 tur/99K → 4 tur/39K, masaüstü formu 9 tur/80K → 4 tur/34K
+(her koşuda aynı; varyans kayboldu). En basit görevin tabanı 18,4K → 14,5K token (kısa şema).
 
 F1 okuma süreleri: GTK formu 298 → 32 ms, Firefox sayfası 1311 → 40 ms (form ve tablo artık görünür).
 F1b: CLI snapshot 32 → ~8 ms, MCP tekrar 42 → ~6 ms, değişmeyen delta 4,1 KB → 136 bayt.

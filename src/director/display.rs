@@ -141,6 +141,17 @@ pub fn manage_display(
                 .iter()
                 .filter_map(|m| m["name"].as_str().map(String::from))
                 .collect();
+            // Çıkışın varsayılan çalışma alanı adlı olsun ("name:<çıkış>"): yoksa Hyprland ona ilk boş
+            // numarayı (2, 3…) veriyor. Kullanıcı Super+3'e basınca kendi uygulaması (Steam) görünmez
+            // çıkışa açıldı, Super+2 ajan oturumunun penceresini kullanıcının ekranına çekti.
+            // Kalıcı değil: çıkış silinince boş çalışma alanı da kaybolur.
+            if let Some(n) = name {
+                let _ = hypr_request_raw(&format!(
+                    "eval hl.workspace_rule({{ workspace = \"name:{}\", monitor = \"{}\", default = true }})",
+                    n.to_ascii_lowercase(),
+                    n
+                ));
+            }
             let cmd = match name {
                 Some(n) => format!("output create headless {}", n),
                 None => "output create headless".to_string(),

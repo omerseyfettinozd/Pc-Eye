@@ -135,7 +135,11 @@ class Sandbox:
         receipt = r.json()
         if r.rc != 0 or not receipt:
             raise RuntimeError(f"sanal ekran açılamadı: {r.stderr or r.stdout}")
-        self.workspace = str(json.loads(receipt["details"])["workspace_id"])
+        details = json.loads(receipt["details"])
+        # Adlı çalışma alanı (numara kullanıcının Super+N kısayollarıyla çakışıyordu).
+        ws_name = details.get("workspace_name") or ""
+        self.workspace = f"name:{ws_name}" if details.get("workspace_id", 0) < 0 and ws_name else \
+            str(details["workspace_id"])
         return self
 
     def _enter_session(self):
@@ -175,6 +179,18 @@ class Sandbox:
         """
         cursor = hyprctl_json("cursorpos")
         active = hyprctl_json("activewindow") or {}
+        # Pencere yerleşimi sızıntısı: kullanıcının penceresi görünmez çıkışta ya da oturum penceresi
+        # (aquamarine) kullanıcının ekranında (numaralı çalışma alanı karışıklığında ikisi de oldu).
+        monitors = {m["id"]: m["name"] for m in hyprctl_json("monitors") or []}
+        misplaced = []
+        for c in hyprctl_json("clients") or []:
+            on_agent = monitors.get(c.get("monitor"), "").startswith("PCEYE-")
+            if c.get("class") == "aquamarine" and not on_agent:
+                misplaced.append(f"oturum penceresi kullanıcı ekranında (ws {c['workspace']['name']})")
+            elif on_agent and c.get("class") != "aquamarine" and c.get("pid") not in self.pids:
+                misplaced.append(f"kullanıcı penceresi görünmez çıkışta: {c.get('class')}")
+        if misplaced:
+            return {"misplaced": misplaced, "agent_leak": True}
         if cursor == self.user_cursor and active.get("address") == self.user_window:
             return False
         # Sızıntı: imleç kullanıcının (headless olmayan) ekranlarının dışına, ya da odak oturumun

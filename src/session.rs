@@ -210,10 +210,18 @@ fn start_unchecked(name: &str, mode: &str) -> Result<Value> {
     let _ = manage_display("remove", Some(&output), None, None, None);
     let created = manage_display("create", Some(&output), Some(mode), None, None)?;
     let details: Value = serde_json::from_str(&created.details).unwrap_or_default();
-    let workspace = details["workspace_id"]
-        .as_i64()
-        .map(|w| w.to_string())
-        .ok_or_else(|| anyhow!("headless çıkışın çalışma alanı bilinmiyor: {}", created.details))?;
+    // Adlı çalışma alanı (bkz. display create): numara verilirse kullanıcının Super+N kısayolu onu
+    // kendi ekranına çekebiliyordu.
+    let workspace = match details["workspace_name"].as_str() {
+        Some(n) if details["workspace_id"].as_i64().map_or(false, |id| id < 0) => format!("name:{}", n),
+        _ => {
+            let _ = manage_display("remove", Some(&output), None, None, None);
+            return Err(anyhow!(
+                "headless çıkış adlı çalışma alanı almadı ({}); kullanıcının numaralı çalışma alanları kullanılmaz",
+                created.details
+            ));
+        }
+    };
 
     let dir = session_dir(name);
     std::fs::create_dir_all(&dir)?;

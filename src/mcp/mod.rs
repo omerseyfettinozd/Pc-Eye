@@ -436,6 +436,7 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 .get("timeout_ms")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(3000);
+            crate::director::guard::enforce_mcp_launch_policy(&cmd_arr)?;
             let rec = launch_application(&cmd_arr, ws, timeout)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
@@ -717,7 +718,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_launch",
-            "description": "Uygulama başlatır, stdout/stderr akışını yakalar ve Hyprland openwindow olayını bekleyip yeni pencere adresini döner.",
+            "description": "Uygulama başlatır, stdout/stderr akışını yakalar ve Hyprland openwindow olayını bekleyip yeni pencere adresini döner. Satır içi kabuk/yorumlayıcı komutu (`sh -c`, `python -c`) reddedilir; süreç/port için pc_eye_processes kullan.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": {
                 "type": "object",

@@ -519,6 +519,7 @@ def parse_stream(lines):
     return {
         "final_text": result.get("result", ""),
         "is_error": bool(result.get("is_error")) or result.get("subtype") != "success",
+        "api_error": result.get("api_error"),
         "turns": result.get("num_turns"),
         "cost_usd": result.get("total_cost_usd"),
         "input_tokens": (usage.get("input_tokens") or 0)
@@ -528,6 +529,10 @@ def parse_stream(lines):
         "tool_calls": sum(tools.values()),
         "tools": tools,
     }
+
+
+class ApiUnavailable(RuntimeError):
+    pass
 
 
 def run_agent(task, scene, sb, work, args, transcript):
@@ -556,6 +561,10 @@ def run_agent(task, scene, sb, work, args, transcript):
     ms = (time.perf_counter() - start) * 1000
     transcript.write_text(out, encoding="utf-8")
     m = parse_stream(out.splitlines())
+    # API hatası (kullanım sınırı, aşırı yük) ajanın başarısızlığı değildir: ölçüme sayılmaz.
+    if m.get("api_error"):
+        raise ApiUnavailable(f"API hatası: {m['api_error']}: {m['final_text'][:120]}")
+    m.pop("api_error", None)
     if timed_out:
         ok, detail = False, f"zaman aşımı ({args.timeout} sn)"
     else:
@@ -683,6 +692,7 @@ def main():
         transcripts.mkdir(parents=True, exist_ok=True)
 
     runs = []
+    api_down = False
     with Sandbox() as sb:
         print(f"sanal ekran {DISPLAY_NAME} → çalışma alanı {sb.workspace}; seed={seed}")
         for task in tasks:
@@ -699,6 +709,9 @@ def main():
                     else:
                         record.update(run_agent(task, scene, sb, work, args,
                                                 transcripts / f"{task['id']}-{i}.jsonl"))
+                except ApiUnavailable as e:
+                    record.update({"ok": False, "setup_error": True, "detail": str(e), "ms": 0})
+                    api_down = "usage_limit" in str(e)
                 except Exception as e:  # sahne kurulamadıysa ölçüm sayılmaz
                     record.update({"ok": False, "setup_error": True, "detail": str(e), "ms": 0})
                 finally:
@@ -710,6 +723,11 @@ def main():
                 mark = "✓" if record["ok"] else ("!" if record.get("setup_error") else "✗")
                 print(f"  {mark} {task['id']} #{i}  {record['ms']:.0f} ms  {record['detail']}")
                 runs.append(record)
+                if api_down:
+                    break
+            if api_down:
+                print("kullanım sınırı: koşu durduruldu (sonuçlar ölçüme sayılmaz)")
+                break
     shutil.rmtree(work_root, ignore_errors=True)
 
     report = {
@@ -726,7 +744,9 @@ def main():
     out = RESULTS_DIR / f"{stamp}-{args.tier}.json"
     prev = previous_result(args.tier, out)
     print_report(report, prev)
-    if not args.no_save:
+    if report["summary"]["pass_rate"] is None:
+        print("puanlanan koşu yok: sonuç kaydedilmedi")
+    elif not args.no_save:
         RESULTS_DIR.mkdir(exist_ok=True)
         out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"kaydedildi: {out.relative_to(ROOT.parent)}")

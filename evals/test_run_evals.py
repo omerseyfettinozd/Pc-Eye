@@ -68,6 +68,13 @@ class StreamTests(unittest.TestCase):
         self.assertFalse(m["is_error"])
 
 
+class ApiErrorTests(unittest.TestCase):
+    def test_usage_limit_is_reported_not_scored(self):
+        line = json.dumps({"type": "result", "subtype": "success", "is_error": True,
+                           "api_error": "usage_limit_reached", "result": "limit"})
+        self.assertEqual(ev.parse_stream([line])["api_error"], "usage_limit_reached")
+
+
 class SummaryTests(unittest.TestCase):
     def test_setup_errors_not_scored(self):
         runs = [

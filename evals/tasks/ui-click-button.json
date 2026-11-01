@@ -2,11 +2,22 @@
   "id": "ui-click-button",
   "scene": "buttons",
   "tags": [
+    "action:click",
     "perception:atspi",
-    "action:click"
+    "tool:snapshot"
   ],
   "prompt": "\"{title}\" başlıklı pencerede \"{target}\" düğmesine tıkla.",
   "probe": [
+    {
+      "args": [
+        "snapshot",
+        "--window",
+        "{title}"
+      ],
+      "expect_contains": [
+        "{target}"
+      ]
+    },
     {
       "args": [
         "ui",

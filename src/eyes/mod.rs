@@ -3,5 +3,6 @@ pub mod compositor;
 pub mod logs_notify;
 pub mod ocr;
 pub mod process_xray;
+pub mod snapshot;
 pub mod ui_atspi;
 pub mod vision;

@@ -1,10 +1,35 @@
 {
   "id": "ocr-canvas-read",
   "scene": "canvas",
-  "tags": ["perception:ocr"],
+  "tags": [
+    "perception:ocr",
+    "tool:snapshot"
+  ],
   "prompt": "\"{title}\" başlıklı pencerede bir gizli kod yazıyor. Kod nedir?",
   "probe": [
-    {"args": ["ui", "--window", "{window}"], "expect_contains": ["{token}"]}
+    {
+      "args": [
+        "snapshot",
+        "--window",
+        "{title}"
+      ],
+      "expect_contains": [
+        "{token}"
+      ]
+    },
+    {
+      "args": [
+        "ui",
+        "--window",
+        "{window}"
+      ],
+      "expect_contains": [
+        "{token}"
+      ]
+    }
   ],
-  "check": {"type": "answer", "expect": "{token}"}
+  "check": {
+    "type": "answer",
+    "expect": "{token}"
+  }
 }

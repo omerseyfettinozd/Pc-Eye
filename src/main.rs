@@ -36,6 +36,20 @@ enum Commands {
         seq_since: Option<u64>,
     },
 
+    /// Tek çağrılık, token-dostu durum: pencereler + hedef pencerenin etkileşimli elemanları + yeni olaylar
+    Snapshot {
+        /// Pencere adresi, başlığı veya sınıfı (boşsa aktif pencere)
+        #[arg(long)]
+        window: Option<String>,
+        #[arg(long, default_value_t = 40)]
+        max_elements: usize,
+        /// Algısal ikon tahminlerini de ekle (varsayılan: metinli eleman varsa elenir)
+        #[arg(long)]
+        icons: bool,
+        #[arg(long)]
+        seq_since: Option<u64>,
+    },
+
     /// Göz 2a: Hedef pencerenin AT-SPI2 semantik UI ağacını (states ve value dahil) veya Terminal PTY durumunu okur
     Ui {
         /// Pencere adresi (ör. 0x55fd...). Boşsa aktif pencere
@@ -298,6 +312,10 @@ fn main() -> Result<()> {
         Commands::Context { seq_since } => {
             let rep = daemon::server::build_context_report(seq_since)?;
             println!("{}", serde_json::to_string_pretty(&rep)?);
+        }
+        Commands::Snapshot { window, max_elements, icons, seq_since } => {
+            let snap = eyes::snapshot::build_snapshot(window.as_deref(), max_elements, icons, seq_since)?;
+            println!("{}", serde_json::to_string_pretty(&snap)?);
         }
         Commands::Ui {
             window,

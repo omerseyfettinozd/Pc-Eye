@@ -187,6 +187,15 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             let rep = build_context_report(seq_since)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
         }
+        "pc_eye_snapshot" => {
+            let win = args.get("window").and_then(|v| v.as_str());
+            let max = args.get("max_elements").and_then(|v| v.as_u64()).unwrap_or(40) as usize;
+            let icons = args.get("icons").and_then(|v| v.as_bool()).unwrap_or(false);
+            let seq_since = args.get("seq_since").and_then(|v| v.as_u64());
+            let snap = crate::eyes::snapshot::build_snapshot(win, max, icons, seq_since)?;
+            // Kompakt JSON: girintiler bu araçta yükün belirgin bir kısmı olurdu.
+            vec![json!({ "type": "text", "text": serde_json::to_string(&snap)? })]
+        }
         "pc_eye_ui" => {
             let win = args.get("window").and_then(|v| v.as_str());
             let query = args.get("query").and_then(|v| v.as_str());
@@ -552,6 +561,20 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
 
 fn mcp_tools_schema() -> Value {
     json!([
+        {
+            "name": "pc_eye_snapshot",
+            "description": "İLK BUNU ÇAĞIR. Tek çağrıda token-dostu durum: monitörler, pencereler (adres/başlık/çalışma alanı), hedef pencerenin etkileşimli elemanları (mark, rol, ad, değer, durum, tıklama noktası `at`; terminalse görünür satırlar) ve seq_since ile yalnız yeni olaylar. Tıklamak için pc_eye_click_ui mark/name; ayrıntı gerekirse ui/vision/context.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; boşsa aktif pencere." },
+                    "max_elements": { "type": "integer", "description": "En fazla eleman (varsayılan 40)." },
+                    "icons": { "type": "boolean", "description": "Algısal ikon tahminlerini de ekle (varsayılan: metinli eleman varsa elenir)." },
+                    "seq_since": { "type": "integer", "description": "Önceki snapshot'ın seq değeri: yalnız sonraki pencere olaylarını ekler." }
+                }
+            }
+        },
         {
             "name": "pc_eye_context",
             "description": "Tek çağrıda tam Beyaz-Kutu masaüstü + sistem yükü (PSI/RAM/CPU/GPU p50/p95/p99) + ses/MPRIS medya/tarayıcı URL + son olay/log/bildirim delta özeti döner.",

@@ -55,6 +55,26 @@ pub struct CapturePlan {
     pub scale: f64,
 }
 
+/// `$XDG_RUNTIME_DIR` küçük bir RAM diskidir ve masaüstü servisleri (Wayland soketleri, PipeWire)
+/// de oradadır. Her `vision` çağrısı bir PNG bıraktığı için sınırsız birikim oturumu bozabilir.
+const MAX_KEPT_CAPTURES: usize = 30;
+
+fn prune_captures(dir: &std::path::Path, keep: usize) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    let mut captures: Vec<(std::time::SystemTime, std::path::PathBuf)> = entries
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with("capture_"))
+        .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
+        .collect();
+    if captures.len() <= keep {
+        return;
+    }
+    captures.sort_by(|a, b| b.0.cmp(&a.0));
+    for (_, path) in captures.into_iter().skip(keep) {
+        let _ = fs::remove_file(path);
+    }
+}
+
 /// Hedefi (monitör/pencere/bölge/zoom) somut masaüstü geometrisine çözer.
 /// `capture_vision` ve `capture_frame_sequence` bu mantığı paylaşır.
 pub fn resolve_capture_plan(
@@ -205,6 +225,7 @@ pub fn capture_vision(
     // Ayrıca sabit `latest.png` bağlantısını güncelle (Canlı Web Paneli için)
     let latest_path = out_dir.join("latest.png");
     let _ = fs::copy(&file_path, &latest_path);
+    prune_captures(&out_dir, MAX_KEPT_CAPTURES);
 
     Ok(VisionReport {
         timestamp_ms: ts,

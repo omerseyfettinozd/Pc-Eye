@@ -688,9 +688,13 @@ def main():
                 finally:
                     sb.kill_all()
                     sb.restore_user_focus()
+                    # $XDG_RUNTIME_DIR küçük bir RAM diskidir (masaüstü soketleri de orada);
+                    # Firefox profilleri birikince 3 GB'ı doldurup oturumu tehlikeye attı.
+                    shutil.rmtree(work, ignore_errors=True)
                 mark = "✓" if record["ok"] else ("!" if record.get("setup_error") else "✗")
                 print(f"  {mark} {task['id']} #{i}  {record['ms']:.0f} ms  {record['detail']}")
                 runs.append(record)
+    shutil.rmtree(work_root, ignore_errors=True)
 
     report = {
         "tier": args.tier,

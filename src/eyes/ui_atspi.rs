@@ -140,10 +140,12 @@ pub fn inspect_window_ui(
     let mut elements = Vec::new();
     let mut used_ocr = false;
     if let Ok(conn) = atspi_bus::connection() {
-        // Tarayıcılar sayfa yüklendikten sonra belge ağacını gecikmeli yayınlar; o arada yalnız
-        // araç çubuğu görünür. Belge henüz yoksa kısa aralıklarla birkaç kez yeniden oku.
+        // Firefox içerik erişilebilirliğini ilk AT-SPI sorgusunda başlatır ve belge ağacı ~1 sn
+        // sonra gelir; o arada yalnız araç çubuğu görünür. Belge yoksa (yalnız tarayıcıda) en fazla
+        // ~2,5 sn yeniden oku: ajanın bir turu boşa gitmesin.
         let browser = is_browser_window(&win.class);
-        for attempt in 0..4 {
+        let deadline = Instant::now() + Duration::from_millis(2500);
+        loop {
             let (found, saw_document) = atspi_bus::block_on(collect_atspi_elements_for_window(
                 conn,
                 &win,
@@ -152,10 +154,10 @@ pub fn inspect_window_ui(
             ));
             elements = found;
             // Belge varlığı filtreden bağımsız ölçülür: `--name "Ad Soyad"` gibi sorgular da beklemeli.
-            if !browser || saw_document || attempt == 3 {
+            if !browser || saw_document || Instant::now() >= deadline {
                 break;
             }
-            std::thread::sleep(Duration::from_millis(150));
+            std::thread::sleep(Duration::from_millis(200));
         }
     }
 
@@ -402,7 +404,6 @@ async fn collect_atspi_elements_for_window(
     let started = Instant::now();
     let mut inspected = 0usize;
     let mut candidates: Vec<(String, NodeInfo)> = Vec::new();
-    let mut saw_document = false;
 
     for (service, root_path) in matching_services {
         let mut visited = HashSet::new();
@@ -444,7 +445,6 @@ async fn collect_atspi_elements_for_window(
                     continue;
                 }
                 let is_document = matches!(node.role.as_str(), "document web" | "document frame");
-                saw_document |= is_document;
                 let in_doc = node.in_document || is_document;
                 for (srv, child) in &node.children {
                     if *srv == service && visited.insert(child.clone()) {
@@ -497,11 +497,15 @@ async fn collect_atspi_elements_for_window(
     .await;
 
     let mut elements = Vec::new();
+    // Belge "hazır" ancak içinden boyutlu, görünen bir eleman çıktıysa sayılır: yüklenirken belge
+    // düğümü adıyla vardır ama boyutu sıfırdır ve çocukları henüz yayınlanmamıştır.
+    let mut document_content = false;
     for ((service, node), (extents, description, value)) in candidates.into_iter().zip(details) {
         let Some(([rx, ry, rw, rh], window_relative)) = extents else { continue };
         if rw <= 2 || rh <= 2 {
             continue;
         }
+        document_content |= node.in_document;
         let (sx, sy) = if window_relative {
             (win.x + rx, win.y + ry)
         } else {
@@ -525,7 +529,7 @@ async fn collect_atspi_elements_for_window(
             break;
         }
     }
-    (elements, saw_document)
+    (elements, document_content)
 }
 
 /// Fareyi hareket ettirmeden doğrudan D-Bus `org.a11y.atspi.Action.DoAction(0)` ile kontrolü tetikler.

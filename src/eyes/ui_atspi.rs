@@ -454,6 +454,7 @@ async fn collect_atspi_elements_for_window(
             )
             .await;
 
+            let mut text_leaves: Vec<NodeInfo> = Vec::new();
             for node in level {
                 // Görünmeyen alt ağaçlar (arka plan sekmeleri, kapalı menüler) gürültüdür ve bütçeyi yer.
                 if depth > 0 && !node.states.iter().any(|s| s == "showing") {
@@ -473,6 +474,12 @@ async fn collect_atspi_elements_for_window(
                     }
                 }
                 if node.name.is_empty() && !is_interactive_role(&node.role) {
+                    // Firefox paragraf/durum metnini ad olarak değil yalnız Text arayüzünden verir:
+                    // form gönderildikten sonra beliren "Kaydedildi" hiç görünmüyor, ajan ekran
+                    // görüntüsüne başvuruyordu (ölçüm 113644). Yaprak metin kapları okunur.
+                    if node.in_document && node.children.is_empty() && is_text_container_role(&node.role) {
+                        text_leaves.push(NodeInfo { in_document: in_doc, ..node });
+                    }
                     continue;
                 }
                 let matches_query = filter_lower.as_ref().map_or(true, |q| {
@@ -480,6 +487,22 @@ async fn collect_atspi_elements_for_window(
                 });
                 if matches_query {
                     candidates.push((service.clone(), NodeInfo { in_document: in_doc, ..node }));
+                }
+            }
+            let texts = join_all(
+                text_leaves.iter().map(|n| atspi_bus::text_or_value(conn, &service, &n.path)),
+            )
+            .await;
+            for (mut node, text) in text_leaves.into_iter().zip(texts) {
+                let text: String = text.unwrap_or_default().split_whitespace().collect::<Vec<_>>().join(" ");
+                if text.is_empty() {
+                    continue;
+                }
+                node.name = text.chars().take(200).collect();
+                document_ready = true;
+                let matches_query = filter_lower.as_ref().map_or(true, |q| node.name.to_lowercase().contains(q));
+                if matches_query {
+                    candidates.push((service.clone(), node));
                 }
             }
             depth += 1;
@@ -770,6 +793,26 @@ fn is_value_or_text_role(role: &str) -> bool {
             | "spin button"
             | "progress bar"
             | "scroll bar"
+    )
+}
+
+/// Kendi adı olmayıp metnini Text arayüzünden veren kaplar (paragraf, durum çubuğu, uyarı).
+fn is_text_container_role(role: &str) -> bool {
+    matches!(
+        role,
+        "paragraph"
+            | "status bar"
+            | "statusbar"
+            | "section"
+            | "static"
+            | "label"
+            | "heading"
+            | "notification"
+            | "alert"
+            | "list item"
+            | "table cell"
+            | "caption"
+            | "block quote"
     )
 }
 

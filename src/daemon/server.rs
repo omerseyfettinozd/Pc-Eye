@@ -144,6 +144,27 @@ pub fn ensure_background_daemon() -> bool {
 
 /// `pc-eye daemon` komutu için kesintisiz arka plan Kara Kutu (Flight Recorder) döngüsü.
 pub fn run_daemon_forever() -> Result<()> {
+    // Tek örnek: aynı anda build uyuşmazlığı gören iki istemci iki daemon başlatıyor ve pid
+    // dosyasına yalnız sonuncusu yazıldığı için diğerleri sahipsiz kalıyordu (5 eski daemon birikti).
+    // Kilit önceki daemon kapanana kadar kısa süre beklenir; alınamazsa bu örnek çıkar.
+    let lock = fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(runtime_dir().join("daemon.lock"))?;
+    let fd = std::os::unix::io::AsRawFd::as_raw_fd(&lock);
+    let mut locked = false;
+    for _ in 0..40 {
+        if unsafe { libc::flock(fd, libc::LOCK_EX | libc::LOCK_NB) } == 0 {
+            locked = true;
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    if !locked {
+        return Ok(());
+    }
+    // Kilit süreç boyunca tutulur.
+    std::mem::forget(lock);
     let pid_file = runtime_dir().join("daemon.pid");
     let _ = fs::write(&pid_file, std::process::id().to_string());
     let _ = fs::write(runtime_dir().join("daemon.build"), crate::daemon::rpc::build_id());

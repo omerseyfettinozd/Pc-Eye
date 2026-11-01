@@ -437,14 +437,22 @@ pub fn annotate_snapshot(snap: &mut Value) {
     }
     snap["recipes"] = json!(hits
         .iter()
-        .map(|r| json!({
-            "recipe": r["id"],
-            "does": describe_steps(r["steps"].as_array().map(Vec::as_slice).unwrap_or(&[])),
-            "args": r["params"],
-        }))
+        .map(|r| {
+            let args: Map<String, Value> = r["params"]
+                .as_array()
+                .map(|a| a.iter().filter_map(|p| p.as_str()).map(|p| (p.to_string(), json!("…"))).collect())
+                .unwrap_or_default();
+            json!({
+                "does": describe_steps(r["steps"].as_array().map(Vec::as_slice).unwrap_or(&[])),
+                "call": { "recipe": r["id"], "args": args, "window": target["address"] },
+            })
+        })
         .collect::<Vec<_>>());
-    snap["recipes_hint"] =
-        json!("A recipe replays a past successful flow in one call: pc_eye_run {\"recipe\":ID,\"args\":{..},\"window\":..}. Use it only if `does` matches the task.");
+    // Yan alanda duran öneriyi Haiku 3/3 koşuda görmezden geldi (ölçüm 113644): tarif varken ana
+    // ipucu doğrudan onu söyler ve kopyalanabilir çağrı verir.
+    snap["hint"] = json!(
+        "A saved recipe matches this window. If its `does` fits the task, call pc_eye_run with its `call` (fill args) — one call does the whole flow and returns the result."
+    );
 }
 
 #[cfg(test)]

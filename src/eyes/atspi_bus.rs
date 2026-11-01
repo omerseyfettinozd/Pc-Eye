@@ -92,7 +92,7 @@ pub async fn extents(conn: &Connection, service: &str, path: &str, coord_type: u
 
 /// Metin kutusu içeriği ya da sayısal kontrol değeri. Şifre alanları ÇAĞIRAN tarafından elenir.
 pub async fn text_or_value(conn: &Connection, service: &str, path: &str) -> Option<String> {
-    if let Some(txt) = call::<_, String>(conn, service, path, "org.a11y.atspi.Text", "GetText", &(0i32, 500i32)).await {
+    if let Some(txt) = call::<_, String>(conn, service, path, "org.a11y.atspi.Text", "GetText", &(0i32, -1i32)).await {
         if !txt.is_empty() {
             return Some(txt);
         }

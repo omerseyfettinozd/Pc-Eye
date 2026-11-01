@@ -112,6 +112,12 @@ tamponu ara sıra ayrılamıyor (yeniden deneme); kaçan tıklamayı önceki kon
 vurgusu gizliyordu; Dolphin'de "Yerler" paneli ile klasör içeriği ayırt edilemiyordu (`in` alanı);
 tuş/yazma sonrası uygulamanın tepkisi beklenmiyordu (Ctrl+L ardından yazılan yol başka yere gidiyordu).
 
+Düzeltmelerden sonra (181842 Sonnet, 184021 Haiku; aynı 7 ortak görev): pc-eye+Haiku 21/21 (%100),
+medyan 24,1 s, $0.010; pc-eye+Sonnet 21/21, 26,6 s, $0.067; piksel tabanı 12/14 (%86), 17,1 s, $0.096.
+Başarı ve maliyette öndeyiz; medyan sürede hâlâ geride. `PC_EYE_TRACE` izine göre görev süresinin
+~%70'i model turları; araç tarafında tıklama doğrulaması 1065 → ~390 ms'e indi (ajan içinde
+`then: snapshot` ile birlikte medyan 783 ms). Sıradaki hız işi: tur sayısı (Dolphin 17, sihirbaz 15).
+
 **Gerçek site (`--tag live`):** `live-youtube-play` — YouTube'da arama, video açma; başarı tarayıcının
 MPRIS durumundan (gerçekten "Playing" mi) denetlenir. Haiku 3/3 (biri Shorts), ~45 s, $0.011.
 Ajan oturumundaki uygulamaların sesi oturumun boş ses çıkışına gider (kullanıcının hoparlörüne değil);

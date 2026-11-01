@@ -1,0 +1,1038 @@
+{
+ "tier": "agent",
+ "started": "20261101-184021-g5h",
+ "seed": 233779130,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "a9ae0e9",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-cross-app",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 13035.3,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 32049,
+    "median_output_tokens": 640,
+    "cost_usd": 0.0068
+   },
+   {
+    "task": "hard-dolphin-move",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 41374.1,
+    "median_turns": 17,
+    "median_tool_calls": 16,
+    "median_input_tokens": 337905,
+    "median_output_tokens": 4170,
+    "cost_usd": 0.1512
+   },
+   {
+    "task": "hard-kate-save-as",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 22319.0,
+    "median_turns": 7,
+    "median_tool_calls": 6,
+    "median_input_tokens": 72537,
+    "median_output_tokens": 1311,
+    "cost_usd": 0.011
+   },
+   {
+    "task": "hard-process-form",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 12817.2,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 26739,
+    "median_output_tokens": 467,
+    "cost_usd": 0.0047
+   },
+   {
+    "task": "hard-settings",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 25423.4,
+    "median_turns": 7,
+    "median_tool_calls": 6,
+    "median_input_tokens": 77952,
+    "median_output_tokens": 1288,
+    "cost_usd": 0.0105
+   },
+   {
+    "task": "hard-web-long",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 11022.1,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 29470,
+    "median_output_tokens": 528,
+    "cost_usd": 0.0057
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 24309.4,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 43413,
+    "median_output_tokens": 1050,
+    "cost_usd": 0.0086
+   },
+   {
+    "task": "hard-wizard",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 39558.2,
+    "median_turns": 15,
+    "median_tool_calls": 14,
+    "median_input_tokens": 255588,
+    "median_output_tokens": 2692,
+    "cost_usd": 0.0231
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.2218
+ },
+ "session": "g5h",
+ "toolset": "full",
+ "runs": [
+  {
+   "task": "hard-cross-app",
+   "attempt": 0,
+   "vars": {
+    "src": "Eval Siparişler 2M8R",
+    "dst": "Eval İade T8LA",
+    "customer": "Fulya Koç",
+    "order": "S-40975",
+    "amount": "4620,82 TL",
+    "pid": 4002092,
+    "title": "Eval İade T8LA"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13035.3,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0022623,
+   "input_tokens": 32049,
+   "output_tokens": 640,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 974,
+      "y": 907
+     },
+     {
+      "x": 871,
+      "y": 1201
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 1,
+   "vars": {
+    "src": "Eval Siparişler N2WV",
+    "dst": "Eval İade PUV4",
+    "customer": "Hande Çelik",
+    "order": "S-80325",
+    "amount": "2330,95 TL",
+    "pid": 4003606,
+    "title": "Eval İade PUV4"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19472.0,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00215299,
+   "input_tokens": 31859,
+   "output_tokens": 497,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 871,
+      "y": 1201
+     },
+     {
+      "x": 755,
+      "y": 1064
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 2,
+   "vars": {
+    "src": "Eval Siparişler TTLM",
+    "dst": "Eval İade 7HLF",
+    "customer": "Emre Şahin",
+    "order": "S-19718",
+    "amount": "5391,58 TL",
+    "pid": 4005382,
+    "title": "Eval İade 7HLF"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 11564.7,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0024275,
+   "input_tokens": 41642,
+   "output_tokens": 774,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 755,
+      "y": 1064
+     },
+     {
+      "x": 751,
+      "y": 1095
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Dosyalar F4GP",
+    "pid": 4006805,
+    "file": "rapor-F7N3.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-dolphin-move-0/Eval Dosyalar F4GP/Belgeler/2026/Mart/rapor-F7N3.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-dolphin-move-0/Eval Dosyalar F4GP/Arşiv/rapor-F7N3.txt",
+    "content": "rapor içeriği THKXJGEU"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 41374.1,
+   "is_error": false,
+   "turns": 17,
+   "cost_usd": 0.011064899999999999,
+   "input_tokens": 337905,
+   "output_tokens": 4170,
+   "tool_calls": 16,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 5,
+    "pc_eye_input": 8,
+    "pc_eye_vision": 1,
+    "pc_eye_ui": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 751,
+      "y": 1095
+     },
+     {
+      "x": 714,
+      "y": 1165
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Dosyalar V6E6",
+    "pid": 4008521,
+    "file": "rapor-4VKP.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-dolphin-move-1/Eval Dosyalar V6E6/Belgeler/2025/Mart/rapor-4VKP.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-dolphin-move-1/Eval Dosyalar V6E6/Arşiv/rapor-4VKP.txt",
+    "content": "rapor içeriği GFEG7E92"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 161823.8,
+   "is_error": false,
+   "turns": 65,
+   "cost_usd": 0.13145710000000002,
+   "input_tokens": 3022588,
+   "output_tokens": 16148,
+   "tool_calls": 64,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_click_ui": 17,
+    "pc_eye_input": 29,
+    "pc_eye_ui": 9,
+    "pc_eye_vision": 6,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 714,
+      "y": 1165
+     },
+     {
+      "x": 1231,
+      "y": 1370
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Dosyalar NY9N",
+    "pid": 4014818,
+    "file": "rapor-7NRJ.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-dolphin-move-2/Eval Dosyalar NY9N/Belgeler/2025/Mart/rapor-7NRJ.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-dolphin-move-2/Eval Dosyalar NY9N/Arşiv/rapor-7NRJ.txt",
+    "content": "rapor içeriği L4H2VLKJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 35463.3,
+   "is_error": false,
+   "turns": 15,
+   "cost_usd": 0.00872167,
+   "input_tokens": 218942,
+   "output_tokens": 3651,
+   "tool_calls": 14,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_input": 8,
+    "pc_eye_vision": 1,
+    "pc_eye_ui": 1,
+    "pc_eye_click_ui": 3
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1231,
+      "y": 1370
+     },
+     {
+      "x": 639,
+      "y": 1210
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-kate-save-as",
+   "attempt": 0,
+   "vars": {
+    "title": "notlar-lr4w.txt",
+    "pid": 4016315,
+    "file": "notlar-lr4w.txt",
+    "line": "Karar: bütçe onaylandı (YFXR)",
+    "new_name": "ozet-7en7.txt",
+    "new_path": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-kate-save-as-0/eval-notlar-h4r3/ozet-7en7.txt",
+    "folder": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-kate-save-as-0/eval-notlar-h4r3",
+    "first_line": "Toplantı notları 9JYPDF"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 20832.1,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.0036905799999999997,
+   "input_tokens": 72537,
+   "output_tokens": 1320,
+   "tool_calls": 6,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 2,
+    "pc_eye_input": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 639,
+      "y": 1210
+     },
+     {
+      "x": 389,
+      "y": 931
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-kate-save-as",
+   "attempt": 1,
+   "vars": {
+    "title": "notlar-thk4.txt",
+    "pid": 4017229,
+    "file": "notlar-thk4.txt",
+    "line": "Karar: bütçe onaylandı (X4XR)",
+    "new_name": "ozet-velv.txt",
+    "new_path": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-kate-save-as-1/eval-notlar-g9xv/ozet-velv.txt",
+    "folder": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-kate-save-as-1/eval-notlar-g9xv",
+    "first_line": "Toplantı notları EJPDGP"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 36049.9,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.0033968900000000005,
+   "input_tokens": 70864,
+   "output_tokens": 1311,
+   "tool_calls": 6,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_input": 3,
+    "pc_eye_click_ui": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 386,
+      "y": 929
+     },
+     {
+      "x": 479,
+      "y": 1376
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-kate-save-as",
+   "attempt": 2,
+   "vars": {
+    "title": "notlar-xnd8.txt",
+    "pid": 4018694,
+    "file": "notlar-xnd8.txt",
+    "line": "Karar: ekip büyüyecek (TUKJ)",
+    "new_name": "ozet-xaua.txt",
+    "new_path": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-kate-save-as-2/eval-notlar-6u7v/ozet-xaua.txt",
+    "folder": "/run/user/1000/pc-eye-eval/20261101-184021-g5h/hard-kate-save-as-2/eval-notlar-6u7v",
+    "first_line": "Toplantı notları 326KEV"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 22319.0,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.0039003099999999997,
+   "input_tokens": 87817,
+   "output_tokens": 1310,
+   "tool_calls": 7,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 4,
+    "pc_eye_input": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-process-form",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-svc-lkh7",
+    "port": "43007",
+    "pid": 4019639,
+    "title": "Eval PID VJD2",
+    "target_pid": "4019639"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13778.3,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0014736,
+   "input_tokens": 26739,
+   "output_tokens": 419,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_processes": 1,
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-process-form",
+   "attempt": 1,
+   "vars": {
+    "marker": "eval-svc-rhrm",
+    "port": "56356",
+    "pid": 4020367,
+    "title": "Eval PID E472",
+    "target_pid": "4020367"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 11899.6,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00149518,
+   "input_tokens": 26706,
+   "output_tokens": 467,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_processes": 1,
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 479,
+      "y": 1376
+     },
+     {
+      "x": 710,
+      "y": 1484
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-process-form",
+   "attempt": 2,
+   "vars": {
+    "marker": "eval-svc-7327",
+    "port": "35896",
+    "pid": 4020982,
+    "title": "Eval PID TPK4",
+    "target_pid": "4020982"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 12817.2,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0017676400000000002,
+   "input_tokens": 36637,
+   "output_tokens": 637,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_processes": 1,
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 2
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 710,
+      "y": 1484
+     },
+     {
+      "x": 747,
+      "y": 1555
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-settings",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Ayarlar 6G3U",
+    "pid": 4021664,
+    "username": "kullanici33",
+    "font": 18,
+    "theme": "Sistem"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 25423.4,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.00311802,
+   "input_tokens": 77348,
+   "output_tokens": 996,
+   "tool_calls": 6,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 4,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 747,
+      "y": 1555
+     },
+     {
+      "x": 788,
+      "y": 1582
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-settings",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Ayarlar UARU",
+    "pid": 4022766,
+    "username": "kullanici54",
+    "font": 23,
+    "theme": "Sistem"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 35467.3,
+   "is_error": false,
+   "turns": 12,
+   "cost_usd": 0.00406305,
+   "input_tokens": 130240,
+   "output_tokens": 1416,
+   "tool_calls": 11,
+   "tools": {
+    "pc_eye_snapshot": 5,
+    "pc_eye_click_ui": 4,
+    "pc_eye_vision": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 788,
+      "y": 1582
+     },
+     {
+      "x": 1041,
+      "y": 1110
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-settings",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Ayarlar RR2N",
+    "pid": 4024257,
+    "username": "kullanici99",
+    "font": 23,
+    "theme": "Koyu"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 18955.4,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.0033283900000000005,
+   "input_tokens": 77952,
+   "output_tokens": 1288,
+   "tool_calls": 6,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 4,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1053,
+      "y": 1113
+     },
+     {
+      "x": 382,
+      "y": 941
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok R8GA",
+    "pid": 4025120,
+    "code": "WL-9043",
+    "stock": "285"
+   },
+   "ok": true,
+   "detail": "cevap='285'",
+   "ms": 11324.0,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0020900899999999997,
+   "input_tokens": 41215,
+   "output_tokens": 528,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_ui": 2
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 382,
+      "y": 941
+     },
+     {
+      "x": 858,
+      "y": 883
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Stok 3XRR",
+    "pid": 4026530,
+    "code": "KM-2926",
+    "stock": "166"
+   },
+   "ok": true,
+   "detail": "cevap='166'",
+   "ms": 11022.1,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00187139,
+   "input_tokens": 29470,
+   "output_tokens": 650,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_ui": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 875,
+      "y": 879
+     },
+     {
+      "x": 159,
+      "y": 1098
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Stok XKFW",
+    "pid": 4027914,
+    "code": "9F-1147",
+    "stock": "430"
+   },
+   "ok": true,
+   "detail": "cevap='430'",
+   "ms": 9766.4,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0017752100000000002,
+   "input_tokens": 29378,
+   "output_tokens": 480,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_ui": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 159,
+      "y": 1098
+     },
+     {
+      "x": 966,
+      "y": 1049
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim AP4D",
+    "pid": 4029269,
+    "phone_pretty": "0545 843 29 85",
+    "phone": "5458432985",
+    "email": "can36@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 24309.4,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00276302,
+   "input_tokens": 43393,
+   "output_tokens": 1057,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 2
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 987,
+      "y": 1035
+     },
+     {
+      "x": 704,
+      "y": 1365
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval İletişim N6WR",
+    "pid": 4031200,
+    "phone_pretty": "0522 296 79 96",
+    "phone": "5222967996",
+    "email": "ece72@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 26569.1,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00275478,
+   "input_tokens": 43413,
+   "output_tokens": 1050,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 2
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 704,
+      "y": 1365
+     },
+     {
+      "x": 474,
+      "y": 851
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval İletişim T33W",
+    "pid": 4033280,
+    "phone_pretty": "0532 289 21 24",
+    "phone": "5322892124",
+    "email": "ali22@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 18285.2,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00303844,
+   "input_tokens": 45162,
+   "output_tokens": 939,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 2
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 474,
+      "y": 851
+     },
+     {
+      "x": 438,
+      "y": 908
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-wizard",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Sihirbaz YUE6",
+    "pid": 4035000,
+    "package": "metin-editoru",
+    "folder": "kurulum_hapm"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 46797.5,
+   "is_error": false,
+   "turns": 15,
+   "cost_usd": 0.008325790000000001,
+   "input_tokens": 255588,
+   "output_tokens": 2696,
+   "tool_calls": 14,
+   "tools": {
+    "pc_eye_snapshot": 4,
+    "pc_eye_click_ui": 6,
+    "pc_eye_vision": 3,
+    "pc_eye_logs": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 438,
+      "y": 908
+     },
+     {
+      "x": 541,
+      "y": 1297
+     }
+    ],
+    "active_class": "steam_app_261550",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-wizard",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Sihirbaz PG8Y",
+    "pid": 4036927,
+    "package": "ses-kaydedici",
+    "folder": "kurulum_rlgj"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 24082.2,
+   "is_error": false,
+   "turns": 15,
+   "cost_usd": 0.008699050000000002,
+   "input_tokens": 265810,
+   "output_tokens": 2692,
+   "tool_calls": 14,
+   "tools": {
+    "pc_eye_snapshot": 3,
+    "pc_eye_click_ui": 6,
+    "pc_eye_vision": 2,
+    "pc_eye_ui": 2,
+    "pc_eye_logs": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-wizard",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Sihirbaz TP3Y",
+    "pid": 4038015,
+    "package": "yedekleme",
+    "folder": "kurulum_9r28"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 39558.2,
+   "is_error": false,
+   "turns": 15,
+   "cost_usd": 0.0061155,
+   "input_tokens": 168996,
+   "output_tokens": 2690,
+   "tool_calls": 14,
+   "tools": {
+    "pc_eye_snapshot": 3,
+    "pc_eye_click_ui": 6,
+    "pc_eye_vision": 2,
+    "pc_eye_ui": 2,
+    "pc_eye_logs": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 20,
+ "agent_leak_runs": 0
+}

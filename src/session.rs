@@ -75,6 +75,11 @@ pub fn activate(autostart: bool) -> Result<()> {
     std::env::set_var("WAYLAND_DISPLAY", info["wayland_display"].as_str().unwrap_or(""));
     // Yalnız X11 konuşan bir uygulama kullanıcının Xwayland'ine, yani onun ekranına açılırdı.
     std::env::remove_var("DISPLAY");
+    // Oturumda açılan uygulamaların sesi kullanıcının hoparlörüne değil oturumun boş çıkışına gider
+    // (uygulama yine "sesli" çalar: tarayıcı medya durumunu MPRIS'te yayınlar).
+    if let Some(sink) = info["audio_sink"].as_str() {
+        std::env::set_var("PULSE_SINK", sink);
+    }
     Ok(())
 }
 
@@ -150,7 +155,8 @@ fn wait_new_instance(before: &HashSet<String>, tag: &str) -> Result<(String, i64
 fn config_lua(mode: &str) -> String {
     // Yalnız ajan için: animasyon, bulanıklık, kenar ve boşluk yok (her kare doğrulama için daha
     // az değişen piksel, eylemden sonra daha hızlı durulma). Haber/bağış pencereleri ilk açılışta
-    // uygulamanın üstüne çıkıp tıklamaları yutuyordu. İmleç görünmez: iç oturumda yazılımla kareye
+    // uygulamanın üstüne çıkıp tıklamaları yutuyordu; "start-hyprland olmadan başlatıldı" uyarısı da
+    // her oturumda ekranın sağ üstünü kaplıyordu. İmleç görünmez: iç oturumda yazılımla kareye
     // çiziliyor ve tıklama doğrulamasında imlecin yer değiştirmesi (~1000 piksel) "değişti" sayılıyordu.
     format!(
         r#"hl.monitor({{ output = "", mode = "{mode}@60", position = "0x0", scale = 1 }})
@@ -158,7 +164,7 @@ hl.config({{
     general = {{ gaps_in = 0, gaps_out = 0, border_size = 0 }},
     decoration = {{ rounding = 0, blur = {{ enabled = false }}, shadow = {{ enabled = false }} }},
     animations = {{ enabled = false }},
-    misc = {{ disable_hyprland_logo = true, disable_splash_rendering = true, force_default_wallpaper = 0 }},
+    misc = {{ disable_hyprland_logo = true, disable_splash_rendering = true, force_default_wallpaper = 0, disable_watchdog_warning = true }},
     ecosystem = {{ no_update_news = true, no_donation_nag = true }},
     input = {{ kb_layout = "tr" }},
     cursor = {{ invisible = true }},
@@ -234,8 +240,23 @@ fn start_unchecked(name: &str, mode: &str) -> Result<Value> {
         return Err(last_err);
     };
 
+    let audio_sink = format!("pceye_{}", name.replace('-', "_"));
+    let audio_module = std::process::Command::new("pactl")
+        .args([
+            "load-module",
+            "module-null-sink",
+            &format!("sink_name={}", audio_sink),
+            &format!("sink_properties=device.description=PC-Eye-{}", name),
+        ])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok());
+
     let info = json!({
         "name": name,
+        "audio_sink": audio_module.map(|_| audio_sink.clone()),
+        "audio_module": audio_module,
         "signature": signature,
         "wayland_display": wayland_display,
         "pid": pid,
@@ -336,6 +357,9 @@ pub fn stop(name: &str) -> Result<Value> {
         .and_then(|p| p.trim().parse::<i32>().ok())
     {
         unsafe { libc::kill(dpid, libc::SIGTERM) };
+    }
+    if let Some(module) = info["audio_module"].as_u64() {
+        let _ = std::process::Command::new("pactl").args(["unload-module", &module.to_string()]).output();
     }
     let output = info["output"].as_str().unwrap_or("");
     let removed = !output.is_empty() && manage_display("remove", Some(output), None, None, None).is_ok();

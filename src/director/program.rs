@@ -150,10 +150,12 @@ fn run_step(window: Option<&str>, step: &Value, allow_protected: bool) -> Result
     }
     if let Some(text) = step.get("type").and_then(Value::as_str) {
         type_text(text, window, allow_protected)?;
+        crate::director::input::settle_after_input();
         return Ok(done("type", String::new(), "ok".into(), Some(json!({ "type": text }))));
     }
     if let Some(keys) = step.get("key").and_then(Value::as_str) {
         press_key_combo(keys, window, allow_protected)?;
+        crate::director::input::settle_after_input();
         return Ok(done("key", keys.to_string(), "ok".into(), Some(json!({ "key": keys }))));
     }
     if let Some(text) = step.get("wait").and_then(Value::as_str) {

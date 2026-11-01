@@ -83,14 +83,26 @@ fn ocr_conf(e: &UiElement) -> Option<f64> {
 
 /// Algısal ikon dedektörü düz zeminde onlarca sahte kutu üretebilir; metinli eleman varsa onları ele.
 
+/// Adı başka bir elemanla aynı olan düz metin (bağlantının, düğmenin, onay kutusunun kendi metni)
+/// ikinci kez listelenmez: YouTube'da 40 elemanın üçte biri bu kopyalardı.
+const PLAIN_TEXT_ROLES: &[&str] = &["static", "section", "paragraph", "label", "text"];
+
 fn select_elements(elements: &[UiElement], include_icons: bool, max: usize) -> (Vec<(String, Value)>, usize) {
     let has_text = elements.iter().any(|e| e.role != "icon-button" && !e.name.is_empty());
     let keep_icons = include_icons || !has_text;
+    let meaningful: HashSet<String> = elements
+        .iter()
+        .filter(|e| !PLAIN_TEXT_ROLES.contains(&e.role.as_str()) && !e.name.is_empty())
+        .map(|e| e.name.to_lowercase())
+        .collect();
     let mut dropped = 0;
     let picked = elements
         .iter()
         .filter(|e| {
-            let keep = (keep_icons || e.role != "icon-button") && !is_ocr_noise(e);
+            let duplicate_text = PLAIN_TEXT_ROLES.contains(&e.role.as_str())
+                && !e.states.iter().any(|s| s == "editable")
+                && meaningful.contains(&e.name.to_lowercase());
+            let keep = (keep_icons || e.role != "icon-button") && !is_ocr_noise(e) && !duplicate_text;
             if !keep {
                 dropped += 1;
             }
@@ -137,6 +149,7 @@ pub fn build_snapshot(
 
     // Hedef pencere yoksa (ör. boş çalışma alanı) anlık görüntü yine de pencere listesini döner.
     let mut keyed_elements: Vec<(String, Value)> = Vec::new();
+    let mut media: Option<Value> = None;
     let mut target_address = None;
     let target = match inspect_window_ui(window, None, max_elements.saturating_mul(2).max(20)) {
         Ok(ui) => {
@@ -150,6 +163,8 @@ pub fn build_snapshot(
                 "elements": elements.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>(),
             });
             keyed_elements = elements;
+            // Medya çalıyor mu (MPRIS): "videoyu aç ve oynat" tek bakışta doğrulanır.
+            media = crate::eyes::media::media_for_window(ui.window_pid);
             if dropped_icons > 0 {
                 t["dropped_noise"] = json!(dropped_icons);
             }
@@ -185,9 +200,17 @@ pub fn build_snapshot(
             "monitors": monitors,
             "windows": windows,
             "target": target,
-            "hint": "click-ui --mark N veya --name ile tıkla. Sonraki çağrıda since=<snap> yalnız değişenleri, seq_since=<seq> yalnız yeni pencere olaylarını verir. Arka plan için processes/logs/xray.",
+            "hint": "Click with click_ui mark/name (offscreen ones are scrolled into view). Long pages: ui with query finds content outside this list. Repeated snapshots return only changes. Background state: processes/logs/xray.",
         }),
     };
+    // Delta görünümünde de her zaman: oynatma durumu çoğu zaman tıklamadan sonra sorulan şeydir.
+    if let Some(m) = media {
+        // Ajan oynatmayı ekran görüntüsü ve süre sayacıyla kanıtlamaya çalışıyordu.
+        if m["status"] == "Playing" {
+            snap["media_hint"] = json!("media.status=Playing: this window is actually playing audio/video (no need to verify visually). A title different from the page may be an ad.");
+        }
+        snap["media"] = m;
+    }
     snap["snap"] = json!(current.id);
     snap["seq"] = json!(telemetry.next_seq);
     snap["daemon_running"] = json!(daemon_running);

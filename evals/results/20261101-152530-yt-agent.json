@@ -1,0 +1,87 @@
+{
+ "tier": "agent",
+ "started": "20261101-152530-yt",
+ "seed": 622919334,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "3d102cf",
+ "summary": {
+  "tasks": [
+   {
+    "task": "live-youtube-play",
+    "runs": 2,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 43299.1,
+    "median_turns": 18.0,
+    "median_tool_calls": 17.0,
+    "median_input_tokens": 426556.0,
+    "median_output_tokens": 3936.5,
+    "cost_usd": 0.0279
+   }
+  ],
+  "pass_rate": 0.0,
+  "total_cost_usd": 0.0279
+ },
+ "session": "yt",
+ "toolset": "full",
+ "runs": [
+  {
+   "task": "live-youtube-play",
+   "attempt": 0,
+   "vars": {
+    "query": "kedi videoları",
+    "pid": 3497277,
+    "title": "YouTube"
+   },
+   "ok": false,
+   "detail": "durum=yok başlık='' url=",
+   "ms": 25763.0,
+   "is_error": false,
+   "turns": 10,
+   "cost_usd": 0.00839516,
+   "input_tokens": 167319,
+   "output_tokens": 1891,
+   "tool_calls": 9,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_click_ui": 2,
+    "pc_eye_input": 2,
+    "pc_eye_vision": 2,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "live-youtube-play",
+   "attempt": 1,
+   "vars": {
+    "query": "piyano müziği",
+    "pid": 3499452,
+    "title": "YouTube"
+   },
+   "ok": false,
+   "detail": "durum=yok başlık='' url=",
+   "ms": 60835.2,
+   "is_error": false,
+   "turns": 26,
+   "cost_usd": 0.019474110000000003,
+   "input_tokens": 685793,
+   "output_tokens": 5982,
+   "tool_calls": 25,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 4,
+    "pc_eye_input": 2,
+    "pc_eye_vision": 3,
+    "pc_eye_wait": 5,
+    "pc_eye_ui": 3,
+    "pc_eye_audio": 6,
+    "pc_eye_context": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

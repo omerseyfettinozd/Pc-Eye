@@ -1,0 +1,117 @@
+{
+ "tier": "agent",
+ "started": "20261101-174729-yt",
+ "seed": 203864143,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "3d102cf",
+ "summary": {
+  "tasks": [
+   {
+    "task": "live-youtube-play",
+    "runs": 3,
+    "passed": 2,
+    "setup_errors": 0,
+    "median_ms": 47934.7,
+    "median_turns": 15,
+    "median_tool_calls": 14,
+    "median_input_tokens": 218974,
+    "median_output_tokens": 3347,
+    "cost_usd": 0.0333
+   }
+  ],
+  "pass_rate": 0.667,
+  "total_cost_usd": 0.0333
+ },
+ "session": "yt",
+ "toolset": "full",
+ "runs": [
+  {
+   "task": "live-youtube-play",
+   "attempt": 0,
+   "vars": {
+    "query": "caz müzik",
+    "pid": 3782270,
+    "title": "YouTube"
+   },
+   "ok": true,
+   "detail": "durum=Playing başlık='Mediterranean Jazz Vibes: Relaxing Italian Cafe Music for Su' url=https://www.youtube.com/watch?v=p8qaPV4oOaY&list=RDp8qaPV4oOaY&start_radio=1",
+   "ms": 38357.9,
+   "is_error": false,
+   "turns": 14,
+   "cost_usd": 0.008742030000000001,
+   "input_tokens": 197424,
+   "output_tokens": 2873,
+   "tool_calls": 13,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_click_ui": 2,
+    "pc_eye_input": 4,
+    "pc_eye_vision": 1,
+    "pc_eye_ui": 3,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "live-youtube-play",
+   "attempt": 1,
+   "vars": {
+    "query": "kedi videoları",
+    "pid": 3785069,
+    "title": "YouTube"
+   },
+   "ok": false,
+   "detail": "durum=Playing başlık='Komik Kediler 3| Funny cats  |Kedi şakası ❗️ Yapay Zeka Kedi' url=https://www.youtube.com/shorts/rzLdeNEm1ps",
+   "ms": 47934.7,
+   "is_error": false,
+   "turns": 15,
+   "cost_usd": 0.009852860000000001,
+   "input_tokens": 218974,
+   "output_tokens": 3347,
+   "tool_calls": 14,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1,
+    "pc_eye_vision": 2,
+    "pc_eye_input": 1,
+    "pc_eye_click_ui": 1,
+    "pc_eye_audio": 4,
+    "pc_eye_ui": 1,
+    "pc_eye_wait": 1,
+    "pc_eye_context": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "live-youtube-play",
+   "attempt": 2,
+   "vars": {
+    "query": "piyano müziği",
+    "pid": 3788249,
+    "title": "YouTube"
+   },
+   "ok": true,
+   "detail": "durum=Playing başlık=\"Şahane Kasım'ı MediaMarkt App'le MAXX'la!\" url=https://www.youtube.com/watch?v=3a5SlTrlPbA&list=RD3a5SlTrlPbA&start_radio=1",
+   "ms": 50099.9,
+   "is_error": false,
+   "turns": 17,
+   "cost_usd": 0.01473517,
+   "input_tokens": 427422,
+   "output_tokens": 3780,
+   "tool_calls": 16,
+   "tools": {
+    "pc_eye_snapshot": 3,
+    "pc_eye_run": 1,
+    "pc_eye_wait": 2,
+    "pc_eye_vision": 4,
+    "pc_eye_click_ui": 2,
+    "pc_eye_ui": 2,
+    "pc_eye_audio": 2
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

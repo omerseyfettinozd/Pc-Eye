@@ -369,6 +369,8 @@ user_pref("datareporting.policy.firstRunURL", "");
 user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
 user_pref("browser.tabs.warnOnClose", false);
 user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("browser.translations.automaticallyPopup", false);
+user_pref("browser.translations.panelShown", true);
 """
 
 
@@ -562,7 +564,15 @@ def scene_kate(sb, rng, work):
                   "first_line": original.splitlines()[0]})
 
 
+def scene_youtube(sb, rng, work):
+    """Gerçek site: YouTube (ağ gerekir; değerler ve sonuçlar her seferinde farklıdır)."""
+    query = rng.choice(["piyano müziği", "doğa belgeseli", "kedi videoları", "yağmur sesi", "caz müzik"])
+    window, pid = open_in_firefox(sb, work, "https://www.youtube.com/", "YouTube")
+    return Scene({"query": query, "window": window, "pid": pid, "title": "YouTube"})
+
+
 SCENES = {
+    "youtube": scene_youtube,
     "cross_app": scene_cross_app,
     "process_form": scene_process_form,
     "settings": scene_settings,
@@ -652,8 +662,28 @@ def check_files(spec):
     return True, "ok"
 
 
+def check_mpris(spec):
+    """Tarayıcının MPRIS durumu: gerçekten oynuyor mu, hangi adreste (`url_contains`)."""
+    # Oynatıcı adı sürüme göre değişir (firefox.instance_…); D-Bus adını süreç kimliğinden bul.
+    names = subprocess.run(["busctl", "--user", "list"], capture_output=True, text=True).stdout.splitlines()
+    player = next((l.split()[0].removeprefix("org.mpris.MediaPlayer2.") for l in names
+                   if l.startswith("org.mpris.MediaPlayer2.") and len(l.split()) > 1 and l.split()[1] == str(spec["pid"])), None)
+    if not player:
+        return False, "oynatıcı yok (medya hiç başlamadı)"
+    run = lambda *a: subprocess.run(["playerctl", "-p", player, *a], capture_output=True, text=True).stdout.strip()
+    status = run("status")
+    url = run("metadata", "xesam:url")
+    title = run("metadata", "xesam:title")
+    want = spec.get("url_contains", "")
+    alternatives = want if isinstance(want, list) else [want]
+    ok = status == "Playing" and any(w in url for w in alternatives)
+    return ok, f"durum={status or 'yok'} başlık={title[:60]!r} url={url[:80]}"
+
+
 def check_task(check, scene, final_text=None):
     expect = fill(check.get("expect"), scene.vars)
+    if check["type"] == "mpris":
+        return check_mpris(expect)
     if check["type"] == "files":
         return check_files(expect)
     if check["type"] == "out_json":

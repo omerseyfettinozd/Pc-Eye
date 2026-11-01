@@ -1,0 +1,20 @@
+{
+  "id": "live-youtube-play",
+  "scene": "youtube",
+  "tags": [
+    "live",
+    "browser",
+    "real-site"
+  ],
+  "prompt": "Firefox'ta YouTube açık. \"{query}\" ara, sonuçlardan bir videoyu aç ve oynadığından emin ol. Çerez/izin penceresi çıkarsa zorunlu olmayanları reddet.",
+  "check": {
+    "type": "mpris",
+    "expect": {
+      "pid": "{pid}",
+      "url_contains": [
+        "youtube.com/watch",
+        "youtube.com/shorts"
+      ]
+    }
+  }
+}

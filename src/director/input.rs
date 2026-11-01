@@ -653,6 +653,16 @@ pub fn type_text(
     })
 }
 
+/// Ajanın doğrudan gönderdiği tuş/yazma eyleminden sonra uygulamanın tepkisini bekler (en çok
+/// ~360 ms). Ajanlar Ctrl+L ve yazmayı art arda gönderiyor: adres çubuğu düzenleme kipine
+/// geçmeden gelen metin başka yere yazılıyor, Dolphin'de taşıma bu yüzden sessizce başarısız
+/// oluyordu. Piksel tabanı ajanda adımlar arası ekran görüntüsü bu beklemeyi kendiliğinden yapıyor.
+pub fn settle_after_input() {
+    thread::sleep(Duration::from_millis(60));
+    let active = capture_desktop_state().ok().and_then(|d| d.active_window_address);
+    let _ = crate::director::wait::wait_for_condition("visual_settle", None, active.as_deref(), 300);
+}
+
 /// Klavye kısayolu veya tuş kombinasyonu gönderir (`ctrl+l`, `Return`, `Escape`, `ctrl+shift+t` vb.).
 pub fn press_key_combo(
     combo: &str,

@@ -90,6 +90,33 @@ düşülmez ve MCP kapanmış oturum için açık hata döner.
 python3 evals/run_evals.py agent --session a1 --model claude-haiku-5-5
 ```
 
+## Zor görev seti ve rakip kıyası (2026-11-01)
+
+`--tag hard`: 8 gerçekçi, çok adımlı görev (iki uygulama arası kopyalama, arka plan + GUI,
+kenar çubuklu ayarlar, doğrulama hatasından toparlanma, 150 satırlık sayfa, art arda diyaloglar,
+Dolphin'de dosya taşıma, Kate'te Farklı Kaydet). Kıyas tablosu: [`LEADERBOARD.md`](LEADERBOARD.md)
+(`python3 evals/leaderboard.py <sonuç dosyaları>`). Rakip mimarisi `--toolset pixels`: aynı model
+yalnız ekran görüntüsü + fare/klavye (Anthropic computer use / OpenAI CUA yaklaşımı).
+
+Sonuç (150617, ortak 7 görev): pc-eye+Haiku %95 / $0.006 görev başı; pc-eye+Sonnet %90 / $0.062;
+piksel tabanı+Sonnet %86 / $0.096. Maliyet ve başarıda öndeyiz, medyan sürede (17,1 s'e karşı
+19–23 s) gerideydik; en büyük fark zenity sihirbazıydı (18 s'e karşı 95 s) ve nedeni bulundu:
+sınıf adı "zenity" alt dize aramasında Zen tarayıcısı sanılıyor, her okuma belge için 2,5 sn
+bekliyordu (düzeltildi: okuma 2,6 sn → 8–65 ms).
+
+Zor setin bulduğu hatalar (hepsi düzeltildi): sanal klavyede 14./15. benzersiz karakter
+Backspace/Tab fiziksel koduna düşüyordu (Qt karakteri yutuyor ya da siliyordu; Kate 33 tur → 8);
+GTK4 spin button değeri işlenmiyordu; GTK4 açılır listesinin adı seçili değeri; libadwaita
+diyaloğunda AT-SPI konumu (+26, +36) kayık (OCR ile otomatik kalibrasyon); iç Hyprland'ın ilk GPU
+tamponu ara sıra ayrılamıyor (yeniden deneme); kaçan tıklamayı önceki konumdaki üzerine gelme
+vurgusu gizliyordu; Dolphin'de "Yerler" paneli ile klasör içeriği ayırt edilemiyordu (`in` alanı);
+tuş/yazma sonrası uygulamanın tepkisi beklenmiyordu (Ctrl+L ardından yazılan yol başka yere gidiyordu).
+
+**Gerçek site (`--tag live`):** `live-youtube-play` — YouTube'da arama, video açma; başarı tarayıcının
+MPRIS durumundan (gerçekten "Playing" mi) denetlenir. Haiku 3/3 (biri Shorts), ~45 s, $0.011.
+Ajan oturumundaki uygulamaların sesi oturumun boş ses çıkışına gider (kullanıcının hoparlörüne değil);
+snapshot `media` alanı oynatma durumunu verir.
+
 **Model kıyası (F3, aynı makine, aynı görevler ×3):**
 
 | | Sonnet 5.5 (074248, F2) | Haiku 5.5 (115603, F3) |

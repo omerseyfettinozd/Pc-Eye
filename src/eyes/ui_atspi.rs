@@ -139,6 +139,7 @@ pub fn inspect_window_ui(
 
     let mut elements = Vec::new();
     let mut used_ocr = false;
+    let mut page_loading = false;
     if let Ok(conn) = atspi_bus::connection() {
         // Firefox içerik erişilebilirliğini ilk AT-SPI sorgusunda başlatır ve belge ağacı ~1 sn
         // sonra gelir; o arada yalnız araç çubuğu görünür. Belge yoksa (yalnız tarayıcıda) en fazla
@@ -165,6 +166,8 @@ pub fn inspect_window_ui(
                     // Tarayıcıda belge henüz yoksa sonuç geçicidir; önbelleğe alınmaz.
                     if !browser || saw_document {
                         store_tree(key, &win, generations_before, &services, &elements);
+                    } else {
+                        page_loading = true;
                     }
                     break;
                 }
@@ -182,7 +185,12 @@ pub fn inspect_window_ui(
     // (ör. WebKitGTK/Tauri yalnızca tek bir "frame" düğümü yayınlar; ad/değer yok, koordinat yok) OCR geri
     // dönüşünü DENE. Kapı `elements.is_empty()` yerine "içerikli eleman sayısı" ölçütüne bağlandı.
     let atspi_count = elements.len();
-    if needs_ocr_fallback(&elements, is_terminal_window(&win.class), query_filter.is_some()) {
+    // Yüklenmekte olan sayfada OCR'a düşmek gürültülü metin verir ("Youlube") ve birkaç saniye
+    // sürer; belge birazdan erişilebilirlik ağacına gelecek. Ajana "yükleniyor" denir.
+    // Tarayıcıda hiç: içerik yüklenirken iskelet sayfanın birkaç elemanı eşiği tutturamıyor ve tüm
+    // pencere OCR'lanıyordu (3 sn, gürültülü). Web içeriği erişilebilirlik ağacından gelir.
+    let browser_window = is_browser_window(&win.class);
+    if !page_loading && !browser_window && needs_ocr_fallback(&elements, is_terminal_window(&win.class), query_filter.is_some()) {
         if let Ok(mut ocr_els) = crate::eyes::ocr::ocr_region_elements(
             win_geom,
             query_filter,
@@ -201,7 +209,10 @@ pub fn inspect_window_ui(
         }
     }
 
-    let perception_mode = if used_ocr && atspi_count > 0 {
+    let sparse_page = browser_window && !page_loading && elements.iter().filter(|e| !e.name.is_empty()).count() < 8;
+    let perception_mode = if page_loading || sparse_page {
+        "at-spi2-page-loading".to_string()
+    } else if used_ocr && atspi_count > 0 {
         "hybrid-atspi-ocr".to_string()
     } else if used_ocr {
         "ocr-semantic".to_string()
@@ -214,6 +225,10 @@ pub fn inspect_window_ui(
     };
 
     let hint = match perception_mode.as_str() {
+        _ if page_loading || sparse_page => Some(
+            "Sayfa hâlâ yükleniyor (belge erişilebilirlik ağacına gelmedi); kısa süre sonra tekrar bak ya da `wait ui_match` ile bekle."
+                .to_string(),
+        ),
         "at-spi2" => Some(
             "Semantik UI elemanları (states ve value dahil) hazır. `click-ui --mark <N>` veya `--name <AD>` (veya arka plan için `--dbus-action`) kullanabilirsiniz."
                 .to_string(),
@@ -336,6 +351,8 @@ fn read_kitty_socket_lines(term_pid: i32) -> Vec<String> {
 /// Okuma bütçesi: bu sınırlar içinde ağaç tam okunur, çıktı sınırı (`max_elements`) ayrıca uygulanır.
 /// Eski 85 düğüm sınırı Firefox'ta araç çubuğunda tükenip sayfa içeriğine hiç ulaşmıyordu.
 const NODE_BUDGET: usize = 3000;
+/// Ekran dışı belge düğümleri için üst sınır (uzun tablo ~600 düğüm).
+const MAX_OFFSCREEN_NODES: usize = 1200;
 const TIME_BUDGET: Duration = Duration::from_millis(1500);
 
 struct NodeInfo {
@@ -421,6 +438,7 @@ async fn collect_atspi_elements_for_window(
 
     let filter_lower = query_filter.map(|q| q.to_lowercase());
     // Tablo satırı bağlamı için: belge düğümlerinin rolü/adı/çocukları ve ebeveyn eşlemesi.
+    let mut offscreen_seen = 0usize;
     let mut parent_of: HashMap<String, String> = HashMap::new();
     let mut doc_nodes: HashMap<String, (String, String, Vec<String>)> = HashMap::new();
     let started = Instant::now();
@@ -470,9 +488,15 @@ async fn collect_atspi_elements_for_window(
                 // `offscreen` işaretiyle alınır (kapalı açılır menü seçenekleri hariç).
                 let showing = node.states.iter().any(|s| s == "showing");
                 if depth > 0 && !showing {
-                    if !node.in_document || matches!(node.role.as_str(), "menu" | "menu item" | "option") {
+                    // Görünmeyen içerik bütçeyi yemesin: ağır sayfalarda (YouTube sonuçları) görünür
+                    // elemanlara sıra gelmiyor, okuma OCR'a düşüyordu.
+                    if !node.in_document
+                        || matches!(node.role.as_str(), "menu" | "menu item" | "option")
+                        || offscreen_seen >= MAX_OFFSCREEN_NODES
+                    {
                         continue;
                     }
+                    offscreen_seen += 1;
                     node.states.push("offscreen".to_string());
                 }
                 {
@@ -538,7 +562,9 @@ async fn collect_atspi_elements_for_window(
 
     // Sayfa/belge içeriği önce: tarayıcıda araç çubuğu düğmeleri sayfanın önüne geçip çıktı
     // sınırını doldurmasın. Sıralama kararlı; her grupta ağaç sırası korunur.
-    candidates.sort_by_key(|(_, n)| !n.in_document);
+    // Görünür olan her zaman önce: ekran dışı içerik sınırı doldurup görünür elemanları dışarıda
+    // bırakmasın (sınır sorgusuz okumada küçüktür).
+    candidates.sort_by_key(|(_, n)| (!n.in_document, n.states.iter().any(|s| s == "offscreen")));
     // Boyutsuz düğümler sonradan elenir; sınırı tutturmak için biraz fazlasının konumu istenir.
     candidates.truncate(max_elements.saturating_mul(2) + 20);
 
@@ -624,13 +650,21 @@ async fn collect_atspi_elements_for_window(
         } else {
             resolve_screen_coordinates(rx, ry, rw, rh, win)
         };
+        // "Ekran dışı" geometriden karar verilir: sayfalar (YouTube) görünür içeriği de "showing"
+        // durumu olmadan bildiriyor. Merkezi pencerenin dışındaysa ekran dışıdır.
+        let mut states = node.states;
+        states.retain(|s| s != "offscreen");
+        let (cx, cy) = (sx + rw / 2, sy + rh / 2);
+        if cx < win.x || cy < win.y || cx >= win.x + win.width || cy >= win.y + win.height {
+            states.push("offscreen".to_string());
+        }
         elements.push(UiElement {
             mark: elements.len() + 1,
             role: node.role,
             name: node.name,
             value,
             description,
-            states: node.states,
+            states,
             actions: vec!["click".to_string(), "dbus_do_action".to_string()],
             rel_bounds: [rx, ry, rw, rh],
             screen_bounds: [sx, sy, rw, rh],
@@ -783,11 +817,16 @@ fn stabilize_marks(window: &str, elements: &mut [UiElement]) {
     }
 }
 
+/// Sınıf adının parçalarından biri tarayıcı adı mı. Alt dize araması "zenity"yi Zen tarayıcısı
+/// sanıyordu: her okuma belge için 2,5 sn bekliyor, sihirbaz görevi 18 sn yerine 95 sn sürüyordu.
 fn is_browser_window(class: &str) -> bool {
+    const BROWSERS: &[&str] = &[
+        "firefox", "librewolf", "floorp", "zen", "zen-browser", "chromium", "chrome", "google-chrome",
+        "brave", "brave-browser", "vivaldi", "msedge", "microsoft-edge", "waterfox", "mullvadbrowser",
+    ];
     let c = class.to_ascii_lowercase();
-    ["firefox", "librewolf", "floorp", "zen", "chromium", "chrome", "brave", "vivaldi", "msedge"]
-        .iter()
-        .any(|b| c.contains(b))
+    c.split(|ch: char| ch == '.' || ch == '_' || ch == ' ')
+        .any(|part| BROWSERS.contains(&part) || part.starts_with("firefox") || part.starts_with("chromium"))
 }
 
 /// Bir metin kutusunun güncel içeriği (yazma sonrası doğrulama için).
@@ -991,6 +1030,16 @@ mod tests {
             dbus_service: String::new(),
             dbus_path: String::new(),
             container: None,
+        }
+    }
+
+    #[test]
+    fn browser_detection_is_by_name_not_substring() {
+        for c in ["firefox", "org.mozilla.firefox", "firefox-esr", "zen", "chromium", "google-chrome", "brave-browser"] {
+            assert!(is_browser_window(c), "{}", c);
+        }
+        for c in ["zenity", "org.kde.dolphin", "kitty", "org.gnome.Chromatic"] {
+            assert!(!is_browser_window(c), "{}", c);
         }
     }
 

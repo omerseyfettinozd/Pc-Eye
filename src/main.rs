@@ -570,6 +570,9 @@ fn main() -> Result<()> {
                 )?,
                 other => return Err(anyhow::anyhow!("Bilinmeyen input işlemi: {}", other)),
             };
+            if matches!(op.as_str(), "type" | "key") {
+                director::input::settle_after_input();
+            }
             println!("{}", serde_json::to_string_pretty(&rec)?);
         }
         Commands::Window {

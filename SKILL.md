@@ -18,6 +18,12 @@ Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-e
 0. **Start with `snapshot` (cheapest orientation, ~4 KB)**:
    - Call `pc_eye_snapshot` (or `pc-eye snapshot --window <addr|title|class>`) first: monitors, windows, and the target window's interactive elements (`mark`, `role`, `name`, `value`, decision states, click point `at`; terminal visible lines) in one call. Pass the returned `seq` back as `seq_since` to get only new window events.
    - Marks are stable: an element keeps its number while it exists (shared across daemon, MCP and CLI), so a mark from an earlier snapshot is still valid.
+   - Long pages: content outside the viewport is listed too, with state `offscreen` (clicking it scrolls it into view first). Use `pc_eye_ui` with `query` to find a row: a matching table cell carries the whole row as its value ("GK-2546 | R12 | 345"), so no scrolling or screenshots are needed.
+   - List/table/tree items carry `in`: the named container they belong to (e.g. Dolphin's "Yerler" places panel vs. the open folder's list). Same name in two containers leads to different places.
+   - Forms: `set`/`select` on a label name targets the control on the same row (GTK4 dropdowns are named after their current value). Spin buttons/sliders get their numeric value set directly.
+   - Media: a snapshot carries `media` (`status: Playing`, title, url) when the window's app is playing audio/video — use it to confirm "play the video" instead of screenshots. While a browser page is still loading, `perception` is `at-spi2-page-loading`: look again shortly.
+   - Agent-session apps play sound into the session's own silent output, never the user's speakers.
+   - Coordinates are self-calibrating: on the first click into a window a few labels are matched with OCR; toolkits that report shifted AT-SPI positions (seen with libadwaita dialogs) are corrected for that window (`pc-eye calibrate --window W` to inspect).
    - Via MCP, a repeated snapshot of the same window automatically returns only what changed (`delta: true`, `unchanged: true` when nothing did; ~100 bytes instead of ~4 KB). Pass `full: true` for the whole list, or `since: <snap>` for a specific base. Unknown ids fall back to a full snapshot (`since_unknown: true`).
 
 0b. **Act in one call with a program (`run`)**:

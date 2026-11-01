@@ -1,0 +1,103 @@
+{
+ "tier": "agent",
+ "started": "20261101-151401-yt",
+ "seed": 832304475,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "3d102cf",
+ "summary": {
+  "tasks": [
+   {
+    "task": "live-youtube-play",
+    "runs": 2,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 66468.9,
+    "median_turns": 22.0,
+    "median_tool_calls": 21.0,
+    "median_input_tokens": 506783.5,
+    "median_output_tokens": 5164.0,
+    "cost_usd": 0.0315
+   }
+  ],
+  "pass_rate": 0.0,
+  "total_cost_usd": 0.0315
+ },
+ "session": "yt",
+ "toolset": "full",
+ "runs": [
+  {
+   "task": "live-youtube-play",
+   "attempt": 0,
+   "vars": {
+    "query": "yağmur sesi",
+    "pid": 3462568,
+    "title": "YouTube"
+   },
+   "ok": false,
+   "detail": "durum=yok başlık='' url=",
+   "ms": 67135.1,
+   "is_error": false,
+   "turns": 24,
+   "cost_usd": 0.0149504,
+   "input_tokens": 536666,
+   "output_tokens": 5657,
+   "tool_calls": 23,
+   "tools": {
+    "pc_eye_snapshot": 3,
+    "pc_eye_click_ui": 2,
+    "pc_eye_input": 4,
+    "pc_eye_vision": 7,
+    "pc_eye_wait": 2,
+    "pc_eye_ui": 4,
+    "pc_eye_audio": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1280,
+      "y": 800
+     },
+     {
+      "x": 1279,
+      "y": 800
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "live-youtube-play",
+   "attempt": 1,
+   "vars": {
+    "query": "yağmur sesi",
+    "pid": 3469755,
+    "title": "YouTube"
+   },
+   "ok": false,
+   "detail": "durum=yok başlık='' url=",
+   "ms": 65802.7,
+   "is_error": false,
+   "turns": 20,
+   "cost_usd": 0.016552280000000003,
+   "input_tokens": 476901,
+   "output_tokens": 4671,
+   "tool_calls": 19,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_click_ui": 3,
+    "pc_eye_input": 1,
+    "pc_eye_vision": 4,
+    "pc_eye_wait": 2,
+    "pc_eye_audio": 4,
+    "pc_eye_ui": 2,
+    "pc_eye_context": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 1,
+ "agent_leak_runs": 0
+}

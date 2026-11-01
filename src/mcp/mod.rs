@@ -432,14 +432,18 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                         .get("text")
                         .and_then(|v| v.as_str())
                         .ok_or_else(|| anyhow::anyhow!("text gerekli"))?;
-                    type_text(txt, win, allow_prot)?
+                    let r = type_text(txt, win, allow_prot)?;
+                    crate::director::input::settle_after_input();
+                    r
                 }
                 "key" => {
                     let keys = args
                         .get("keys")
                         .and_then(|v| v.as_str())
                         .ok_or_else(|| anyhow::anyhow!("keys gerekli"))?;
-                    press_key_combo(keys, win, allow_prot)?
+                    let r = press_key_combo(keys, win, allow_prot)?;
+                    crate::director::input::settle_after_input();
+                    r
                 }
                 other => return Err(anyhow::anyhow!("Bilinmeyen input op: {}", other)),
             };
@@ -634,7 +638,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_click_ui",
-            "description": "Click an element by name or mark (AT-SPI or OCR), or type into it with set_text. Returns verification.visible_change; false means it probably missed.",
+            "description": "Click an element by name or mark (AT-SPI or OCR), or type into it with set_text. Off-screen elements (state `offscreen`) are scrolled into view first — no manual scrolling needed. Returns verification.visible_change; false means it probably missed.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": { "type": "object", "properties": {
                 "window": win.clone(),

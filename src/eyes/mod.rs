@@ -4,6 +4,7 @@ pub mod audio_pipewire;
 pub mod calibrate;
 pub mod compositor;
 pub mod logs_notify;
+pub mod media;
 pub mod ocr;
 pub mod process_xray;
 pub mod snapshot;

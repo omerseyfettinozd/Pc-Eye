@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
-const STATE_KEEP: &[&str] = &["checked", "focused", "editable", "selected", "expanded", "pressed"];
+const STATE_KEEP: &[&str] = &["checked", "focused", "editable", "selected", "expanded", "pressed", "offscreen"];
 const MAX_EVENTS: usize = 10;
 const MAX_TERMINAL_LINES: usize = 30;
 
@@ -35,6 +35,9 @@ fn compact_element(e: &UiElement) -> Value {
         "name": truncate(&e.name, 80),
         "at": e.click_point,
     });
+    if let Some(c) = &e.container {
+        obj["in"] = json!(truncate(c, 40));
+    }
     if let Some(v) = e.value.as_ref().filter(|v| !v.is_empty() && !v.starts_with("conf:")) {
         obj["value"] = json!(truncate(v, 120));
     }
@@ -346,6 +349,7 @@ mod tests {
             click_point: [105, 105],
             dbus_service: ":1.42".to_string(),
             dbus_path: "/org/a11y/atspi/accessible/7".to_string(),
+            container: None,
         }
     }
 

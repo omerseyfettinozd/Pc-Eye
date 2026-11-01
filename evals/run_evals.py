@@ -168,10 +168,24 @@ class Sandbox:
         self.user_window = active.get("address")
 
     def user_disturbed(self):
-        """Görev kullanıcının imlecini ya da odağını değiştirdi mi (yalnız ajan oturumunda anlamlı)."""
+        """Görev kullanıcının imlecini ya da odağını değiştirdi mi (yalnız ajan oturumunda anlamlı).
+
+        Değişim varsa ayrıntı döner: kullanıcı o sırada bilgisayarı kullanıyorsa imleç kendi
+        ekranında kalır; ajan sızıntısı olsaydı imleç oturumun headless çıkışına giderdi.
+        """
         cursor = hyprctl_json("cursorpos")
-        active = (hyprctl_json("activewindow") or {}).get("address")
-        return cursor != self.user_cursor or active != self.user_window
+        active = hyprctl_json("activewindow") or {}
+        if cursor == self.user_cursor and active.get("address") == self.user_window:
+            return False
+        # Sızıntı: imleç kullanıcının (headless olmayan) ekranlarının dışına, ya da odak oturumun
+        # penceresine geçti. Aksi halde değişim kullanıcının kendi kullanımıdır.
+        real = [m for m in hyprctl_json("monitors") or [] if not m["name"].startswith(("PCEYE-", "HEADLESS"))]
+        on_user_screen = any(m["x"] <= cursor["x"] < m["x"] + m["width"] and m["y"] <= cursor["y"] < m["y"] + m["height"]
+                             for m in real)
+        leak = not on_user_screen or active.get("class") == "aquamarine" or \
+            str(active.get("title", "")).startswith("Eval ")
+        return {"cursor": [self.user_cursor, cursor], "active_class": active.get("class"),
+                "active_changed": active.get("address") != self.user_window, "agent_leak": leak}
 
     def restore_user_focus(self):
         # Ajan oturumunda geri verilecek bir şey olmamalı; ölçüm dürüst kalsın diye düzeltilmez.
@@ -1004,9 +1018,12 @@ def main():
         "runs": runs,
     }
     if args.session:
-        disturbed = sum(bool(r.get("user_disturbed")) for r in runs)
-        report["user_disturbed_runs"] = disturbed
-        print(f"kullanıcı imleci/odağı değişen koşu: {disturbed}/{len(runs)}")
+        changed = [r["user_disturbed"] for r in runs if r.get("user_disturbed")]
+        leaks = sum(bool(c.get("agent_leak")) for c in changed)
+        report["user_disturbed_runs"] = len(changed)
+        report["agent_leak_runs"] = leaks
+        print(f"ajan sızıntısı (imleç/odak kullanıcının ekranına geçti): {leaks}/{len(runs)}; "
+              f"kullanıcının kendi etkinliği: {len(changed) - leaks}")
     out = RESULTS_DIR / f"{stamp}-{args.tier}.json"
     prev = previous_result(args.tier, out)
     print_report(report, prev)

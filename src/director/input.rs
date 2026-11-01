@@ -240,7 +240,9 @@ fn focus_window_at(x: i64, y: i64) {
         }
         thread::sleep(Duration::from_millis(20));
     }
-    thread::sleep(Duration::from_millis(40));
+    // Odak yeni alınan pencere bir süre yeniden boyanır (odak halkası, aktif başlık): bu değişim
+    // tıklama doğrulamasının "önce" karesine girmeden bitsin, yoksa ıskalama "değişti" görünür.
+    let _ = crate::director::wait::wait_for_condition("visual_settle", None, Some(&win.address), 500);
 }
 
 /// Belirtilen koordinata (veya mevcut imleç konumuna) Wayland `zwlr_virtual_pointer_v1` üzerinden tıklar.
@@ -432,6 +434,18 @@ pub fn click_ui_element_ext(
         return Err(anyhow!("`click-ui` için `--name` veya `--mark` belirtilmelidir"));
     };
 
+    // Sayfanın görünmeyen kısmındaki eleman önce görünür alana kaydırılır, sonra yeni konumu okunur.
+    let mut matched = matched;
+    if matched.states.iter().any(|s| s == "offscreen") && !matched.dbus_service.is_empty() {
+        if crate::eyes::ui_atspi::atspi_scroll_into_view(&matched.dbus_service, &matched.dbus_path) {
+            thread::sleep(Duration::from_millis(200));
+            if let Ok(ui) = inspect_window_ui(window_addr, None, 400) {
+                if let Some(e) = ui.elements.into_iter().find(|e| e.dbus_path == matched.dbus_path) {
+                    matched = e;
+                }
+            }
+        }
+    }
     let [cx, cy] = matched.click_point;
     let target = format!("[{}] {} ({})", matched.mark, matched.name, matched.role);
     let region = verification_region(window_geometry, cx, cy);
@@ -517,7 +531,13 @@ pub fn click_ui_element_ext(
         // odaksız pencere ilk tıklamada pasif→aktif görünüme geçip yeniden boyanır.
         let _ = hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy });
         focus_window_at(cx, cy);
-        thread::sleep(Duration::from_millis(150));
+        // İmleç ışınlaması istemciye hareket olayı vermez: önceki görevin tıkladığı yerde açılan
+        // pencerede düğme üzerine gelme vurgusu tıklamanın düğme olayıyla kalkıyor (~1000 piksel)
+        // ve ıskalanan tıklama "değişti" görünüyordu. Gerçek bir hareket "önce" karesinden önce.
+        let _ = WaylandVirtualInput::connect().and_then(|mut wl| wl.pointer_nudge());
+        thread::sleep(Duration::from_millis(60));
+        let settle_window = window_containing(cx, cy).map(|(a, _)| a);
+        let _ = crate::director::wait::wait_for_condition("visual_settle", None, settle_window.as_deref(), 400);
     }
 
     let (receipt, verification) = with_verification(region, || {
@@ -803,6 +823,20 @@ impl WaylandVirtualInput {
         // zwlr_virtual_pointer_v1.button (opcode 2): time, button, state
         write_wl_msg(&mut pkt, self.ptr_id, 2, &[wl_time_ms(), button, state]);
         // zwlr_virtual_pointer_v1.frame (opcode 4)
+        write_wl_msg(&mut pkt, self.ptr_id, 4, &[]);
+        self.stream.write_all(&pkt)?;
+        self.flush_sync()
+    }
+
+    /// Gerçek bir göreli hareket (+1 piksel, geri): istemci imlecin yerini ancak bir hareket olayıyla
+    /// öğrenir; kompozitörün imleç ışınlaması (`CursorMove`) olay üretmiyor.
+    fn pointer_nudge(&mut self) -> Result<()> {
+        let mut pkt = Vec::new();
+        let one = 256u32; // wl_fixed 1.0
+        // zwlr_virtual_pointer_v1.motion (opcode 0): time, dx, dy
+        write_wl_msg(&mut pkt, self.ptr_id, 0, &[wl_time_ms(), one, 0]);
+        write_wl_msg(&mut pkt, self.ptr_id, 4, &[]);
+        write_wl_msg(&mut pkt, self.ptr_id, 0, &[wl_time_ms(), (-256i32) as u32, 0]);
         write_wl_msg(&mut pkt, self.ptr_id, 4, &[]);
         self.stream.write_all(&pkt)?;
         self.flush_sync()
@@ -1361,6 +1395,7 @@ mod click_ui_tests {
             click_point: [5, 5],
             dbus_service: String::new(),
             dbus_path: String::new(),
+            container: None,
         }
     }
 

@@ -164,6 +164,7 @@ pub fn ocr_ppm_bytes_to_elements(
                 click_point: [cx, cy],
                 dbus_service: String::new(),
                 dbus_path: String::new(),
+                container: None,
             });
         }
 

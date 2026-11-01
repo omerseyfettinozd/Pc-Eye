@@ -120,6 +120,11 @@ pub async fn do_action(conn: &Connection, service: &str, path: &str, index: i32)
     call(conn, service, path, "org.a11y.atspi.Action", "DoAction", &(index,)).await
 }
 
+/// Elemanı görünür alana kaydırır (`Component.ScrollTo`, 6 = ANYWHERE).
+pub async fn scroll_to(conn: &Connection, service: &str, path: &str) -> bool {
+    call::<_, bool>(conn, service, path, COMPONENT, "ScrollTo", &(6u32,)).await.unwrap_or(false)
+}
+
 pub async fn current_value(conn: &Connection, service: &str, path: &str) -> Option<f64> {
     property(conn, service, path, "org.a11y.atspi.Value", "CurrentValue")
         .await

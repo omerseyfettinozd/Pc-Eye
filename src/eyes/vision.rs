@@ -648,6 +648,7 @@ pub fn detect_visual_control_boxes(
             click_point: [click_x, click_y],
             dbus_service: String::new(),
             dbus_path: String::new(),
+            container: None,
         });
     }
 
@@ -788,6 +789,7 @@ mod tests {
             click_point: [8, 8],
             dbus_service: String::new(),
             dbus_path: String::new(),
+            container: None,
         };
         draw_marks_overlay(&mut img, [0, 0, 16, 16], &[mark]);
         let h2 = compute_dhash64(&img);

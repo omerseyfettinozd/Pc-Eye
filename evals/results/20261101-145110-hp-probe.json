@@ -1,0 +1,503 @@
+{
+ "tier": "probe",
+ "started": "20261101-145110-hp",
+ "seed": 660606505,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "264ea9b",
+ "summary": {
+  "tasks": [
+   {
+    "task": "key-shortcut-modifiers",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 2502.2
+   },
+   {
+    "task": "recipe-web-form",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 6663.6
+   },
+   {
+    "task": "run-gtk-form",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 4996.3
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "hp",
+ "toolset": "full",
+ "runs": [
+  {
+   "task": "key-shortcut-modifiers",
+   "attempt": 0,
+   "vars": {
+    "name": "Öykü Ağaoğlu",
+    "city": "Çanakkale",
+    "default_city": "Muğla",
+    "title": "Eval Web Form P9HG",
+    "pid": 3352567
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 2502.2,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form P9HG",
+      "--name",
+      "Ad Soyad"
+     ],
+     "rc": 0,
+     "ms": 1240.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "silinecek",
+      "--window",
+      "Eval Web Form P9HG"
+     ],
+     "rc": 0,
+     "ms": 37.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "key",
+      "--keys",
+      "ctrl+a",
+      "--window",
+      "Eval Web Form P9HG"
+     ],
+     "rc": 0,
+     "ms": 32.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "Öykü Ağaoğlu",
+      "--window",
+      "Eval Web Form P9HG"
+     ],
+     "rc": 0,
+     "ms": 37.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form P9HG",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1154.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "key-shortcut-modifiers",
+   "attempt": 1,
+   "vars": {
+    "name": "Şükrü Doğru",
+    "city": "Çanakkale",
+    "default_city": "İzmir",
+    "title": "Eval Web Form 96TX",
+    "pid": 3353612
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 2373.7,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form 96TX",
+      "--name",
+      "Ad Soyad"
+     ],
+     "rc": 0,
+     "ms": 1239.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "silinecek",
+      "--window",
+      "Eval Web Form 96TX"
+     ],
+     "rc": 0,
+     "ms": 37.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "key",
+      "--keys",
+      "ctrl+a",
+      "--window",
+      "Eval Web Form 96TX"
+     ],
+     "rc": 0,
+     "ms": 32.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "Şükrü Doğru",
+      "--window",
+      "Eval Web Form 96TX"
+     ],
+     "rc": 0,
+     "ms": 37.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form 96TX",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1026.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "key-shortcut-modifiers",
+   "attempt": 2,
+   "vars": {
+    "name": "İlkay Işık",
+    "city": "Çanakkale",
+    "default_city": "İzmir",
+    "title": "Eval Web Form YK9W",
+    "pid": 3354628
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 2804.0,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form YK9W",
+      "--name",
+      "Ad Soyad"
+     ],
+     "rc": 0,
+     "ms": 1455.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "silinecek",
+      "--window",
+      "Eval Web Form YK9W"
+     ],
+     "rc": 0,
+     "ms": 40.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "key",
+      "--keys",
+      "ctrl+a",
+      "--window",
+      "Eval Web Form YK9W"
+     ],
+     "rc": 0,
+     "ms": 35.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "İlkay Işık",
+      "--window",
+      "Eval Web Form YK9W"
+     ],
+     "rc": 0,
+     "ms": 39.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form YK9W",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1233.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "recipe-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "İlkay Güneş",
+    "city": "Muğla",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form 83JH",
+    "pid": 3356989
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6574.2,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Web Form 83JH"
+     ],
+     "rc": 0,
+     "ms": 39.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form 83JH\", \"recipe\": \"Ad Soyad\", \"args\": {\"Ad Soyad\": \"İlkay Güneş\", \"Şehir\": \"Muğla\"}}"
+     ],
+     "rc": 0,
+     "ms": 6534.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2083,
+      "y": 1525
+     },
+     {
+      "x": 2085,
+      "y": 414
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false
+   }
+  },
+  {
+   "task": "recipe-web-form",
+   "attempt": 1,
+   "vars": {
+    "name": "Şükrü Öztürk",
+    "city": "İzmir",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form 943M",
+    "pid": 3359358
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6663.6,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Web Form 943M"
+     ],
+     "rc": 0,
+     "ms": 81.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form 943M\", \"recipe\": \"Ad Soyad\", \"args\": {\"Ad Soyad\": \"Şükrü Öztürk\", \"Şehir\": \"İzmir\"}}"
+     ],
+     "rc": 0,
+     "ms": 6582.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "recipe-web-form",
+   "attempt": 2,
+   "vars": {
+    "name": "Gülşen Işık",
+    "city": "İzmir",
+    "default_city": "İstanbul",
+    "title": "Eval Web Form T88C",
+    "pid": 3361842
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10962.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Web Form T88C"
+     ],
+     "rc": 0,
+     "ms": 143.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form T88C\", \"recipe\": \"Ad Soyad\", \"args\": {\"Ad Soyad\": \"Gülşen Işık\", \"Şehir\": \"İzmir\"}}"
+     ],
+     "rc": 0,
+     "ms": 10819.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "run-gtk-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Öykü Ağaoğlu",
+    "city": "Ankara",
+    "default_city": "Muğla",
+    "pid": 3363145,
+    "title": "Eval Form 8R23"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 9486.5,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Form 8R23\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Öykü Ağaoğlu\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Muğla\", \"option\": \"Ankara\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 9486.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "run-gtk-form",
+   "attempt": 1,
+   "vars": {
+    "name": "Ümit Çelik",
+    "city": "Muğla",
+    "default_city": "İstanbul",
+    "pid": 3363524,
+    "title": "Eval Form YTHC"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 4996.3,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Form YTHC\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Ümit Çelik\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"İstanbul\", \"option\": \"Muğla\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 4996.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "run-gtk-form",
+   "attempt": 2,
+   "vars": {
+    "name": "Doğan Çelik",
+    "city": "İzmir",
+    "default_city": "İstanbul",
+    "pid": 3363795,
+    "title": "Eval Form TRL9"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 4773.1,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Form TRL9\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Doğan Çelik\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"İstanbul\", \"option\": \"İzmir\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 4773.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 1
+}

@@ -150,7 +150,8 @@ fn wait_new_instance(before: &HashSet<String>, tag: &str) -> Result<(String, i64
 fn config_lua(mode: &str) -> String {
     // Yalnız ajan için: animasyon, bulanıklık, kenar ve boşluk yok (her kare doğrulama için daha
     // az değişen piksel, eylemden sonra daha hızlı durulma). Haber/bağış pencereleri ilk açılışta
-    // uygulamanın üstüne çıkıp tıklamaları yutuyordu.
+    // uygulamanın üstüne çıkıp tıklamaları yutuyordu. İmleç görünmez: iç oturumda yazılımla kareye
+    // çiziliyor ve tıklama doğrulamasında imlecin yer değiştirmesi (~1000 piksel) "değişti" sayılıyordu.
     format!(
         r#"hl.monitor({{ output = "", mode = "{mode}@60", position = "0x0", scale = 1 }})
 hl.config({{
@@ -160,6 +161,7 @@ hl.config({{
     misc = {{ disable_hyprland_logo = true, disable_splash_rendering = true, force_default_wallpaper = 0 }},
     ecosystem = {{ no_update_news = true, no_donation_nag = true }},
     input = {{ kb_layout = "tr" }},
+    cursor = {{ invisible = true }},
 }})
 "#
     )

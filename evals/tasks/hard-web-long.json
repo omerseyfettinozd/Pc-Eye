@@ -17,7 +17,8 @@
         "{code}"
       ],
       "expect_contains": [
-        "{code}"
+        "{code}",
+        "{stock}"
       ]
     }
   ],

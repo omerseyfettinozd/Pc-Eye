@@ -121,6 +121,10 @@ pub struct UiElement {
     pub click_point: [i64; 2],
     pub dbus_service: String,
     pub dbus_path: String,
+    /// Liste/tablo/ağaç öğesinin ait olduğu adlı kap ("Yerler" paneli mi, açık klasörün listesi mi):
+    /// aynı adlı öğeler farklı kaplarda farklı yerlere götürür.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub container: Option<String>,
 }
 
 /// Göz 2a: Pencere Semantik UI ve Terminal Raporu.

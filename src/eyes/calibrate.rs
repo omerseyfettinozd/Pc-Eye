@@ -213,6 +213,7 @@ mod tests {
             click_point: [b[0] + b[2] / 2, b[1] + b[3] / 2],
             dbus_service: if atspi { ":1.5".into() } else { String::new() },
             dbus_path: String::new(),
+            container: None,
         }
     }
 

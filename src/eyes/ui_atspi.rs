@@ -6,7 +6,7 @@ use crate::protocol::types::{TerminalContext, UiElement, UiTreeReport, WindowInf
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 use futures_util::future::join_all;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -420,6 +420,9 @@ async fn collect_atspi_elements_for_window(
     let services: Vec<String> = matching_services.iter().map(|(s, _)| s.clone()).collect();
 
     let filter_lower = query_filter.map(|q| q.to_lowercase());
+    // Tablo satırı bağlamı için: belge düğümlerinin rolü/adı/çocukları ve ebeveyn eşlemesi.
+    let mut parent_of: HashMap<String, String> = HashMap::new();
+    let mut doc_nodes: HashMap<String, (String, String, Vec<String>)> = HashMap::new();
     let started = Instant::now();
     let mut inspected = 0usize;
     let mut candidates: Vec<(String, NodeInfo)> = Vec::new();
@@ -460,10 +463,26 @@ async fn collect_atspi_elements_for_window(
             .await;
 
             let mut text_leaves: Vec<NodeInfo> = Vec::new();
-            for node in level {
+            for mut node in level {
                 // Görünmeyen alt ağaçlar (arka plan sekmeleri, kapalı menüler) gürültüdür ve bütçeyi yer.
-                if depth > 0 && !node.states.iter().any(|s| s == "showing") {
-                    continue;
+                // Etkin belgenin içindeki görünmeyen düğümler ise kaydırılınca görünecek içeriktir:
+                // uzun bir sayfayı okumak için ajan 8-10 tur kaydırıp ekran görüntüsü alıyordu.
+                // `offscreen` işaretiyle alınır (kapalı açılır menü seçenekleri hariç).
+                let showing = node.states.iter().any(|s| s == "showing");
+                if depth > 0 && !showing {
+                    if !node.in_document || matches!(node.role.as_str(), "menu" | "menu item" | "option") {
+                        continue;
+                    }
+                    node.states.push("offscreen".to_string());
+                }
+                {
+                    for (_, child) in &node.children {
+                        parent_of.insert(child.clone(), node.path.clone());
+                    }
+                    doc_nodes.insert(
+                        node.path.clone(),
+                        (node.role.clone(), node.name.clone(), node.children.iter().map(|(_, c)| c.clone()).collect()),
+                    );
                 }
                 let is_document = matches!(node.role.as_str(), "document web" | "document frame");
                 let in_doc = node.in_document || is_document;
@@ -504,6 +523,9 @@ async fn collect_atspi_elements_for_window(
                     continue;
                 }
                 node.name = text.chars().take(200).collect();
+                if let Some(entry) = doc_nodes.get_mut(&node.path) {
+                    entry.1 = node.name.clone();
+                }
                 document_ready = true;
                 let matches_query = filter_lower.as_ref().map_or(true, |q| node.name.to_lowercase().contains(q));
                 if matches_query {
@@ -545,8 +567,54 @@ async fn collect_atspi_elements_for_window(
     }))
     .await;
 
+    // Tablo hücresi bulunduysa satırın tamamı değer olarak eklenir: "GK-2546 kodlu ürünün stoğu"
+    // gibi bir soru, hücreyi bulan tek sorguyla cevaplanır.
+    let row_text = |cell_path: &str| -> Option<String> {
+        let row = parent_of.get(cell_path)?;
+        let (role, _, children) = doc_nodes.get(row)?;
+        if !matches!(role.as_str(), "table row" | "row") {
+            return None;
+        }
+        let cells: Vec<&str> = children
+            .iter()
+            .filter_map(|c| doc_nodes.get(c).map(|(_, n, _)| n.as_str()))
+            .filter(|n| !n.is_empty())
+            .collect();
+        (cells.len() > 1).then(|| cells.join(" | "))
+    };
+
+    let container_of = |path: &str| -> Option<String> {
+        let mut cur = parent_of.get(path)?;
+        for _ in 0..6 {
+            let (role, name, _) = doc_nodes.get(cur)?;
+            if !name.is_empty()
+                && matches!(
+                    role.as_str(),
+                    "list" | "list box" | "tree" | "table" | "tree table" | "panel" | "page tab" | "scroll pane"
+                )
+            {
+                return Some(name.clone());
+            }
+            cur = parent_of.get(cur)?;
+        }
+        None
+    };
+
     let mut elements = Vec::new();
     for ((service, node), (extents, description, value)) in candidates.into_iter().zip(details) {
+        let container = if matches!(
+            node.role.as_str(),
+            "list item" | "tree item" | "table cell" | "cell" | "grid cell" | "row" | "table row"
+        ) {
+            container_of(&node.path)
+        } else {
+            None
+        };
+        let value = match value {
+            Some(v) => Some(v),
+            None if matches!(node.role.as_str(), "table cell" | "cell" | "grid cell") => row_text(&node.path),
+            None => None,
+        };
         let Some(([rx, ry, rw, rh], window_relative)) = extents else { continue };
         if rw <= 2 || rh <= 2 {
             continue;
@@ -569,6 +637,7 @@ async fn collect_atspi_elements_for_window(
             click_point: [sx + rw / 2, sy + rh / 2],
             dbus_service: service,
             dbus_path: node.path,
+            container,
         });
         if elements.len() >= max_elements {
             break;
@@ -725,6 +794,12 @@ fn is_browser_window(class: &str) -> bool {
 pub fn atspi_read_text(service: &str, path: &str) -> Option<String> {
     let conn = atspi_bus::connection().ok()?;
     atspi_bus::block_on(atspi_bus::text_or_value(conn, service, path))
+}
+
+/// Görünür alanın dışındaki elemanı kaydırarak görünür yapar.
+pub fn atspi_scroll_into_view(service: &str, path: &str) -> bool {
+    let Ok(conn) = atspi_bus::connection() else { return false };
+    atspi_bus::block_on(atspi_bus::scroll_to(conn, service, path))
 }
 
 /// Sayısal kontrolün (spin button, kaydırıcı) değerini `Value.CurrentValue` ile yazar ve geri okur.
@@ -915,6 +990,7 @@ mod tests {
             click_point: [5, 5],
             dbus_service: String::new(),
             dbus_path: String::new(),
+            container: None,
         }
     }
 

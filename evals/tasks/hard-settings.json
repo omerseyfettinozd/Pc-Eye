@@ -1,0 +1,32 @@
+{
+  "id": "hard-settings",
+  "scene": "settings",
+  "tags": [
+    "hard",
+    "navigation",
+    "gui"
+  ],
+  "prompt": "\"{title}\" penceresindeki ayarlarda yazı boyutunu {font}, temayı \"{theme}\" yap ve telemetri gönderimini kapat; başka hiçbir ayarı değiştirme. Sonra Uygula'ya bas.",
+  "probe": [
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"click\": \"Görünüm\"}, {\"set\": \"Yazı boyutu\", \"text\": \"{font}\"}, {\"select\": \"Tema\", \"option\": \"{theme}\"}, {\"click\": \"Gizlilik\"}, {\"click\": \"Telemetri gönder\"}, {\"click\": \"Uygula\", \"expect\": \"Ayarlar kaydedildi\"}]}"
+      ],
+      "timeout": 60,
+      "expect_contains": [
+        "\"ok\": true"
+      ]
+    }
+  ],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "font_size": "{font}",
+      "theme": "{theme}",
+      "telemetry": false,
+      "clear_cookies": false,
+      "username": "{username}"
+    }
+  }
+}

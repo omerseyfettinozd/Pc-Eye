@@ -1,0 +1,1401 @@
+{
+ "tier": "probe",
+ "started": "20261101-135406-hp",
+ "seed": 968586124,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "0808e55",
+ "summary": {
+  "tasks": [
+   {
+    "task": "crash-signal",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 34.1
+   },
+   {
+    "task": "hard-cross-app",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 4671.4
+   },
+   {
+    "task": "hard-dolphin-move",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 49.2
+   },
+   {
+    "task": "hard-kate-save-as",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 54.8
+   },
+   {
+    "task": "hard-process-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 3516.4
+   },
+   {
+    "task": "hard-settings",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 7766.8
+   },
+   {
+    "task": "hard-web-long",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 90.5
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 6014.3
+   },
+   {
+    "task": "hard-wizard",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 36410.9
+   },
+   {
+    "task": "key-shortcut-modifiers",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 2561.1
+   },
+   {
+    "task": "logs-journal",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 34.7
+   },
+   {
+    "task": "ocr-canvas-read",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 563.3
+   },
+   {
+    "task": "recipe-replay-cli",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 6341.9
+   },
+   {
+    "task": "recipe-web-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 5731.9
+   },
+   {
+    "task": "run-gtk-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 8925.1
+   },
+   {
+    "task": "run-stops-on-failure",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 1356.0
+   },
+   {
+    "task": "run-web-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 6581.2
+   },
+   {
+    "task": "snapshot-delta",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 932.0
+   },
+   {
+    "task": "snapshot-latency",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 84.3
+   },
+   {
+    "task": "terminal-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 850.8
+   },
+   {
+    "task": "ui-click-button-dbus",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 341.6
+   },
+   {
+    "task": "ui-click-button",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 887.1
+   },
+   {
+    "task": "ui-click-miss-detect",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 1474.9
+   },
+   {
+    "task": "ui-form-fill",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 5073.2
+   },
+   {
+    "task": "vision-window-region",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 10.6
+   },
+   {
+    "task": "vision-window-zoom",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 15.7
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 5258.4
+   },
+   {
+    "task": "web-table-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 57.9
+   },
+   {
+    "task": "xray-port",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 87.1
+   }
+  ],
+  "pass_rate": 0.897,
+  "total_cost_usd": 0
+ },
+ "session": "hp",
+ "runs": [
+  {
+   "task": "crash-signal",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-crash-xhvk",
+    "signal": "SIGABRT",
+    "signal_short": "ABRT",
+    "crash_pid": 3155874,
+    "signal_num": 6
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 34.1,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 34.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 0,
+   "vars": {
+    "src": "Eval Siparişler X9TU",
+    "dst": "Eval İade U2JJ",
+    "customer": "Emre Şahin",
+    "order": "S-58911",
+    "amount": "3400,41 TL",
+    "pid": 3155957,
+    "title": "Eval İade U2JJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 4671.4,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Siparişler X9TU"
+     ],
+     "rc": 0,
+     "ms": 81.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval İade U2JJ\", \"steps\": [{\"set\": \"Sipariş No\", \"text\": \"S-58911\"}, {\"set\": \"Tutar\", \"text\": \"3400,41 TL\"}, {\"click\": \"Gönder\", \"expect\": \"Talep alındı\"}]}"
+     ],
+     "rc": 0,
+     "ms": 4589.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Dosyalar YFMA",
+    "pid": 3157042,
+    "file": "rapor-EV47.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261101-135406-hp/hard-dolphin-move-0/Eval Dosyalar YFMA/Belgeler/2025/Mart/rapor-EV47.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261101-135406-hp/hard-dolphin-move-0/Eval Dosyalar YFMA/Arşiv/rapor-EV47.txt",
+    "content": "rapor içeriği KHWC2ALW"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 49.2,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Dosyalar YFMA"
+     ],
+     "rc": 0,
+     "ms": 49.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-kate-save-as",
+   "attempt": 0,
+   "vars": {
+    "title": "notlar-mc4n.txt",
+    "pid": 3157099,
+    "file": "notlar-mc4n.txt",
+    "line": "Karar: ekip büyüyecek (4HFT)",
+    "new_name": "ozet-kwwl.txt",
+    "new_path": "/run/user/1000/pc-eye-eval/20261101-135406-hp/hard-kate-save-as-0/eval-notlar-dgl2/ozet-kwwl.txt",
+    "folder": "/run/user/1000/pc-eye-eval/20261101-135406-hp/hard-kate-save-as-0/eval-notlar-dgl2",
+    "first_line": "Toplantı notları 83F9EY"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 54.8,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "notlar-mc4n.txt"
+     ],
+     "rc": 0,
+     "ms": 54.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-process-form",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-svc-tada",
+    "port": "34303",
+    "pid": 3157147,
+    "title": "Eval PID FENE",
+    "target_pid": "3157147"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 3516.4,
+   "steps": [
+    {
+     "args": [
+      "ps",
+      "--port",
+      "34303"
+     ],
+     "rc": 0,
+     "ms": 847.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval PID FENE\", \"steps\": [{\"set\": \"PID\", \"text\": \"3157147\"}, {\"click\": \"Kaydet\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 2669.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-settings",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Ayarlar UATG",
+    "pid": 3157421,
+    "username": "kullanici43",
+    "font": 17,
+    "theme": "Yüksek karşıtlık"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 7766.8,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Ayarlar UATG\", \"steps\": [{\"click\": \"Görünüm\"}, {\"set\": \"Yazı boyutu\", \"text\": \"17\"}, {\"select\": \"Tema\", \"option\": \"Yüksek karşıtlık\"}, {\"click\": \"Gizlilik\"}, {\"click\": \"Telemetri gönder\"}, {\"click\": \"Uygula\", \"expect\": \"Ayarlar kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 7766.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok 9WUF",
+    "pid": 3157788,
+    "code": "XU-9318",
+    "stock": "388"
+   },
+   "ok": false,
+   "detail": "ui:eksik: ['XU-9318']",
+   "ms": 90.5,
+   "steps": [
+    {
+     "args": [
+      "ui",
+      "--window",
+      "Eval Stok 9WUF",
+      "--query",
+      "XU-9318"
+     ],
+     "rc": 0,
+     "ms": 90.5,
+     "ok": false,
+     "note": "eksik: ['XU-9318']",
+     "stdout": "{\n  \"a11y_bus_enabled\": true,\n  \"element_count\": 0,\n  \"elements\": [],\n  \"hint\": \"Bu uygulama AT-SPI ağacı yayınlamıyor. Görsel inceleme ve otomatik kutulama için `pc-eye vision --window <ADDR> --marks` kullanın.\",\n  \"perception_mode\": \"vision-fallback\",\n  \"terminal_context\": null,\n  \"timestamp_ms\": 1793530476122,\n  \"window_address\": \"0x56119ac76fe0\",\n  \"window_class\": \"firefox\",\n  \"window_geometry\": [\n    0,\n    0,\n    1600,\n    900\n  ],\n  \"window_pid\": 3157788,\n  \"window_title\": \"Eval Stok 9WUF — Mozilla Firefox\"\n}\n"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim V7GK",
+    "pid": 3158671,
+    "phone_pretty": "0534 113 94 36",
+    "phone": "5341139436",
+    "email": "naz36@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6014.3,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval İletişim V7GK\", \"steps\": [{\"set\": \"Telefon\", \"text\": \"0534 113 94 36\"}, {\"set\": \"E-posta\", \"text\": \"naz36@ornek.com\"}, {\"click\": \"Kaydet\", \"expect\": \"Hata:\"}]}"
+     ],
+     "rc": 0,
+     "ms": 4012.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval İletişim V7GK\", \"steps\": [{\"set\": \"Telefon\", \"text\": \"5341139436\"}, {\"click\": \"Kaydet\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 2002.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-wizard",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Sihirbaz TNM8",
+    "pid": 3159840,
+    "package": "ses-kaydedici",
+    "folder": "kurulum_dpwf"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 36410.9,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Sihirbaz TNM8\", \"steps\": [{\"click\": \"Devam\"}, {\"wait\": \"ses-kaydedici\"}]}"
+     ],
+     "rc": 0,
+     "ms": 14295.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Sihirbaz TNM8\", \"steps\": [{\"click\": \"ses-kaydedici\"}, {\"key\": \"Return\"}, {\"wait\": \"Kurulum klasörünün adı\"}]}"
+     ],
+     "rc": 0,
+     "ms": 18064.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Sihirbaz TNM8\", \"steps\": [{\"type\": \"kurulum_dpwf\"}, {\"key\": \"Return\"}]}"
+     ],
+     "rc": 0,
+     "ms": 4050.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "key-shortcut-modifiers",
+   "attempt": 0,
+   "vars": {
+    "name": "Çağrı Yıldız",
+    "city": "Muğla",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form G9V3",
+    "pid": 3161127
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 2561.1,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form G9V3",
+      "--name",
+      "Ad Soyad"
+     ],
+     "rc": 0,
+     "ms": 1278.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "silinecek",
+      "--window",
+      "Eval Web Form G9V3"
+     ],
+     "rc": 0,
+     "ms": 39.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "key",
+      "--keys",
+      "ctrl+a",
+      "--window",
+      "Eval Web Form G9V3"
+     ],
+     "rc": 0,
+     "ms": 34.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "Çağrı Yıldız",
+      "--window",
+      "Eval Web Form G9V3"
+     ],
+     "rc": 0,
+     "ms": 39.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form G9V3",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1167.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 0,
+   "vars": {
+    "tag": "eval-4ace",
+    "token": "C9A9DTFW"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 34.7,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 34.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 0,
+   "vars": {
+    "token": "JMA-7KVV",
+    "pid": 3162232,
+    "title": "Eval Tuval WY34",
+    "win_x": 0
+   },
+   "ok": false,
+   "detail": "snapshot:eksik: ['JMA-7KVV']; ui:eksik: ['JMA-7KVV']",
+   "ms": 563.3,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Tuval WY34"
+     ],
+     "rc": 0,
+     "ms": 490.9,
+     "ok": false,
+     "note": "eksik: ['JMA-7KVV']",
+     "stdout": "{\n  \"daemon_running\": true,\n  \"hint\": \"click-ui --mark N veya --name ile tıkla. Sonraki çağrıda since=<snap> yalnız değişenleri, seq_since=<seq> yalnız yeni pencere olaylarını verir. Arka plan için processes/logs/xray.\",\n  \"monitors\": [\n    {\n      \"focused\": true,\n      \"name\": \"WAYLAND-1\",\n      \"size\": [\n        1600,\n        900\n      ],\n      \"workspace\": 1\n    }\n  ],\n  \"seq\": 656,\n  \"snap\": 4,\n  \"target\": {\n    \"address\": \"0x56119ac76fe0\",\n    \"class\": \"eval_app.py\",\n    \"dropped_noise\": 59,\n    \"elements\": [\n      {\n        \"at\": [\n          800,\n          450\n        ],\n        \"mark\": 267,\n        \"name\": \"Eval Tuval WY34\",\n        \"role\": \"window\"\n      },\n      {\n        \"at\": [\n          129,\n          102\n        ],\n        \"conf\": 95,\n        \"mark\": 268,\n        \"name\": \"Gizli kod:\",\n        \"role\": \"ocr-text\"\n      },\n      {\n        \"at\": [\n          186,\n          205\n        ],\n        \"conf\": 84,\n        \"mark\": 269,\n        \"name\": \"JMA-7 KVV\",\n        \"role\": \"ocr-text\"\n      }\n    ],\n    \"perception\": \"hybrid-atspi-ocr\",\n    \"title\": \"Eval Tuval WY34\"\n  },\n  \"windows\": [\n    {\n      \"address\": \"0x56119ac76fe0\",\n      \"class\": \"eval_app.py\",\n      \"focused\": true,\n      \"geometry\": [\n        0,\n        0,\n        1600,\n        900\n      ],\n      \"title\": \"Eval Tuval WY34\",\n      \"workspace\": 1\n    }\n  ]\n}\n"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x56119ac76fe0"
+     ],
+     "rc": 0,
+     "ms": 72.4,
+     "ok": false,
+     "note": "eksik: ['JMA-7KVV']",
+     "stdout": "{\n  \"a11y_bus_enabled\": true,\n  \"element_count\": 61,\n  \"elements\": [\n    {\n      \"actions\": [\n        \"click\",\n        \"dbus_do_action\"\n      ],\n      \"click_point\": [\n        800,\n        450\n      ],\n      \"dbus_path\": \"/org/gtk/Application/anonymous/a11y/f5ea504d_f6b5_446f_ac98_875597b5db97\",\n      \"dbus_service\": \":1.64774\",\n      \"description\": null,\n      \"mark\": 267,\n      \"name\": \"Eval Tuval WY34\",\n      \"rel_bounds\": [\n        0,\n        0,\n        1600,\n        900\n      ],\n      \"role\": \"window\",\n      \"screen_bounds\": [\n        0,\n        0,\n        1600,\n        900\n      ],\n      \"states\": [\n        \"active\",\n        \"sensitive\",\n        \"showing\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        129,\n        102\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Tesseract OCR metin bloğu\",\n      \"mark\": 268,\n      \"name\": \"Gizli kod:\",\n      \"rel_bounds\": [\n        66,\n        91,\n        126,\n        23\n      ],\n      \"role\": \"ocr-text\",\n      \"screen_bounds\": [\n        66,\n        91,\n        126,\n        23\n      ],\n      \"states\": [\n        \"showing\",\n        \"visible\",\n        \"enabled\"\n      ],\n      \"value\": \"conf:95%\"\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        186,\n        205\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Tesseract OCR metin bloğu\",\n      \"mark\": 269,\n      \"name\": \"JMA-7 KVV\",\n      \"rel_bounds\": [\n        60,\n        161,\n        253,\n        89\n      ],\n      \"role\": \"ocr-text\",\n      \"screen_bounds\": [\n        60,\n        161,\n        253,\n        89\n      ],\n      \"states\": [\n        \"showing\",\n        \"visible\",\n        \"enabled\"\n      ],\n      \"value\": \"conf:84%\"\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        42\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 270,\n      \"name\": \"icon:top-left#3\",\n      \"rel_bounds\": [\n        0,\n        28,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        28,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        100,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 271,\n      \"name\": \"icon:top-left#4\",\n      \"rel_bounds\": [\n        80,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        80,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        180,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 272,\n      \"name\": \"icon:top-left#5\",\n      \"rel_bounds\": [\n        160,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        160,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        260,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 273,\n      \"name\": \"icon:top-left#6\",\n      \"rel_bounds\": [\n        240,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        240,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        340,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 274,\n      \"name\": \"icon:top-left#7\",\n      \"rel_bounds\": [\n        320,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        320,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        420,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 275,\n      \"name\": \"icon:top-bar#8\",\n      \"rel_bounds\": [\n        400,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        400,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        500,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 276,\n      \"name\": \"icon:top-bar#9\",\n      \"rel_bounds\": [\n        480,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        480,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        580,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 277,\n      \"name\": \"icon:top-bar#10\",\n      \"rel_bounds\": [\n        560,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        560,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        660,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 278,\n      \"name\": \"icon:top-bar#11\",\n      \"rel_bounds\": [\n        640,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        640,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        740,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 279,\n      \"name\": \"icon:top-bar#12\",\n      \"rel_bounds\": [\n        720,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        720,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        820,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 280,\n      \"name\": \"icon:top-bar#13\",\n      \"rel_bounds\": [\n        800,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        800,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        900,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 281,\n      \"name\": \"icon:top-bar#14\",\n      \"rel_bounds\": [\n        880,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        880,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        980,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 282,\n      \"name\": \"icon:top-bar#15\",\n      \"rel_bounds\": [\n        960,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        960,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1060,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 283,\n      \"name\": \"icon:top-bar#16\",\n      \"rel_bounds\": [\n        1040,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1040,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1140,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 284,\n      \"name\": \"icon:top-bar#17\",\n      \"rel_bounds\": [\n        1120,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1120,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1220,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 285,\n      \"name\": \"icon:top-right#18\",\n      \"rel_bounds\": [\n        1200,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1200,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1300,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 286,\n      \"name\": \"icon:top-right#19\",\n      \"rel_bounds\": [\n        1280,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1280,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1380,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 287,\n      \"name\": \"icon:top-right#20\",\n      \"rel_bounds\": [\n        1360,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1360,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1460,\n        14\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 288,\n      \"name\": \"icon:top-right#21\",\n      \"rel_bounds\": [\n        1440,\n        0,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1440,\n        0,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        42\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 289,\n      \"name\": \"icon:top-right#22\",\n      \"rel_bounds\": [\n        1560,\n        28,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        28,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        98\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 290,\n      \"name\": \"icon:top-left#23\",\n      \"rel_bounds\": [\n        0,\n        84,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        84,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        98\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 291,\n      \"name\": \"icon:top-right#24\",\n      \"rel_bounds\": [\n        1560,\n        84,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        84,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        154\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 292,\n      \"name\": \"icon:sidebar-left#25\",\n      \"rel_bounds\": [\n        0,\n        140,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        140,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        154\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 293,\n      \"name\": \"icon:sidebar-right#26\",\n      \"rel_bounds\": [\n        1560,\n        140,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        140,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        210\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 294,\n      \"name\": \"icon:sidebar-left#27\",\n      \"rel_bounds\": [\n        0,\n        196,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        196,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        210\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 295,\n      \"name\": \"icon:sidebar-right#28\",\n      \"rel_bounds\": [\n        1560,\n        196,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        196,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        266\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 296,\n      \"name\": \"icon:sidebar-left#29\",\n      \"rel_bounds\": [\n        0,\n        252,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        252,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        266\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 297,\n      \"name\": \"icon:sidebar-right#30\",\n      \"rel_bounds\": [\n        1560,\n        252,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        252,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        322\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 298,\n      \"name\": \"icon:sidebar-left#31\",\n      \"rel_bounds\": [\n        0,\n        308,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        308,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        322\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 299,\n      \"name\": \"icon:sidebar-right#32\",\n      \"rel_bounds\": [\n        1560,\n        308,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        308,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        378\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 300,\n      \"name\": \"icon:sidebar-left#33\",\n      \"rel_bounds\": [\n        0,\n        364,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        364,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        378\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 301,\n      \"name\": \"icon:sidebar-right#34\",\n      \"rel_bounds\": [\n        1560,\n        364,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        364,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        434\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 302,\n      \"name\": \"icon:sidebar-left#35\",\n      \"rel_bounds\": [\n        0,\n        420,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        420,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        434\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 303,\n      \"name\": \"icon:sidebar-right#36\",\n      \"rel_bounds\": [\n        1560,\n        420,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        420,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        490\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 304,\n      \"name\": \"icon:sidebar-left#37\",\n      \"rel_bounds\": [\n        0,\n        476,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        476,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        490\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 305,\n      \"name\": \"icon:sidebar-right#38\",\n      \"rel_bounds\": [\n        1560,\n        476,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        476,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        546\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 306,\n      \"name\": \"icon:sidebar-left#39\",\n      \"rel_bounds\": [\n        0,\n        532,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        532,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        546\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 307,\n      \"name\": \"icon:sidebar-right#40\",\n      \"rel_bounds\": [\n        1560,\n        532,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        532,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        602\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 308,\n      \"name\": \"icon:sidebar-left#41\",\n      \"rel_bounds\": [\n        0,\n        588,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        588,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        602\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 309,\n      \"name\": \"icon:sidebar-right#42\",\n      \"rel_bounds\": [\n        1560,\n        588,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        588,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        658\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 310,\n      \"name\": \"icon:sidebar-left#43\",\n      \"rel_bounds\": [\n        0,\n        644,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        644,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        658\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 311,\n      \"name\": \"icon:sidebar-right#44\",\n      \"rel_bounds\": [\n        1560,\n        644,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        644,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        714\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 312,\n      \"name\": \"icon:sidebar-left#45\",\n      \"rel_bounds\": [\n        0,\n        700,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        700,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        714\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 313,\n      \"name\": \"icon:sidebar-right#46\",\n      \"rel_bounds\": [\n        1560,\n        700,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        700,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        770\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 314,\n      \"name\": \"icon:bottom-left#47\",\n      \"rel_bounds\": [\n        0,\n        756,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        756,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        770\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 315,\n      \"name\": \"icon:bottom-right#48\",\n      \"rel_bounds\": [\n        1560,\n        756,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        756,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        20,\n        826\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 316,\n      \"name\": \"icon:bottom-left#49\",\n      \"rel_bounds\": [\n        0,\n        812,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        0,\n        812,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        1580,\n        826\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 317,\n      \"name\": \"icon:bottom-right#50\",\n      \"rel_bounds\": [\n        1560,\n        812,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        1560,\n        812,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        60,\n        882\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 318,\n      \"name\": \"icon:bottom-left#51\",\n      \"rel_bounds\": [\n        40,\n        868,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        40,\n        868,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        140,\n        882\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 319,\n      \"name\": \"icon:bottom-left#52\",\n      \"rel_bounds\": [\n        120,\n        868,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        120,\n        868,\n        40,\n        28\n      ],\n      \"states\": [\n        \"visible\"\n      ],\n      \"value\": null\n    },\n    {\n      \"actions\": [\n        \"click\"\n      ],\n      \"click_point\": [\n        220,\n        882\n      ],\n      \"dbus_path\": \"\",\n      \"dbus_service\": \"\",\n      \"description\": \"Görsel kenar analizi ile tespit edilen etkileşim bölgesi\",\n      \"mark\": 320,\n      \"name\": \"icon:bottom-left#53\",\n      \"rel_bounds\": [\n        200,\n        868,\n        40,\n        28\n      ],\n      \"role\": \"icon-button\",\n      \"screen_bounds\": [\n        200,\n        868,\n        40,\n        28\n      ],\n      \""
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "recipe-replay-cli",
+   "attempt": 0,
+   "vars": {
+    "name": "Şükrü Güneş",
+    "city": "Ankara",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form L3JP",
+    "pid": 3163461
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6341.9,
+   "steps": [
+    {
+     "args": [
+      "recipe",
+      "list",
+      "--window",
+      "Eval Web Form L3JP"
+     ],
+     "rc": 0,
+     "ms": 49.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "recipe",
+      "run",
+      "Ad Soyad",
+      "--window",
+      "Eval Web Form L3JP",
+      "--arg",
+      "Ad Soyad=Şükrü Güneş",
+      "--arg",
+      "Şehir=Ankara"
+     ],
+     "rc": 0,
+     "ms": 6292.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "recipe-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Işık",
+    "city": "Şanlıurfa",
+    "default_city": "Muğla",
+    "title": "Eval Web Form UCT2",
+    "pid": 3165760
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5731.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Web Form UCT2"
+     ],
+     "rc": 0,
+     "ms": 88.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form UCT2\", \"recipe\": \"Ad Soyad\", \"args\": {\"Ad Soyad\": \"Ümit Işık\", \"Şehir\": \"Şanlıurfa\"}}"
+     ],
+     "rc": 0,
+     "ms": 5643.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "run-gtk-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Öykü Ağaoğlu",
+    "city": "Muğla",
+    "default_city": "İzmir",
+    "pid": 3166926,
+    "title": "Eval Form GWNT"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 8925.1,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Form GWNT\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Öykü Ağaoğlu\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"İzmir\", \"option\": \"Muğla\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 8925.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "run-stops-on-failure",
+   "attempt": 0,
+   "vars": {
+    "target": "Bulut",
+    "pid": 3167313,
+    "title": "Eval Düğmeler M9P9"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1356.0,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Düğmeler M9P9\", \"steps\": [{\"click\": \"Bulut\", \"expect\": \"Seçilen: Bulut\"}, {\"click\": \"Böyle Bir Düğme Yok\"}, {\"click\": \"Bulut\"}]}"
+     ],
+     "rc": 0,
+     "ms": 1356.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "run-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Ilgın Çelik",
+    "city": "Şanlıurfa",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form 83P2",
+    "pid": 3167435
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6581.2,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form 83P2\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Ilgın Çelik\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Şehir\", \"option\": \"Şanlıurfa\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 6581.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "snapshot-delta",
+   "attempt": 0,
+   "vars": {
+    "target": "Dağ",
+    "pid": 3168650,
+    "title": "Eval Düğmeler YJ94"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 932.0,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler YJ94"
+     ],
+     "rc": 0,
+     "ms": 33.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler YJ94",
+      "--since",
+      "6"
+     ],
+     "rc": 0,
+     "ms": 6.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Düğmeler YJ94",
+      "--name",
+      "Dağ"
+     ],
+     "rc": 0,
+     "ms": 858.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler YJ94",
+      "--since",
+      "7"
+     ],
+     "rc": 0,
+     "ms": 33.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "snapshot-latency",
+   "attempt": 0,
+   "vars": {
+    "name": "Gülşen Ağaoğlu",
+    "city": "Çanakkale",
+    "default_city": "İstanbul",
+    "pid": 3168774,
+    "title": "Eval Form RWE7"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 84.3,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Form RWE7"
+     ],
+     "rc": 0,
+     "ms": 36.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Form RWE7"
+     ],
+     "rc": 0,
+     "ms": 9.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "Eval Form RWE7"
+     ],
+     "rc": 0,
+     "ms": 38.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 0,
+   "vars": {
+    "token": "NE9YAP43",
+    "pid": 3168835,
+    "title": "Eval Terminal JCRA"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 850.8,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal JCRA"
+     ],
+     "rc": 0,
+     "ms": 427.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x56119ac76fe0"
+     ],
+     "rc": 0,
+     "ms": 423.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ui-click-button-dbus",
+   "attempt": 0,
+   "vars": {
+    "target": "Şeftali",
+    "pid": 3168925,
+    "title": "Eval Düğmeler HTE4"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 341.6,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x56119ac76fe0",
+      "--name",
+      "Şeftali",
+      "--prefer-dbus"
+     ],
+     "rc": 0,
+     "ms": 341.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 0,
+   "vars": {
+    "target": "Lacivert",
+    "pid": 3169023,
+    "title": "Eval Düğmeler 974C"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 887.1,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler 974C"
+     ],
+     "rc": 0,
+     "ms": 35.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x56119ac76fe0"
+     ],
+     "rc": 0,
+     "ms": 40.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x56119ac76fe0",
+      "--name",
+      "Lacivert"
+     ],
+     "rc": 0,
+     "ms": 811.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ui-click-miss-detect",
+   "attempt": 0,
+   "vars": {
+    "target": "Bulut",
+    "pid": 3169129,
+    "title": "Eval Düğmeler J93A"
+   },
+   "ok": false,
+   "detail": "click-ui:eksik: ['\"visible_change\": false', 'UYARI']",
+   "ms": 1474.9,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x56119ac76fe0",
+      "--name",
+      "Bir düğme seç"
+     ],
+     "rc": 0,
+     "ms": 1474.9,
+     "ok": false,
+     "note": "eksik: ['\"visible_change\": false', 'UYARI']",
+     "stdout": "{\n  \"ok\": true,\n  \"action\": \"click_ui\",\n  \"target\": \"[587] Bir düğme seç (label)\",\n  \"coordinates\": [\n    800,\n    44\n  ],\n  \"details\": \"UI elemanı `Bir düğme seç` [mark=587] (800, 44) koordinatında tıklandı\",\n  \"verification\": {\n    \"region\": [\n      0,\n      0,\n      1600,\n      900\n    ],\n    \"changed_pixels\": 1074,\n    \"change_pct\": 0.07,\n    \"visible_change\": true\n  }\n}\n"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "İlkay Ağaoğlu",
+    "city": "Çanakkale",
+    "default_city": "İstanbul",
+    "pid": 3169253,
+    "title": "Eval Form 4LLR"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5073.2,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x56119ac76fe0",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "İlkay Ağaoğlu"
+     ],
+     "rc": 0,
+     "ms": 999.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x56119ac76fe0",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 1189.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x56119ac76fe0",
+      "--name",
+      "İstanbul"
+     ],
+     "rc": 0,
+     "ms": 607.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x56119ac76fe0",
+      "--name",
+      "Çanakkale"
+     ],
+     "rc": 0,
+     "ms": 1162.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x56119ac76fe0",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1113.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "vision-window-region",
+   "attempt": 0,
+   "vars": {
+    "token": "V36-HHGE",
+    "pid": 3169575,
+    "title": "Eval Tuval TJPE",
+    "win_x": 0
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10.6,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval TJPE",
+      "--region",
+      "0,0,300,120"
+     ],
+     "rc": 0,
+     "ms": 10.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "vision-window-zoom",
+   "attempt": 0,
+   "vars": {
+    "token": "A8H-YR27",
+    "pid": 3169639,
+    "title": "Eval Tuval 2M8T",
+    "win_x": 0
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 15.7,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval 2M8T",
+      "--zoom",
+      "40,150"
+     ],
+     "rc": 0,
+     "ms": 15.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Gülşen Şahin",
+    "city": "Şanlıurfa",
+    "default_city": "İstanbul",
+    "title": "Eval Web Form EWUV",
+    "pid": 3169706
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5258.4,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Web Form EWUV"
+     ],
+     "rc": 0,
+     "ms": 39.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form EWUV",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "Gülşen Şahin"
+     ],
+     "rc": 0,
+     "ms": 1133.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form EWUV",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 1049.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form EWUV",
+      "--name",
+      "Şehir"
+     ],
+     "rc": 0,
+     "ms": 1015.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form EWUV",
+      "--name",
+      "Şanlıurfa"
+     ],
+     "rc": 0,
+     "ms": 1018.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form EWUV",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1002.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Pergel",
+    "price": "19,52 TL",
+    "title": "Eval Fiyatlar 3LG4",
+    "pid": 3170879
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 57.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Fiyatlar 3LG4"
+     ],
+     "rc": 0,
+     "ms": 57.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "xray-port",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-svc-gdn6",
+    "port": "55892",
+    "pid": 3171722
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 87.1,
+   "steps": [
+    {
+     "args": [
+      "ps",
+      "--match",
+      "eval-svc-gdn6"
+     ],
+     "rc": 0,
+     "ms": 29.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "xray",
+      "--pid",
+      "3171722"
+     ],
+     "rc": 0,
+     "ms": 57.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0
+}

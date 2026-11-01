@@ -1,0 +1,38 @@
+{
+  "id": "hard-process-form",
+  "scene": "process_form",
+  "tags": [
+    "hard",
+    "background",
+    "gui"
+  ],
+  "prompt": "127.0.0.1:{port} portunu dinleyen sürecin PID'ini \"{title}\" penceresindeki PID alanına yaz ve Kaydet'e bas.",
+  "probe": [
+    {
+      "args": [
+        "ps",
+        "--port",
+        "{port}"
+      ],
+      "expect_contains": [
+        "{target_pid}"
+      ]
+    },
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"set\": \"PID\", \"text\": \"{target_pid}\"}, {\"click\": \"Kaydet\", \"expect\": \"Kaydedildi\"}]}"
+      ],
+      "timeout": 60,
+      "expect_contains": [
+        "\"ok\": true"
+      ]
+    }
+  ],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "pid": "{target_pid}"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "hard-web-long",
+  "scene": "web_long",
+  "tags": [
+    "hard",
+    "scroll",
+    "browser"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasındaki listede {code} kodlu ürünün stok sayısı kaç?",
+  "probe": [
+    {
+      "args": [
+        "ui",
+        "--window",
+        "{title}",
+        "--query",
+        "{code}"
+      ],
+      "expect_contains": [
+        "{code}"
+      ]
+    }
+  ],
+  "check": {
+    "type": "answer",
+    "expect": "{stock}"
+  }
+}

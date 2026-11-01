@@ -1,0 +1,39 @@
+{
+  "id": "hard-web-validation",
+  "scene": "web_validate",
+  "tags": [
+    "hard",
+    "recovery",
+    "browser"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasındaki forma telefonu {phone_pretty}, e-postayı {email} olarak gir ve Kaydet'e bas. Kayıt başarılı olana kadar devam et.",
+  "probe": [
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"set\": \"Telefon\", \"text\": \"{phone_pretty}\"}, {\"set\": \"E-posta\", \"text\": \"{email}\"}, {\"click\": \"Kaydet\", \"expect\": \"Hata:\"}]}"
+      ],
+      "timeout": 60,
+      "expect_contains": [
+        "\"ok\": true"
+      ]
+    },
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"set\": \"Telefon\", \"text\": \"{phone}\"}, {\"click\": \"Kaydet\", \"expect\": \"Kaydedildi\"}]}"
+      ],
+      "timeout": 60,
+      "expect_contains": [
+        "\"ok\": true"
+      ]
+    }
+  ],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "phone": "{phone}",
+      "email": "{email}"
+    }
+  }
+}

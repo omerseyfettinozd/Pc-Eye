@@ -133,7 +133,15 @@ fn run_step(window: Option<&str>, step: &Value, allow_protected: bool) -> Result
     if let Some(t) = step.get("select") {
         let (name, mark) = target(t)?;
         let option = step.get("option").and_then(Value::as_str).ok_or_else(|| anyhow!("select için option gerekli"))?;
-        let opened = click_ui_element_ext(window, name.as_deref(), mark, "left", false, None, allow_protected)?;
+        // Ad bir etikete denk geliyorsa (GTK4 DropDown'un adı seçili değeridir) yanındaki seçici açılır.
+        let chooser = match (&name, mark) {
+            (Some(n), None) => crate::director::input::resolve_chooser(window, n),
+            _ => None,
+        };
+        let opened = match chooser {
+            Some(m) => click_ui_element_ext(window, None, Some(m), "left", false, None, allow_protected)?,
+            None => click_ui_element_ext(window, name.as_deref(), mark, "left", false, None, allow_protected)?,
+        };
         // Açılır liste ayrı bir açılır yüzeyde belirir; seçenek görünene kadar bekle.
         wait_for_condition("ui_match", Some(option), window, 2000)?;
         let r = click_ui_element_ext(window, Some(option), None, "left", false, None, allow_protected)?;

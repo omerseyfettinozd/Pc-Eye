@@ -117,6 +117,12 @@ enum Commands {
         op: SessionOp,
     },
 
+    /// AT-SPI koordinat kaymasını pencere için OCR ile ölç (normalde ilk tıklamada otomatik)
+    Calibrate {
+        #[arg(long)]
+        window: Option<String>,
+    },
+
     /// Tarif hafızası: başarılı akışları listele, göster, model olmadan yeniden oynat
     Recipe {
         #[command(subcommand)]
@@ -457,6 +463,21 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&out)?);
         }
         Commands::Recipe { op } => run_recipe_command(op)?,
+        Commands::Calibrate { window } => {
+            let started = std::time::Instant::now();
+            let ui = eyes::ui_atspi::inspect_window_ui(window.as_deref(), None, 10)?;
+            let [x, y, w, h] = ui.window_geometry;
+            let fixed = eyes::calibrate::calibrate_now(&ui.window_address, [x, y, w, h])?;
+            println!(
+                "{}",
+                serde_json::json!({
+                    "window": ui.window_address,
+                    "offset": eyes::calibrate::current_offset(&ui.window_address, [x, y, w, h]),
+                    "measured_change": fixed,
+                    "ms": started.elapsed().as_millis() as u64,
+                })
+            );
+        }
         Commands::Session { op } => {
             let out = match op {
                 SessionOp::Start { name, mode } => session::start(&name, &mode)?,

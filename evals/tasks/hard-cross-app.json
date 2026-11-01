@@ -1,0 +1,41 @@
+{
+  "id": "hard-cross-app",
+  "scene": "cross_app",
+  "tags": [
+    "hard",
+    "multi-app",
+    "browser"
+  ],
+  "prompt": "\"{src}\" penceresindeki tabloda müşterisi {customer} olan siparişin numarasını ve tutarını, Firefox'ta açık \"{dst}\" sayfasındaki forma gir (tutarı tabloda yazdığı gibi) ve Gönder'e bas.",
+  "probe": [
+    {
+      "args": [
+        "snapshot",
+        "--window",
+        "{src}"
+      ],
+      "expect_contains": [
+        "{customer}",
+        "{order}",
+        "{amount}"
+      ]
+    },
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{dst}\", \"steps\": [{\"set\": \"Sipariş No\", \"text\": \"{order}\"}, {\"set\": \"Tutar\", \"text\": \"{amount}\"}, {\"click\": \"Gönder\", \"expect\": \"Talep alındı\"}]}"
+      ],
+      "timeout": 60,
+      "expect_contains": [
+        "\"ok\": true"
+      ]
+    }
+  ],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "order": "{order}",
+      "amount": "{amount}"
+    }
+  }
+}

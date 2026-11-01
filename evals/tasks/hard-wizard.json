@@ -1,0 +1,51 @@
+{
+  "id": "hard-wizard",
+  "scene": "wizard",
+  "tags": [
+    "hard",
+    "dialogs",
+    "multi-window"
+  ],
+  "prompt": "\"{title}\" başlıklı kurulum sihirbazını tamamla: devam et, \"{package}\" paketini seç, kurulum klasörü adı olarak \"{folder}\" yaz.",
+  "probe": [
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"click\": \"Devam\"}, {\"wait\": \"{package}\"}]}"
+      ],
+      "timeout": 60,
+      "expect_contains": [
+        "\"ok\": true"
+      ]
+    },
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"click\": \"{package}\"}, {\"key\": \"Return\"}, {\"wait\": \"Kurulum klasörünün adı\"}]}"
+      ],
+      "timeout": 60,
+      "expect_contains": [
+        "\"ok\": true"
+      ]
+    },
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"type\": \"{folder}\"}, {\"key\": \"Return\"}]}"
+      ],
+      "timeout": 60,
+      "expect_contains": [
+        "\"ok\": true"
+      ]
+    }
+  ],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "step": 3,
+      "continued": true,
+      "package": "{package}",
+      "folder": "{folder}"
+    }
+  }
+}

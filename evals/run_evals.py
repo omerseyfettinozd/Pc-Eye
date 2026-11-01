@@ -82,10 +82,11 @@ class CallResult:
             return None
 
 
-def pceye(*args, timeout=30):
+def pceye(*args, timeout=30, env=None):
     start = time.perf_counter()
     try:
-        p = subprocess.run([PCEYE, *args], capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run([PCEYE, *args], capture_output=True, text=True, timeout=timeout,
+                           env={**os.environ, **env} if env else None)
         rc, out, err = p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired as e:
         out = e.stdout.decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
@@ -175,15 +176,18 @@ class Sandbox:
                             str(self.user_cursor["x"]), str(self.user_cursor["y"])],
                            capture_output=True)
 
-    def launch_window(self, cmd):
-        r = pceye("launch", "--workspace", self.workspace, "--timeout-ms", "5000", "--", *cmd)
+    def launch_window(self, cmd, env=None, fullscreen=True, timeout_ms=5000):
+        r = pceye("launch", "--workspace", self.workspace, "--timeout-ms", str(timeout_ms), "--", *cmd,
+                  timeout=timeout_ms / 1000 + 20, env=env)
         receipt = r.json() or {}
         m = re.search(r"address=(0x[0-9a-f]+) pid=(\d+)", receipt.get("target", ""))
         if not m:
             raise RuntimeError(f"pencere açılmadı: {receipt.get('target') or r.stderr}")
         address, pid = m.group(1), int(m.group(2))
         self.pids.append(pid)
-        pceye("window", "fullscreen", "--window", address, "--arg", "on")
+        # Çok pencereli sahnelerde tam ekran yok: pencereler yan yana döşenir, ajan ikisini de görür.
+        if fullscreen:
+            pceye("window", "fullscreen", "--window", address, "--arg", "on")
         pceye("wait", "visual_settle", "--timeout-ms", "2000")
         return address, pid
 
@@ -370,11 +374,12 @@ def serve_page(sb, page_html, out_path):
     return f"http://127.0.0.1:{server.server_address[1]}/"
 
 
-def open_in_firefox(sb, work, url, ready_text):
+def open_in_firefox(sb, work, url, ready_text, fullscreen=True):
     profile = work / "ffprofile"
     profile.mkdir(exist_ok=True)
     (profile / "user.js").write_text(FIREFOX_PREFS)
-    window, pid = sb.launch_window(["firefox", "--new-instance", "--profile", str(profile), url])
+    window, pid = sb.launch_window(["firefox", "--new-instance", "--profile", str(profile), url],
+                                   fullscreen=fullscreen)
     pceye("wait", "ui_match", "--window", window, "--match", ready_text, "--timeout-ms", "8000")
     return window, pid
 
@@ -409,7 +414,139 @@ def scene_web_table(sb, rng, work):
                   "window": window, "pid": pid})
 
 
+# KDE uygulamaları kullanıcının ayarlarını, son oturumlarını ve açık sekmelerini yüklemesin;
+# Qt erişilebilirliği her zaman açık.
+def isolated_env(work):
+    base = work / "xdg"
+    env = {"QT_LINUX_ACCESSIBILITY_ALWAYS_ON": "1", "QT_ACCESSIBILITY": "1"}
+    for var, sub in (("XDG_CONFIG_HOME", "config"), ("XDG_DATA_HOME", "data"),
+                     ("XDG_CACHE_HOME", "cache"), ("XDG_STATE_HOME", "state")):
+        (base / sub).mkdir(parents=True, exist_ok=True)
+        env[var] = str(base / sub)
+    return env
+
+
+CUSTOMERS = ["Aslı Demir", "Burak Yıldız", "Cemre Aksoy", "Deniz Kara", "Emre Şahin", "Fulya Koç",
+             "Gökhan Er", "Hande Çelik"]
+
+
+def scene_cross_app(sb, rng, work):
+    customers = rng.sample(CUSTOMERS, 6)
+    rows = [(f"S-{rng.randint(10000, 99999)}", c, f"{rng.randint(100, 9999)},{rng.randint(0, 99):02d} TL")
+            for c in customers]
+    order, customer, amount = rng.choice(rows)
+    src = f"Eval Siparişler {token(rng, 4)}"
+    sb.launch_window(fixture_cmd("orders", work / "orders.json", src, rows="|".join(";".join(r) for r in rows)),
+                     fullscreen=False)
+    dst = f"Eval İade {token(rng, 4)}"
+    page = (WEB_DIR / "transfer.html").read_text(encoding="utf-8").replace("{title}", dst)
+    out = work / "out.json"
+    window, pid = open_in_firefox(sb, work, serve_page(sb, page, out), "İade talebi", fullscreen=False)
+    return Scene({"src": src, "dst": dst, "customer": customer, "order": order, "amount": amount,
+                  "window": window, "pid": pid, "title": dst}, out)
+
+
+def scene_process_form(sb, rng, work):
+    port_scene = scene_port(sb, rng, work)
+    title = f"Eval PID {token(rng, 4)}"
+    out = work / "out.json"
+    window, pid = sb.launch_window(fixture_cmd("pidform", out, title))
+    return Scene({**port_scene.vars, "title": title, "window": window, "target_pid": str(port_scene.vars["pid"])},
+                 out)
+
+
+def scene_settings(sb, rng, work):
+    themes = ["Açık", "Koyu", "Sistem", "Yüksek karşıtlık"]
+    username = f"kullanici{rng.randint(10, 99)}"
+    font = rng.choice([s for s in range(9, 25) if s != 11])
+    theme = rng.choice(themes[1:])
+    title = f"Eval Ayarlar {token(rng, 4)}"
+    out = work / "out.json"
+    window, pid = sb.launch_window(fixture_cmd("settings", out, title, cities="|".join(themes), text=username))
+    return Scene({"title": title, "window": window, "pid": pid, "username": username,
+                  "font": font, "theme": theme}, out)
+
+
+def scene_web_validate(sb, rng, work):
+    digits = f"5{rng.randint(10, 59)}{rng.randint(1000000, 9999999)}"
+    pretty = f"0{digits[:3]} {digits[3:6]} {digits[6:8]} {digits[8:]}"
+    email = f"{rng.choice(['ali', 'ece', 'can', 'naz'])}{rng.randint(10, 99)}@ornek.com"
+    title = f"Eval İletişim {token(rng, 4)}"
+    page = (WEB_DIR / "validate.html").read_text(encoding="utf-8").replace("{title}", title)
+    out = work / "out.json"
+    window, pid = open_in_firefox(sb, work, serve_page(sb, page, out), "İletişim bilgileri")
+    return Scene({"title": title, "window": window, "pid": pid, "phone_pretty": pretty,
+                  "phone": digits, "email": email}, out)
+
+
+def scene_web_long(sb, rng, work):
+    codes = set()
+    while len(codes) < 150:
+        codes.add(f"{token(rng, 2)}-{rng.randint(1000, 9999)}")
+    codes = list(codes)
+    stock = {c: str(rng.randint(0, 900)) for c in codes}
+    target = codes[rng.randint(125, 145)]
+    title = f"Eval Stok {token(rng, 4)}"
+    rows = "".join(f"<tr><td>{c}</td><td>R{rng.randint(1, 40)}</td><td>{stock[c]}</td></tr>" for c in codes)
+    page = (WEB_DIR / "long.html").read_text(encoding="utf-8").replace("{title}", title).replace("{rows}", rows)
+    window, pid = open_in_firefox(sb, work, serve_page(sb, page, work / "out.json"), "Depo stok listesi")
+    return Scene({"title": title, "window": window, "pid": pid, "code": target, "stock": stock[target]})
+
+
+def scene_wizard(sb, rng, work):
+    packages = rng.sample(["metin-editoru", "goruntu-araci", "yedekleme", "ag-izleyici", "ses-kaydedici",
+                           "pdf-okuyucu", "takvim"], 5)
+    target = rng.choice(packages)
+    folder = f"kurulum_{token(rng, 4).lower()}"
+    title = f"Eval Sihirbaz {token(rng, 4)}"
+    out = work / "out.json"
+    window, pid = sb.launch_window([sys.executable, str(FIXTURE.parent / "wizard.py"), "--out", str(out),
+                                    "--title", title, "--packages", "|".join(packages)], fullscreen=False,
+                                   timeout_ms=15000)
+    return Scene({"title": title, "window": window, "pid": pid, "package": target, "folder": folder}, out)
+
+
+def scene_dolphin(sb, rng, work):
+    root = work / f"Eval Dosyalar {token(rng, 4)}"
+    tok = token(rng, 4)
+    target_dir = root / "Belgeler" / rng.choice(["2025", "2026"]) / rng.choice(["Mart", "Ekim"])
+    for d in ["Belgeler/2025/Mart", "Belgeler/2025/Ekim", "Belgeler/2026/Mart", "Belgeler/2026/Ekim",
+              "Resimler", "İndirilenler", "Arşiv"]:
+        (root / d).mkdir(parents=True, exist_ok=True)
+    for d in ["Belgeler/2025/Mart", "Belgeler/2026/Ekim", "İndirilenler"]:
+        for i in range(3):
+            (root / d / f"not-{token(rng, 4)}.txt").write_text("x", encoding="utf-8")
+    src = target_dir / f"rapor-{tok}.txt"
+    content = f"rapor içeriği {token(rng, 8)}"
+    src.write_text(content, encoding="utf-8")
+    window, pid = sb.launch_window(["dolphin", "--new-window", str(root)], env=isolated_env(work), timeout_ms=15000)
+    return Scene({"title": root.name, "window": window, "pid": pid, "file": src.name,
+                  "src": str(src), "dest": str(root / "Arşiv" / src.name), "content": content})
+
+
+def scene_kate(sb, rng, work):
+    folder = work / f"eval-notlar-{token(rng, 4).lower()}"
+    folder.mkdir()
+    name = f"notlar-{token(rng, 4).lower()}.txt"
+    original = f"Toplantı notları {token(rng, 6)}\nKatılımcılar: {', '.join(rng.sample(CUSTOMERS, 3))}\n"
+    (folder / name).write_text(original, encoding="utf-8")
+    line = f"Karar: {rng.choice(['bütçe onaylandı', 'tarih ertelendi', 'ekip büyüyecek'])} ({token(rng, 4)})"
+    new_name = f"ozet-{token(rng, 4).lower()}.txt"
+    window, pid = sb.launch_window(["kate", "-n", str(folder / name)], env=isolated_env(work), timeout_ms=15000)
+    return Scene({"title": name, "window": window, "pid": pid, "file": name, "line": line,
+                  "new_name": new_name, "new_path": str(folder / new_name), "folder": str(folder),
+                  "first_line": original.splitlines()[0]})
+
+
 SCENES = {
+    "cross_app": scene_cross_app,
+    "process_form": scene_process_form,
+    "settings": scene_settings,
+    "web_validate": scene_web_validate,
+    "web_long": scene_web_long,
+    "wizard": scene_wizard,
+    "dolphin": scene_dolphin,
+    "kate": scene_kate,
     "web_form": scene_web_form,
     "web_table": scene_web_table,
     "buttons": scene_buttons,
@@ -443,7 +580,7 @@ def fill(value, vars):
     if isinstance(value, list):
         return [fill(v, vars) for v in value]
     if isinstance(value, dict):
-        return {k: fill(v, vars) for k, v in value.items()}
+        return {fill(k, vars): fill(v, vars) for k, v in value.items()}
     return value
 
 
@@ -474,8 +611,27 @@ def check_answer(final_text, expect):
     return ok, f"cevap={answer!r}"
 
 
+def check_files(spec):
+    """Dosya sistemi durumu: `exists`, `absent`, `contains` {yol: metin}."""
+    missing = [p for p in spec.get("exists", []) if not Path(p).exists()]
+    present = [p for p in spec.get("absent", []) if Path(p).exists()]
+    wrong = []
+    for path, text in (spec.get("contains") or {}).items():
+        try:
+            if text not in Path(path).read_text(encoding="utf-8"):
+                wrong.append(path)
+        except OSError:
+            wrong.append(path)
+    if missing or present or wrong:
+        names = lambda ps: [Path(p).name for p in ps]
+        return False, f"yok: {names(missing)} olmamalı: {names(present)} içerik: {names(wrong)}"
+    return True, "ok"
+
+
 def check_task(check, scene, final_text=None):
     expect = fill(check.get("expect"), scene.vars)
+    if check["type"] == "files":
+        return check_files(expect)
     if check["type"] == "out_json":
         return check_out_json(scene.out, expect)
     if check["type"] == "answer":
@@ -536,9 +692,12 @@ def run_probe(task, scene):
         if step.get("settle_ms"):
             time.sleep(step["settle_ms"] / 1000)
     detail = "; ".join(f"{s['args'][0]}:{s['note']}" for s in steps if not s["ok"]) or "ok"
-    if task["check"]["type"] == "out_json":
+    # Bazı görevlerin probe adımları yalnız sahneyi ve algıyı doğrular (ör. dosya yöneticisinde
+    # taşıma CLI ile yapılamaz): `probe_check` probe katmanında asıl denetimin yerine geçer.
+    check = task.get("probe_check", task["check"])
+    if check["type"] in ("out_json", "files"):
         time.sleep(0.3)
-        check_ok, check_detail = check_task(task["check"], scene)
+        check_ok, check_detail = check_task(check, scene)
         ok = ok and check_ok
         if not check_ok:
             detail = check_detail if detail == "ok" else f"{detail}; {check_detail}"

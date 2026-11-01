@@ -97,7 +97,50 @@ fn attach_verification(mut receipt: ActionReceipt, verification: Option<ActionVe
 const ACTIONABLE_ROLES: &[&str] = &[
     "push button", "button", "toggle button", "check box", "radio button", "menu item",
     "combo box", "link", "page tab", "text", "entry", "password text", "spin button", "slider",
+    "switch", "list item", "text box", "menu button",
 ];
+
+fn is_editable(e: &UiElement) -> bool {
+    matches!(e.role.as_str(), "text" | "entry" | "text box" | "password text" | "spin button")
+        || e.states.iter().any(|s| s == "editable")
+}
+
+/// Değer seçilen kontroller (açılır liste ve onu açan düğme).
+pub fn is_chooser(e: &UiElement) -> bool {
+    matches!(e.role.as_str(), "combo box" | "menu button" | "toggle button" | "list box")
+}
+
+fn is_numeric_control(e: &UiElement) -> bool {
+    matches!(e.role.as_str(), "spin button" | "slider")
+}
+
+/// Form deseni: etiket solda, kontrol aynı satırda sağda. GTK4 açılır listesinin erişilebilir adı
+/// seçili değerdir ("Açık"), etiket ("Tema") ayrı bir `label`; ada göre hedeflenince kontrol değil
+/// etiket bulunuyordu.
+pub fn control_beside(elements: &[UiElement], label: &UiElement, want: fn(&UiElement) -> bool) -> Option<UiElement> {
+    let [lx, ly, lw, lh] = label.screen_bounds;
+    let lcy = ly + lh / 2;
+    elements
+        .iter()
+        .filter(|e| e.mark != label.mark && want(e))
+        .filter(|e| {
+            let [ex, ey, _, eh] = e.screen_bounds;
+            let ecy = ey + eh / 2;
+            ex >= lx + lw / 2 && (ecy - lcy).abs() <= lh.max(eh) / 2 + 6
+        })
+        .min_by_key(|e| e.screen_bounds[0] - lx)
+        .cloned()
+}
+
+/// `select` hedefi: adı taşıyan eleman bir seçici değilse yanındaki seçicinin mark'ı.
+pub fn resolve_chooser(window_addr: Option<&str>, name: &str) -> Option<usize> {
+    let ui = inspect_window_ui(window_addr, None, 150).ok()?;
+    let found = pick_named_element(&ui.elements, name)?;
+    if is_chooser(&found) {
+        return None;
+    }
+    control_beside(&ui.elements, &found, is_chooser).map(|c| c.mark)
+}
 
 /// Ada göre en uygun elemanı seçer: tam eşleşme > içerme, aynı adlılar arasında eylem alabilen rol
 /// (düğme, onay kutusu…) kapsayıcıdan (`grid cell`, `label`, `filler`) önce gelir.
@@ -346,8 +389,16 @@ pub fn click_ui_element_ext(
 ) -> Result<ActionReceipt> {
     enforce_action_guard(window_addr, allow_protected)?;
 
+    // Pencerenin AT-SPI koordinatları ilk tıklamadan önce bir kez OCR ile doğrulanır (bkz.
+    // `calibrate`): kayık bir araç takımında "görünür değişiklik" (üzerine gelme vurgusu) olsa
+    // bile tıklama yanlış satıra düşebiliyordu ve bu ıskalama algılanamıyordu.
+    let recalibrated = !prefer_dbus
+        && inspect_window_ui(window_addr, None, 10).map_or(false, |ui| {
+            crate::eyes::calibrate::ensure_calibrated(&ui.window_address, ui.window_geometry)
+        });
+
     let (matched, window_geometry): (UiElement, Option<[i64; 4]>) = if let Some(m_id) = mark_id {
-        let marks = load_persisted_marks();
+        let marks = if recalibrated { Vec::new() } else { load_persisted_marks() };
         if let Some(found) = marks.into_iter().find(|e| e.mark == m_id) {
             (found, None)
         } else {
@@ -362,12 +413,20 @@ pub fn click_ui_element_ext(
         }
     } else if let Some(q) = name_query {
         let ui = inspect_window_ui(window_addr, Some(q), 80)?;
-        let found = pick_named_element(&ui.elements, q).ok_or_else(|| {
+        let mut found = pick_named_element(&ui.elements, q).ok_or_else(|| {
             anyhow!(
                 "`{}` adında erişilebilir UI elemanı bulunamadı (Görsel Set-of-Marks için `pc-eye vision --marks` çalıştırın)",
                 q
             )
         })?;
+        // Metin yazılacak ama ad bir etikete denk geldiyse aynı satırdaki düzenlenebilir alan hedeftir.
+        if set_text.is_some() && !is_editable(&found) {
+            if let Ok(full) = inspect_window_ui(window_addr, None, 150) {
+                if let Some(c) = control_beside(&full.elements, &found, is_editable) {
+                    found = c;
+                }
+            }
+        }
         (found, Some(ui.window_geometry))
     } else {
         return Err(anyhow!("`click-ui` için `--name` veya `--mark` belirtilmelidir"));
@@ -379,6 +438,21 @@ pub fn click_ui_element_ext(
 
     if let Some(txt) = set_text {
         let has_dbus = !matched.dbus_service.is_empty();
+        // Sayısal kontrol: değer doğrudan yazılır (metin + Enter yedeği aşağıda).
+        if has_dbus && is_numeric_control(&matched) {
+            if let Ok(v) = txt.trim().replace(',', ".").parse::<f64>() {
+                if crate::eyes::ui_atspi::atspi_set_value(&matched.dbus_service, &matched.dbus_path, v) {
+                    return Ok(ActionReceipt {
+                        ok: true,
+                        action: "set_ui_value_dbus".to_string(),
+                        target: target.clone(),
+                        coordinates: Some([cx, cy]),
+                        details: format!("AT-SPI Value ile değer {} yapıldı (geri okunarak doğrulandı)", txt),
+                        verification: None,
+                    });
+                }
+            }
+        }
         let reads_back = |want: &str| {
             has_dbus
                 && crate::eyes::ui_atspi::atspi_read_text(&matched.dbus_service, &matched.dbus_path)
@@ -412,6 +486,10 @@ pub fn click_ui_element_ext(
             thread::sleep(Duration::from_millis(25));
             press_key_combo("ctrl+a", window_addr, allow_protected)?;
             type_text(txt, window_addr, allow_protected)?;
+            if is_numeric_control(&matched) {
+                // Spin button yazılan metni ancak Enter ile değere çevirir.
+                press_key_combo("Return", window_addr, allow_protected)?;
+            }
             let confirmed = reads_back(txt);
             Ok(ActionReceipt {
                 ok: true,
@@ -476,7 +554,47 @@ pub fn click_ui_element_ext(
             verification: None,
         })
     })?;
+
+    // Iskaladıysa nedeni çoğu zaman araç takımının kayık koordinatıdır: pencereyi OCR ile ölç,
+    // kayma bulunursa düzeltilmiş noktaya bir kez daha tıkla. Sonraki okumalar da düzeltilmiş gelir.
+    let missed = verification.as_ref().map_or(false, |v| !v.visible_change);
+    if missed && !use_dbus && !matched.dbus_service.is_empty() {
+        if let Some((addr, geom)) = window_containing(cx, cy) {
+            if let Ok(Some((dx, dy))) = crate::eyes::calibrate::recalibrate(&addr, geom) {
+                let (nx, ny) = (cx + dx, cy + dy);
+                let _ = hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: nx, y: ny });
+                thread::sleep(Duration::from_millis(100));
+                let (retry, retry_verification) = with_verification(region, || {
+                    click_at(Some(nx), Some(ny), button, 1, allow_protected)?;
+                    Ok(ActionReceipt {
+                        ok: true,
+                        action: "click_ui".to_string(),
+                        target: target.clone(),
+                        coordinates: Some([nx, ny]),
+                        details: format!(
+                            "UI elemanı `{}` [mark={}] ({}, {}) koordinatında tıklandı (AT-SPI konumu ({}, {}) kayıktı; OCR ile ölçülen düzeltme {:+}, {:+})",
+                            matched.name, matched.mark, nx, ny, cx, cy, dx, dy
+                        ),
+                        verification: None,
+                    })
+                })?;
+                return Ok(attach_verification(retry, retry_verification));
+            }
+        }
+    }
     Ok(attach_verification(receipt, verification))
+}
+
+/// Noktayı içeren görünür pencere (adres, geometri).
+fn window_containing(x: i64, y: i64) -> Option<(String, [i64; 4])> {
+    let desk = capture_desktop_state().ok()?;
+    let active_ws: Vec<i64> = desk.monitors.iter().map(|m| m.active_workspace_id).collect();
+    desk.windows
+        .iter()
+        .filter(|w| w.mapped && !w.hidden && active_ws.contains(&w.workspace_id))
+        .filter(|w| x >= w.x && x < w.x + w.width && y >= w.y && y < w.y + w.height)
+        .min_by_key(|w| w.width * w.height)
+        .map(|w| (w.address.clone(), [w.x, w.y, w.width, w.height]))
 }
 
 /// Unicode-güvenli metin yazma (`zwp_virtual_keyboard_v1` dinamik XKB keymap ile Türkçe karakterler dahil).

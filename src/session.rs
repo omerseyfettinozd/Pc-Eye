@@ -26,6 +26,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 const START_TIMEOUT: Duration = Duration::from_secs(10);
 pub const DEFAULT_MODE: &str = "1600x900";
 const TAG_VAR: &str = "PC_EYE_SESSION_TAG";
+const START_ATTEMPTS: usize = 3;
 static ACTIVATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn valid_name(name: &str) -> bool {
@@ -211,51 +212,25 @@ fn start_unchecked(name: &str, mode: &str) -> Result<Value> {
     let cfg = dir.join("hyprland.lua");
     std::fs::write(&cfg, config_lua(mode))?;
 
-    let before = instance_dirs();
-    let tag = format!(
-        "{}-{}-{}",
-        name,
-        std::process::id(),
-        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
-    );
-    let launched = hypr_dispatch_cmd(&HyprDispatch::ExecSilent {
-        command: format!("{}={} HYPRLAND_NO_SD_NOTIFY=1 Hyprland -c '{}'", TAG_VAR, tag, cfg.display()),
-        workspace: workspace.clone(),
-    });
-    let (signature, pid, wayland_display) = match launched.and_then(|_| wait_new_instance(&before, &tag)) {
-        Ok(v) => v,
-        Err(e) => {
-            let _ = manage_display("remove", Some(&output), None, None, None);
-            return Err(e);
-        }
-    };
-
-    // İç ekranın boyutu dış penceresininkidir: tam ekranla çıkışın tamamını kaplasın.
-    if let Ok(clients) = crate::eyes::compositor::capture_desktop_state() {
-        if let Some(w) = clients.windows.iter().find(|w| w.pid as i64 == pid) {
-            let _ = hypr_dispatch_cmd(&HyprDispatch::Fullscreen {
-                maximized: false,
-                state: Some(true),
-                window: Some(w.address.clone()),
-            });
-        }
-    }
+    // NVIDIA'da iç örneğin ilk GBM tamponu ara sıra ayrılamıyor ("bo null"): dış pencere hiç
+    // oluşmuyor, iç ekran 0x0 FALLBACK kalıyor (6 açılışta 2). İç ekran istenen boyuta gelmezse
+    // örnek kapatılıp yeniden denenir.
     let want: Vec<i64> = mode.split('x').filter_map(|n| n.parse().ok()).collect();
-    let start = Instant::now();
-    let mut size = Value::Null;
-    while start.elapsed() < Duration::from_secs(3) {
-        if let Some(m) = instance_request(&signature, "j/monitors")
-            .ok()
-            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
-            .and_then(|v| v.as_array().and_then(|a| a.first().cloned()))
-        {
-            size = json!([m["width"], m["height"]]);
-            if want.len() == 2 && m["width"] == want[0] && m["height"] == want[1] {
+    let mut last_err = anyhow!("iç Hyprland açılmadı");
+    let mut launched_instance = None;
+    for _attempt in 0..START_ATTEMPTS {
+        match launch_instance(name, &cfg, &workspace, &want) {
+            Ok(v) => {
+                launched_instance = Some(v);
                 break;
             }
+            Err(e) => last_err = e,
         }
-        thread::sleep(Duration::from_millis(100));
     }
+    let Some((signature, pid, wayland_display, tag, size)) = launched_instance else {
+        let _ = manage_display("remove", Some(&output), None, None, None);
+        return Err(last_err);
+    };
 
     let info = json!({
         "name": name,
@@ -274,6 +249,71 @@ fn start_unchecked(name: &str, mode: &str) -> Result<Value> {
     Ok(info)
 }
 
+/// İç örneği başlatır ve ekranı istenen boyuta gelene kadar bekler; gelmezse örneği kapatır.
+fn launch_instance(
+    name: &str,
+    cfg: &std::path::Path,
+    workspace: &str,
+    want: &[i64],
+) -> Result<(String, i64, String, String, Value)> {
+    let before = instance_dirs();
+    let tag = format!(
+        "{}-{}-{}",
+        name,
+        std::process::id(),
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    );
+    hypr_dispatch_cmd(&HyprDispatch::ExecSilent {
+        command: format!("{}={} HYPRLAND_NO_SD_NOTIFY=1 Hyprland -c '{}'", TAG_VAR, tag, cfg.display()),
+        workspace: workspace.to_string(),
+    })?;
+    let (signature, pid, wayland_display) = wait_new_instance(&before, &tag)?;
+
+    let start = Instant::now();
+    let mut size = Value::Null;
+    let mut fullscreened = false;
+    while start.elapsed() < Duration::from_secs(3) {
+        // İç ekranın boyutu dış penceresininkidir: tam ekranla çıkışın tamamını kaplasın.
+        if !fullscreened {
+            if let Ok(desk) = crate::eyes::compositor::capture_desktop_state() {
+                if let Some(w) = desk.windows.iter().find(|w| w.pid as i64 == pid) {
+                    let _ = hypr_dispatch_cmd(&HyprDispatch::Fullscreen {
+                        maximized: false,
+                        state: Some(true),
+                        window: Some(w.address.clone()),
+                    });
+                    fullscreened = true;
+                }
+            }
+        }
+        if let Some(m) = instance_request(&signature, "j/monitors")
+            .ok()
+            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+            .and_then(|v| v.as_array().and_then(|a| a.first().cloned()))
+        {
+            size = json!([m["width"], m["height"]]);
+            if want.len() == 2 && m["width"] == want[0] && m["height"] == want[1] {
+                return Ok((signature, pid, wayland_display, tag, size));
+            }
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    terminate(pid as i32);
+    Err(anyhow!("iç Hyprland ekranı {:?} boyutuna gelmedi (son: {})", want, size))
+}
+
+fn terminate(pid: i32) {
+    unsafe { libc::kill(pid, libc::SIGTERM) };
+    let start = Instant::now();
+    while start.elapsed() < Duration::from_secs(4) && unsafe { libc::kill(pid, 0) } == 0 {
+        thread::sleep(Duration::from_millis(50));
+    }
+    if unsafe { libc::kill(pid, 0) } == 0 {
+        unsafe { libc::kill(pid, libc::SIGKILL) };
+        thread::sleep(Duration::from_millis(200));
+    }
+}
+
 /// Oturumu kapatır: önce iç Hyprland (pencere çıkış silinmeden gitsin, yoksa kullanıcının
 /// çalışma alanına taşınır), sonra headless çıkış.
 pub fn stop(name: &str) -> Result<Value> {
@@ -285,15 +325,7 @@ pub fn stop(name: &str) -> Result<Value> {
     let mut killed = false;
     // PID yeniden kullanılmış olabilir: yalnız bu oturumun etiketini taşıyan süreç öldürülür.
     if pid > 0 && has_tag(pid as i64, info["tag"].as_str().unwrap_or("")) {
-        unsafe { libc::kill(pid, libc::SIGTERM) };
-        let start = Instant::now();
-        while start.elapsed() < Duration::from_secs(4) && unsafe { libc::kill(pid, 0) } == 0 {
-            thread::sleep(Duration::from_millis(50));
-        }
-        if unsafe { libc::kill(pid, 0) } == 0 {
-            unsafe { libc::kill(pid, libc::SIGKILL) };
-            thread::sleep(Duration::from_millis(200));
-        }
+        terminate(pid);
         killed = true;
     }
     // Oturumun daemon'u kendi Hyprland'ı gidince işe yaramaz.

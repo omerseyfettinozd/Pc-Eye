@@ -120,6 +120,19 @@ pub async fn do_action(conn: &Connection, service: &str, path: &str, index: i32)
     call(conn, service, path, "org.a11y.atspi.Action", "DoAction", &(index,)).await
 }
 
+pub async fn current_value(conn: &Connection, service: &str, path: &str) -> Option<f64> {
+    property(conn, service, path, "org.a11y.atspi.Value", "CurrentValue")
+        .await
+        .and_then(|v| f64::try_from(v).ok())
+}
+
+pub async fn set_current_value(conn: &Connection, service: &str, path: &str, value: f64) -> bool {
+    let v = zbus::zvariant::Value::from(value);
+    conn.call_method(Some(service), path, Some(PROPERTIES), "Set", &("org.a11y.atspi.Value", "CurrentValue", v))
+        .await
+        .is_ok()
+}
+
 pub async fn set_text_contents(conn: &Connection, service: &str, path: &str, text: &str) -> Option<bool> {
     call(conn, service, path, "org.a11y.atspi.EditableText", "SetTextContents", &(text,)).await
 }

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>{title}</title>
+<style>body{font:18px sans-serif;margin:32px} label{display:block;margin:12px 0} #durum{margin-top:16px;font-weight:bold}</style>
+<h1>İade talebi</h1>
+<form id="f">
+  <label>Sipariş No <input name="order" autocomplete="off"></label>
+  <label>Tutar <input name="amount" autocomplete="off"></label>
+  <button type="submit">Gönder</button>
+</form>
+<p id="durum" role="status"></p>
+<script>
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const r = await fetch("/submit", { method: "POST", body: JSON.stringify({ order: f.order.value.trim(), amount: f.amount.value.trim() }) });
+  document.getElementById("durum").textContent = r.ok ? "Talep alındı" : "Hata";
+});
+</script>
+</html>

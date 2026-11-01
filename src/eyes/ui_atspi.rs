@@ -173,6 +173,11 @@ pub fn inspect_window_ui(
         }
     }
 
+    // Bu pencere için ölçülmüş AT-SPI kayması varsa uygulanır (bkz. `calibrate`).
+    if let Some(offset) = crate::eyes::calibrate::offset_for(&win.address, win.pid as i64, win_geom) {
+        crate::eyes::calibrate::apply(&mut elements, offset);
+    }
+
     // V4 Yükseltmesi (TRIVIAL ağaç düzeltmesi): AT-SPI2 ağacı "boş" olmasa bile ANLAMLI İÇERİK taşımıyorsa
     // (ör. WebKitGTK/Tauri yalnızca tek bir "frame" düğümü yayınlar; ad/değer yok, koordinat yok) OCR geri
     // dönüşünü DENE. Kapı `elements.is_empty()` yerine "içerikli eleman sayısı" ölçütüne bağlandı.
@@ -722,6 +727,18 @@ pub fn atspi_read_text(service: &str, path: &str) -> Option<String> {
     atspi_bus::block_on(atspi_bus::text_or_value(conn, service, path))
 }
 
+/// Sayısal kontrolün (spin button, kaydırıcı) değerini `Value.CurrentValue` ile yazar ve geri okur.
+/// Metin yazmak GTK4 spin button'da değeri işlemiyordu (Enter ya da odak kaybı gerekir).
+pub fn atspi_set_value(service: &str, path: &str, value: f64) -> bool {
+    let Ok(conn) = atspi_bus::connection() else { return false };
+    atspi_bus::block_on(async {
+        atspi_bus::set_current_value(conn, service, path, value).await
+            && atspi_bus::current_value(conn, service, path)
+                .await
+                .map_or(false, |v| (v - value).abs() < 1e-6)
+    })
+}
+
 /// Düzenlenebilir bir AT-SPI metin kutusunun içeriğini doğrudan D-Bus (`EditableText.SetTextContents`) üzerinden değiştirir.
 pub fn atspi_set_editable_text(service: &str, path: &str, new_text: &str) -> Result<bool> {
     let conn = atspi_bus::connection()?;
@@ -833,6 +850,9 @@ fn is_interactive_role(role: &str) -> bool {
             | "page tab"
             | "slider"
             | "spin button"
+            | "switch"
+            | "text box"
+            | "menu button"
     )
 }
 

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>{title}</title>
+<style>body{font:18px sans-serif;margin:32px} label{display:block;margin:12px 0} #durum{margin-top:16px;font-weight:bold}</style>
+<h1>İletişim bilgileri</h1>
+<form id="f" novalidate>
+  <label>Telefon <input name="phone" autocomplete="off"></label>
+  <label>E-posta <input name="email" autocomplete="off"></label>
+  <button type="submit">Kaydet</button>
+</form>
+<p id="durum" role="status"></p>
+<script>
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target, durum = document.getElementById("durum");
+  const phone = f.phone.value, email = f.email.value.trim();
+  // Bilerek katı: görevdeki biçim ("0532 123 45 67") reddedilir, ajan hatayı okuyup düzeltmeli.
+  if (!/^[1-9][0-9]{9}$/.test(phone)) { durum.textContent = "Hata: Telefon 10 haneli olmalı (başında 0 olmadan, boşluksuz)"; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(email)) { durum.textContent = "Hata: E-posta geçersiz"; return; }
+  const r = await fetch("/submit", { method: "POST", body: JSON.stringify({ phone, email }) });
+  durum.textContent = r.ok ? "Kaydedildi" : "Hata";
+});
+</script>
+</html>

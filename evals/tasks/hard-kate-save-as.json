@@ -1,0 +1,37 @@
+{
+  "id": "hard-kate-save-as",
+  "scene": "kate",
+  "tags": [
+    "hard",
+    "real-app",
+    "qt",
+    "dialogs"
+  ],
+  "prompt": "Kate'te açık \"{file}\" dosyasının sonuna yeni bir satır olarak tam olarak şu metni ekle: {line}\nSonra dosyayı \"Farklı Kaydet\" ile aynı klasöre \"{new_name}\" adıyla kaydet.",
+  "probe": [
+    {
+      "args": [
+        "snapshot",
+        "--window",
+        "{file}"
+      ],
+      "expect_contains": [
+        "{file}"
+      ]
+    }
+  ],
+  "probe_check": {
+    "type": "none"
+  },
+  "check": {
+    "type": "files",
+    "expect": {
+      "exists": [
+        "{new_path}"
+      ],
+      "contains": {
+        "{new_path}": "{line}"
+      }
+    }
+  }
+}

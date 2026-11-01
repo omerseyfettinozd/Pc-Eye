@@ -1,0 +1,41 @@
+{
+  "id": "hard-dolphin-move",
+  "scene": "dolphin",
+  "tags": [
+    "hard",
+    "real-app",
+    "qt",
+    "files"
+  ],
+  "prompt": "Dolphin'de açık \"{title}\" klasörünün alt klasörlerinden birinde {file} adlı bir dosya var. Bu dosyayı aynı kök klasördeki Arşiv klasörüne taşı (kopyalama değil, taşıma).",
+  "probe": [
+    {
+      "args": [
+        "snapshot",
+        "--window",
+        "{title}"
+      ],
+      "expect_contains": [
+        "Arşiv",
+        "Belgeler"
+      ]
+    }
+  ],
+  "probe_check": {
+    "type": "none"
+  },
+  "check": {
+    "type": "files",
+    "expect": {
+      "exists": [
+        "{dest}"
+      ],
+      "absent": [
+        "{src}"
+      ],
+      "contains": {
+        "{dest}": "{content}"
+      }
+    }
+  }
+}

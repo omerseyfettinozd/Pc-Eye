@@ -95,7 +95,7 @@ class TaskFileTests(unittest.TestCase):
         ids = [t["id"] for t in tasks]
         self.assertEqual(len(ids), len(set(ids)))
         for t in tasks:
-            self.assertIn(t["check"]["type"], ("out_json", "answer", "none"))
+            self.assertIn(t["check"]["type"], ("out_json", "answer", "none", "files"))
             self.assertTrue(t.get("prompt") or t.get("probe"), t["id"])
 
 
@@ -110,4 +110,19 @@ class RedactTest(unittest.TestCase):
         red = ev.redact_user_titles(out, scene)
         self.assertIn("Eval Form AB12", red)
         self.assertNotIn("Banka", red)
+
+
+class FilesCheckTest(unittest.TestCase):
+    def test_files_check(self):
+        with tempfile.TemporaryDirectory() as d:
+            a, b = Path(d) / "a.txt", Path(d) / "b.txt"
+            b.write_text("merhaba dünya", encoding="utf-8")
+            ok, _ = ev.check_files({"exists": [str(b)], "absent": [str(a)], "contains": {str(b): "dünya"}})
+            self.assertTrue(ok)
+            ok, detail = ev.check_files({"exists": [str(a)]})
+            self.assertFalse(ok)
+            self.assertIn("a.txt", detail)
+
+    def test_fill_fills_dict_keys(self):
+        self.assertEqual(ev.fill({"{p}": "{v}"}, {"p": "/x", "v": "y"}), {"/x": "y"})
 

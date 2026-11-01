@@ -1,0 +1,741 @@
+{
+ "tier": "agent",
+ "started": "20261101-112554",
+ "seed": 844454029,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "f41f1c6",
+ "summary": {
+  "tasks": [
+   {
+    "task": "crash-signal",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 10669.2,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 29585,
+    "median_output_tokens": 840,
+    "cost_usd": 0.0077
+   },
+   {
+    "task": "logs-journal",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 8038.0,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 27847,
+    "median_output_tokens": 399,
+    "cost_usd": 0.0055
+   },
+   {
+    "task": "ocr-canvas-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 8330.5,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 26015,
+    "median_output_tokens": 458,
+    "cost_usd": 0.0048
+   },
+   {
+    "task": "terminal-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 8999.3,
+    "median_turns": 2,
+    "median_tool_calls": 1,
+    "median_input_tokens": 16597,
+    "median_output_tokens": 301,
+    "cost_usd": 0.004
+   },
+   {
+    "task": "ui-click-button",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 7919.2,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 27677,
+    "median_output_tokens": 299,
+    "cost_usd": 0.0045
+   },
+   {
+    "task": "ui-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 21373.5,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 50033,
+    "median_output_tokens": 949,
+    "cost_usd": 0.0078
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 18664.5,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 77823,
+    "median_output_tokens": 1203,
+    "cost_usd": 0.013
+   },
+   {
+    "task": "web-table-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 6706.2,
+    "median_turns": 2,
+    "median_tool_calls": 1,
+    "median_input_tokens": 17934,
+    "median_output_tokens": 212,
+    "cost_usd": 0.0044
+   },
+   {
+    "task": "xray-port",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 7520.2,
+    "median_turns": 2,
+    "median_tool_calls": 1,
+    "median_input_tokens": 16340,
+    "median_output_tokens": 344,
+    "cost_usd": 0.0033
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0548
+ },
+ "runs": [
+  {
+   "task": "crash-signal",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-crash-3xme",
+    "signal": "SIGFPE",
+    "signal_short": "FPE",
+    "crash_pid": 2656386,
+    "signal_num": 8
+   },
+   "ok": true,
+   "detail": "cevap='SIGFPE'",
+   "ms": 13522.4,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00330103,
+   "input_tokens": 29901,
+   "output_tokens": 1085,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_logs": 2,
+    "pc_eye_processes": 1
+   }
+  },
+  {
+   "task": "crash-signal",
+   "attempt": 1,
+   "vars": {
+    "marker": "eval-crash-nydp",
+    "signal": "SIGSEGV",
+    "signal_short": "SEGV",
+    "crash_pid": 2657053,
+    "signal_num": 11
+   },
+   "ok": true,
+   "detail": "cevap='SIGSEGV'",
+   "ms": 10669.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00234393,
+   "input_tokens": 29585,
+   "output_tokens": 840,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_logs": 2,
+    "pc_eye_processes": 1
+   }
+  },
+  {
+   "task": "crash-signal",
+   "attempt": 2,
+   "vars": {
+    "marker": "eval-crash-22gd",
+    "signal": "SIGBUS",
+    "signal_short": "BUS",
+    "crash_pid": 2657576,
+    "signal_num": 7
+   },
+   "ok": true,
+   "detail": "cevap='SIGBUS'",
+   "ms": 9525.5,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00207588,
+   "input_tokens": 28956,
+   "output_tokens": 679,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_logs": 2,
+    "pc_eye_processes": 1
+   }
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 0,
+   "vars": {
+    "tag": "eval-87av",
+    "token": "A28WVNYG"
+   },
+   "ok": true,
+   "detail": "cevap='A28WVNYG'",
+   "ms": 10816.2,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00190707,
+   "input_tokens": 27788,
+   "output_tokens": 679,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_logs": 2
+   }
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 1,
+   "vars": {
+    "tag": "eval-tp3l",
+    "token": "4JWU448W"
+   },
+   "ok": true,
+   "detail": "cevap='4JWU448W'",
+   "ms": 6793.0,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0018426599999999999,
+   "input_tokens": 28184,
+   "output_tokens": 399,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_logs": 2
+   }
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 2,
+   "vars": {
+    "tag": "eval-79cp",
+    "token": "H33UF4HR"
+   },
+   "ok": true,
+   "detail": "cevap='H33UF4HR'",
+   "ms": 8038.0,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00175723,
+   "input_tokens": 27847,
+   "output_tokens": 358,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_logs": 2
+   }
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 0,
+   "vars": {
+    "token": "6CF-N48L",
+    "pid": 2659470,
+    "title": "Eval Tuval CFRW",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "cevap='6CF-N48L'",
+   "ms": 8330.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00143494,
+   "input_tokens": 26015,
+   "output_tokens": 458,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_vision": 1
+   }
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 1,
+   "vars": {
+    "token": "9N3-T2XW",
+    "pid": 2659972,
+    "title": "Eval Tuval 76LG",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "cevap='9N3-T2XW'",
+   "ms": 10662.0,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0019222700000000002,
+   "input_tokens": 37108,
+   "output_tokens": 835,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_vision": 3
+   }
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 2,
+   "vars": {
+    "token": "A9K-4P6X",
+    "pid": 2660594,
+    "title": "Eval Tuval HNMT",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "cevap='A9K-4P6X'",
+   "ms": 7857.4,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0014081900000000001,
+   "input_tokens": 26002,
+   "output_tokens": 404,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_vision": 1
+   }
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 0,
+   "vars": {
+    "token": "KX48UWG7",
+    "pid": 2661141,
+    "title": "Eval Terminal LPPD"
+   },
+   "ok": true,
+   "detail": "cevap='KX48UWG7'",
+   "ms": 5137.2,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.0011247100000000001,
+   "input_tokens": 16597,
+   "output_tokens": 301,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_snapshot": 1
+   }
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 1,
+   "vars": {
+    "token": "6GF9J78C",
+    "pid": 2661542,
+    "title": "Eval Terminal 4MPW"
+   },
+   "ok": true,
+   "detail": "cevap='6GF9J78C'",
+   "ms": 8999.3,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.00105871,
+   "input_tokens": 16577,
+   "output_tokens": 177,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_snapshot": 1
+   }
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 2,
+   "vars": {
+    "token": "HTAVVTDR",
+    "pid": 2662099,
+    "title": "Eval Terminal 7YFL"
+   },
+   "ok": true,
+   "detail": "cevap='HTAVVTDR'",
+   "ms": 13406.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0017987100000000002,
+   "input_tokens": 29641,
+   "output_tokens": 399,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_ui": 1
+   }
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 0,
+   "vars": {
+    "target": "Çınar",
+    "pid": 2662841,
+    "title": "Eval Düğmeler HK7P"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 8770.4,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0016547000000000003,
+   "input_tokens": 27758,
+   "output_tokens": 366,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 1
+   }
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 1,
+   "vars": {
+    "target": "Ördek",
+    "pid": 2663403,
+    "title": "Eval Düğmeler 9EJH"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 7919.2,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0016042399999999998,
+   "input_tokens": 27677,
+   "output_tokens": 299,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 1
+   }
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 2,
+   "vars": {
+    "target": "Şeftali",
+    "pid": 2663891,
+    "title": "Eval Düğmeler UJ38"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 7462.1,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.00122119,
+   "input_tokens": 17345,
+   "output_tokens": 194,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_click_ui": 1
+   }
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Şükrü Çelik",
+    "city": "Muğla",
+    "default_city": "Şanlıurfa",
+    "pid": 2664385,
+    "title": "Eval Form VCRJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19382.1,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0023605600000000003,
+   "input_tokens": 50033,
+   "output_tokens": 923,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1,
+    "pc_eye_click_ui": 1,
+    "pc_eye_vision": 1
+   }
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Doğan Çelik",
+    "city": "İzmir",
+    "default_city": "Muğla",
+    "pid": 2665386,
+    "title": "Eval Form GYL7"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 21373.5,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00235599,
+   "input_tokens": 49872,
+   "output_tokens": 949,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1,
+    "pc_eye_click_ui": 1,
+    "pc_eye_vision": 1
+   }
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "Gülşen Çelik",
+    "city": "İstanbul",
+    "default_city": "Şanlıurfa",
+    "pid": 2666484,
+    "title": "Eval Form Y34E"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 22444.9,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0030387800000000005,
+   "input_tokens": 62274,
+   "output_tokens": 1188,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1,
+    "pc_eye_vision": 1,
+    "pc_eye_logs": 1
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Öykü Yıldız",
+    "city": "Ankara",
+    "default_city": "İstanbul",
+    "title": "Eval Web Form LJ47",
+    "pid": 2667627
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 21282.9,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0046110000000000005,
+   "input_tokens": 77823,
+   "output_tokens": 1203,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 2,
+    "pc_eye_vision": 1,
+    "pc_eye_ui": 1
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Doğan Yıldız",
+    "city": "Şanlıurfa",
+    "default_city": "Muğla",
+    "title": "Eval Web Form V6LW",
+    "pid": 2669595
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 18664.5,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00293668,
+   "input_tokens": 56786,
+   "output_tokens": 1100,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1,
+    "pc_eye_click_ui": 1,
+    "pc_eye_vision": 1
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "Ilgın Yıldız",
+    "city": "Şanlıurfa",
+    "default_city": "İzmir",
+    "title": "Eval Web Form 2R4K",
+    "pid": 2671395
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 18489.9,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.005427250000000001,
+   "input_tokens": 119723,
+   "output_tokens": 1377,
+   "tool_calls": 7,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1,
+    "pc_eye_vision": 3,
+    "pc_eye_click_ui": 2
+   }
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Cetvel",
+    "price": "187,89 TL",
+    "title": "Eval Fiyatlar 9TFP",
+    "pid": 2673294
+   },
+   "ok": true,
+   "detail": "cevap='187,89 TL'",
+   "ms": 6706.2,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.00134039,
+   "input_tokens": 17934,
+   "output_tokens": 212,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_snapshot": 1
+   }
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 1,
+   "vars": {
+    "item": "Pergel",
+    "price": "34,57 TL",
+    "title": "Eval Fiyatlar FX87",
+    "pid": 2674627
+   },
+   "ok": true,
+   "detail": "cevap='34,57 TL'",
+   "ms": 8444.0,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00173253,
+   "input_tokens": 28814,
+   "output_tokens": 507,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_window": 1,
+    "pc_eye_vision": 1
+   }
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 2,
+   "vars": {
+    "item": "Kalem",
+    "price": "55,27 TL",
+    "title": "Eval Fiyatlar KJCE",
+    "pid": 2675994
+   },
+   "ok": true,
+   "detail": "cevap='55,27 TL'",
+   "ms": 6486.3,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.00131663,
+   "input_tokens": 17867,
+   "output_tokens": 189,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_snapshot": 1
+   }
+  },
+  {
+   "task": "xray-port",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-svc-wrk9",
+    "port": "25792",
+    "pid": 2677273
+   },
+   "ok": true,
+   "detail": "cevap='25792'",
+   "ms": 7520.2,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.0010951000000000001,
+   "input_tokens": 16340,
+   "output_tokens": 348,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_processes": 1
+   }
+  },
+  {
+   "task": "xray-port",
+   "attempt": 1,
+   "vars": {
+    "marker": "eval-svc-uxdu",
+    "port": "58306",
+    "pid": 2677814
+   },
+   "ok": true,
+   "detail": "cevap='58306'",
+   "ms": 7891.2,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.0010744400000000003,
+   "input_tokens": 16348,
+   "output_tokens": 305,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_processes": 1
+   }
+  },
+  {
+   "task": "xray-port",
+   "attempt": 2,
+   "vars": {
+    "marker": "eval-svc-dh94",
+    "port": "56264",
+    "pid": 2678391
+   },
+   "ok": true,
+   "detail": "cevap='56264'",
+   "ms": 6768.8,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.0010925000000000002,
+   "input_tokens": 16337,
+   "output_tokens": 344,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_processes": 1
+   }
+  }
+ ]
+}

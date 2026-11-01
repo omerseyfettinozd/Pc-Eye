@@ -8,7 +8,7 @@
     {
       "args": [
         "run",
-        "{\"window\": \"{title}\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"{name}\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"{default_city}\", \"option\": \"{city}\"}, {\"click\": \"Gönder\"}]}"
+        "{\"window\": \"{title}\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"{name}\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"{default_city}\", \"option\": \"{city}\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
       ],
       "expect_contains": [
         "\"ok\": true",

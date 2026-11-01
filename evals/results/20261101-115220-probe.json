@@ -1,0 +1,1042 @@
+{
+ "tier": "probe",
+ "started": "20261101-115220",
+ "seed": 67581107,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "1fbbcad",
+ "summary": {
+  "tasks": [
+   {
+    "task": "crash-signal",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 32.4
+   },
+   {
+    "task": "key-shortcut-modifiers",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 1870.9
+   },
+   {
+    "task": "logs-journal",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 42.8
+   },
+   {
+    "task": "ocr-canvas-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 601.2
+   },
+   {
+    "task": "recipe-replay-cli",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 9095.6
+   },
+   {
+    "task": "recipe-web-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 5794.1
+   },
+   {
+    "task": "run-gtk-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 4967.1
+   },
+   {
+    "task": "run-stops-on-failure",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 1119.6
+   },
+   {
+    "task": "run-web-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 5169.7
+   },
+   {
+    "task": "snapshot-delta",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 684.8
+   },
+   {
+    "task": "snapshot-latency",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 105.7
+   },
+   {
+    "task": "terminal-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 2942.5
+   },
+   {
+    "task": "ui-click-button-dbus",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 377.1
+   },
+   {
+    "task": "ui-click-button",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 643.1
+   },
+   {
+    "task": "ui-click-miss-detect",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 1146.0
+   },
+   {
+    "task": "ui-form-fill",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 4366.2
+   },
+   {
+    "task": "vision-window-region",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 45.8
+   },
+   {
+    "task": "vision-window-zoom",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 38.2
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 5146.9
+   },
+   {
+    "task": "web-table-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 77.4
+   },
+   {
+    "task": "xray-port",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 55.8
+   }
+  ],
+  "pass_rate": 0.952,
+  "total_cost_usd": 0
+ },
+ "runs": [
+  {
+   "task": "crash-signal",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-crash-f4x2",
+    "signal": "SIGFPE",
+    "signal_short": "FPE",
+    "crash_pid": 2772129,
+    "signal_num": 8
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 32.4,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 32.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "key-shortcut-modifiers",
+   "attempt": 0,
+   "vars": {
+    "name": "Öykü Çelik",
+    "city": "Ankara",
+    "default_city": "İstanbul",
+    "title": "Eval Web Form NE93",
+    "pid": 2772168
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1870.9,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form NE93",
+      "--name",
+      "Ad Soyad"
+     ],
+     "rc": 0,
+     "ms": 699.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "silinecek",
+      "--window",
+      "Eval Web Form NE93"
+     ],
+     "rc": 0,
+     "ms": 41.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "key",
+      "--keys",
+      "ctrl+a",
+      "--window",
+      "Eval Web Form NE93"
+     ],
+     "rc": 0,
+     "ms": 34.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "input",
+      "type",
+      "--text",
+      "Öykü Çelik",
+      "--window",
+      "Eval Web Form NE93"
+     ],
+     "rc": 0,
+     "ms": 40.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form NE93",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1053.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 0,
+   "vars": {
+    "tag": "eval-hfah",
+    "token": "HRE2WCXJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 42.8,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 42.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 0,
+   "vars": {
+    "token": "XCV-NWHE",
+    "pid": 2773232,
+    "title": "Eval Tuval LWL8",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 601.2,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Tuval LWL8"
+     ],
+     "rc": 0,
+     "ms": 520.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeaf5387c0"
+     ],
+     "rc": 0,
+     "ms": 80.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "recipe-replay-cli",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Güneş",
+    "city": "İzmir",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form WPWA",
+    "pid": 2774502
+   },
+   "ok": false,
+   "detail": "recipe:yavaş: 8971 ms > 8000 ms",
+   "ms": 9095.6,
+   "steps": [
+    {
+     "args": [
+      "recipe",
+      "list",
+      "--window",
+      "Eval Web Form WPWA"
+     ],
+     "rc": 0,
+     "ms": 124.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "recipe",
+      "run",
+      "Ad Soyad",
+      "--window",
+      "Eval Web Form WPWA",
+      "--arg",
+      "Ad Soyad=Ümit Güneş",
+      "--arg",
+      "Şehir=İzmir"
+     ],
+     "rc": 0,
+     "ms": 8971.2,
+     "ok": false,
+     "note": "yavaş: 8971 ms > 8000 ms",
+     "stdout": "{\n  \"after\": {\n    \"daemon_running\": true,\n    \"hint\": \"click-ui --mark N veya --name ile tıkla. Sonraki çağrıda since=<snap> yalnız değişenleri, seq_since=<seq> yalnız yeni pencere olaylarını verir. Arka plan için processes/logs/xray.\",\n    \"monitors\": [\n      {\n        \"focused\": false,\n        \"name\": \"eDP-1\",\n        \"size\": [\n          2560,\n          1600\n        ],\n        \"workspace\": 1\n      },\n      {\n        \"focused\": true,\n        \"name\": \"PCEYE-EVAL\",\n        \"size\": [\n          1600,\n          900\n        ],\n        \"workspace\": 2\n      }\n    ],\n    \"seq\": 81938,\n    \"snap\": 1,\n    \"target\": {\n      \"address\": \"0x55aeaf5598f0\",\n      \"class\": \"firefox\",\n      \"elements\": [\n        {\n          \"at\": [\n            4360,\n            450\n          ],\n          \"mark\": 40,\n          \"name\": \"Eval Web Form WPWA\",\n          \"role\": \"document web\"\n        },\n        {\n          \"at\": [\n            4360,\n            56\n          ],\n          \"mark\": 41,\n          \"name\": \"Sipariş formu\",\n          \"role\": \"heading\"\n        },\n        {\n          \"at\": [\n            4360,\n            271\n          ],\n          \"mark\": 71,\n          \"name\": \"Kaydedildi\",\n          \"role\": \"statusbar\"\n        },\n        {\n          \"at\": [\n            4360,\n            118\n          ],\n          \"mark\": 42,\n          \"name\": \"Ad Soyad Ümit Güneş\",\n          \"role\": \"label\"\n        },\n        {\n          \"at\": [\n            4360,\n            155\n          ],\n          \"mark\": 43,\n          \"name\": \"Bültene abone ol\",\n          \"role\": \"label\"\n        },\n        {\n          \"at\": [\n            4360,\n            192\n          ],\n          \"mark\": 44,\n          \"name\": \"Şehir İzmir\",\n          \"role\": \"label\"\n        },\n        {\n          \"at\": [\n            3621,\n            232\n          ],\n          \"mark\": 45,\n          \"name\": \"Gönder\",\n          \"role\": \"button\",\n          \"states\": [\n            \"focused\"\n          ]\n        },\n        {\n          \"at\": [\n            3776,\n            120\n          ],\n          \"mark\": 46,\n          \"name\": \"Ad Soyad\",\n          \"role\": \"entry\",\n          \"states\": [\n            \"editable\"\n          ],\n          \"value\": \"Ümit Güneş\"\n        },\n        {\n          \"at\": [\n            3603,\n            156\n          ],\n          \"mark\": 47,\n          \"name\": \"Bültene abone ol\",\n          \"role\": \"check box\",\n          \"states\": [\n            \"checked\"\n          ]\n        },\n        {\n          \"at\": [\n            3688,\n            194\n          ],\n          \"mark\": 48,\n          \"name\": \"Şehir\",\n          \"role\": \"combo box\"\n        },\n        {\n          \"at\": [\n            4360,\n            450\n          ],\n          \"mark\": 49,\n          \"name\": \"Eval Web Form WPWA — Mozilla Firefox\",\n          \"role\": \"frame\"\n        },\n        {\n          \"at\": [\n            4360,\n            -62\n          ],\n          \"mark\": 50,\n          \"name\": \"Tarayıcı sekmeleri\",\n          \"role\": \"tool bar\"\n        },\n        {\n          \"at\": [\n            4360,\n            -20\n          ],\n          \"mark\": 51,\n          \"name\": \"Gezinme\",\n          \"role\": \"tool bar\"\n        },\n        {\n          \"at\": [\n            5058,\n            -62\n          ],\n          \"mark\": 52,\n          \"name\": \"Tüm sekmeleri listele\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            5089,\n            -62\n          ],\n          \"mark\": 53,\n          \"name\": \"Küçült\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            5116,\n            -62\n          ],\n          \"mark\": 54,\n          \"name\": \"Geri küçült\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            5145,\n            -62\n          ],\n          \"mark\": 55,\n          \"name\": \"Kapat\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            3580,\n            -20\n          ],\n          \"mark\": 56,\n          \"name\": \"Kenar çubukları\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            3618,\n            -20\n          ],\n          \"mark\": 57,\n          \"name\": \"Geri\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            3654,\n            -20\n          ],\n          \"mark\": 58,\n          \"name\": \"İleri\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            3690,\n            -20\n          ],\n          \"mark\": 59,\n          \"name\": \"Tazele\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            5066,\n            -20\n          ],\n          \"mark\": 60,\n          \"name\": \"Hesap\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            5102,\n            -20\n          ],\n          \"mark\": 61,\n          \"name\": \"Uzantılar\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            5140,\n            -20\n          ],\n          \"mark\": 62,\n          \"name\": \"Firefox\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            3672,\n            -62\n          ],\n          \"mark\": 63,\n          \"name\": \"Eval Web Form WPWA\",\n          \"role\": \"page tab\",\n          \"states\": [\n            \"selected\"\n          ]\n        },\n        {\n          \"at\": [\n            3803,\n            -62\n          ],\n          \"mark\": 64,\n          \"name\": \"Yeni sekme aç (Ctrl+T)\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            3841,\n            -20\n          ],\n          \"mark\": 65,\n          \"name\": \"Site bilgilerini göster\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            4378,\n            -20\n          ],\n          \"mark\": 66,\n          \"name\": \"Google ile arama yapın veya adres yazın\",\n          \"role\": \"combo box\",\n          \"states\": [\n            \"editable\"\n          ],\n          \"value\": \"http://127.0.0.1:35657\"\n        },\n        {\n          \"at\": [\n            4915,\n            -20\n          ],\n          \"mark\": 67,\n          \"name\": \"Bu sayfayı yer imlerine ekle (Ctrl+D)\",\n          \"role\": \"button\"\n        },\n        {\n          \"at\": [\n            3769,\n            -62\n          ],\n          \"mark\": 68,\n          \"name\": \"Sekmeyi kapat\",\n          \"role\": \"button\"\n        }\n      ],\n      \"perception\": \"at-spi2\",\n      \"title\": \"Eval Web Form WPWA — Mozilla Firefox\"\n    },\n    \"windows\": [\n      {\n        \"address\": \"0x55aeaf5598f0\",\n        \"class\": \"firefox\",\n        \"focused\": true,\n        \"geometry\": [\n          3560,\n          0,\n          1600,\n          900\n        ],\n        \"title\": \"Eval Web Form WPWA — Mozilla Firefox\",\n        \"workspace\": 2\n      },\n      {\n        \"address\": \"0x55aeaed799d0\",\n        \"class\": \"com.anthropic.Claude\",\n        \"focused\": false,\n        \"geometry\": [\n          12,\n          52,\n          2536,\n          1536\n        ],\n        \"title\": \"Claude\",\n        \"workspace\": 1\n      }\n    ]\n  },\n  \"completed\": 4,\n  \"elapsed_ms\": 8934,\n  \"ok\": true,\n  \"recipe\": \"rdd4e617\",\n  \"steps\": [\n    {\n      \"ms\": 973,\n      \"ok\": true,\n      \"op\": \"set\",\n      \"step\": 1,\n      \"target\": \"Ad Soyad\"\n    },\n    {\n      \"ms\": 1029,\n      \"ok\": true,\n      \"op\": \"click\",\n      \"step\": 2,\n      \"target\": \"Bültene abone ol\"\n    },\n    {\n      \"ms\": 2238,\n      \"ok\": true,\n      \"op\": \"select\",\n      \"step\": 3,\n      \"target\": \"Şehir → İzmir\"\n    },\n    {\n      \"expect\": \"göründü `Kaydedildi` (3555 ms)\",\n      \"ms\": 4693,\n      \"ok\": true,\n      \"op\": \"click\",\n      \"step\": 4,\n      \"target\": \"Gönder\"\n    }\n  ],\n  \"total\": 4\n}\n"
+    }
+   ]
+  },
+  {
+   "task": "recipe-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "İlkay Yıldız",
+    "city": "Çanakkale",
+    "default_city": "Ankara",
+    "title": "Eval Web Form 3JRU",
+    "pid": 2776884
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5794.1,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Web Form 3JRU"
+     ],
+     "rc": 0,
+     "ms": 91.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form 3JRU\", \"recipe\": \"Ad Soyad\", \"args\": {\"Ad Soyad\": \"İlkay Yıldız\", \"Şehir\": \"Çanakkale\"}}"
+     ],
+     "rc": 0,
+     "ms": 5702.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "run-gtk-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Şükrü Işık",
+    "city": "İstanbul",
+    "default_city": "Şanlıurfa",
+    "pid": 2778000,
+    "title": "Eval Form H4EP"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 4967.1,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Form H4EP\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Şükrü Işık\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Şanlıurfa\", \"option\": \"İstanbul\"}, {\"click\": \"Gönder\"}]}"
+     ],
+     "rc": 0,
+     "ms": 4967.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "run-stops-on-failure",
+   "attempt": 0,
+   "vars": {
+    "target": "Fıstık",
+    "pid": 2778268,
+    "title": "Eval Düğmeler 4YG6"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1119.6,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Düğmeler 4YG6\", \"steps\": [{\"click\": \"Fıstık\", \"expect\": \"Seçilen: Fıstık\"}, {\"click\": \"Böyle Bir Düğme Yok\"}, {\"click\": \"Fıstık\"}]}"
+     ],
+     "rc": 0,
+     "ms": 1119.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "run-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Ilgın Çelik",
+    "city": "Ankara",
+    "default_city": "İzmir",
+    "title": "Eval Web Form 3EUF",
+    "pid": 2778415
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5169.7,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form 3EUF\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Ilgın Çelik\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Şehir\", \"option\": \"Ankara\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 5169.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "snapshot-delta",
+   "attempt": 0,
+   "vars": {
+    "target": "Ilgaz",
+    "pid": 2779592,
+    "title": "Eval Düğmeler R9RN"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 684.8,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler R9RN"
+     ],
+     "rc": 0,
+     "ms": 35.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler R9RN",
+      "--since",
+      "3"
+     ],
+     "rc": 0,
+     "ms": 8.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Düğmeler R9RN",
+      "--name",
+      "Ilgaz"
+     ],
+     "rc": 0,
+     "ms": 598.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler R9RN",
+      "--since",
+      "4"
+     ],
+     "rc": 0,
+     "ms": 43.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "snapshot-latency",
+   "attempt": 0,
+   "vars": {
+    "name": "Çağrı Güneş",
+    "city": "Ankara",
+    "default_city": "Şanlıurfa",
+    "pid": 2779721,
+    "title": "Eval Form JHFN"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 105.7,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Form JHFN"
+     ],
+     "rc": 0,
+     "ms": 43.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Form JHFN"
+     ],
+     "rc": 0,
+     "ms": 14.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "Eval Form JHFN"
+     ],
+     "rc": 0,
+     "ms": 47.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 0,
+   "vars": {
+    "token": "VYNYTN44",
+    "pid": 2779833,
+    "title": "Eval Terminal NXDY"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 2942.5,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal NXDY"
+     ],
+     "rc": 0,
+     "ms": 2518.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeaf5598f0"
+     ],
+     "rc": 0,
+     "ms": 424.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button-dbus",
+   "attempt": 0,
+   "vars": {
+    "target": "İncir",
+    "pid": 2780004,
+    "title": "Eval Düğmeler KYYR"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 377.1,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeaf53be90",
+      "--name",
+      "İncir",
+      "--prefer-dbus"
+     ],
+     "rc": 0,
+     "ms": 377.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 0,
+   "vars": {
+    "target": "Lacivert",
+    "pid": 2780130,
+    "title": "Eval Düğmeler 3YMP"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 643.1,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler 3YMP"
+     ],
+     "rc": 0,
+     "ms": 35.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeaf53be90"
+     ],
+     "rc": 0,
+     "ms": 36.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeaf53be90",
+      "--name",
+      "Lacivert"
+     ],
+     "rc": 0,
+     "ms": 571.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-miss-detect",
+   "attempt": 0,
+   "vars": {
+    "target": "Kestane",
+    "pid": 2780277,
+    "title": "Eval Düğmeler GHRY"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1146.0,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeaf53be90",
+      "--name",
+      "Bir düğme seç"
+     ],
+     "rc": 0,
+     "ms": 1146.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Gülşen Şahin",
+    "city": "Muğla",
+    "default_city": "Çanakkale",
+    "pid": 2780404,
+    "title": "Eval Form EYRJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 4366.2,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeaf53be90",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "Gülşen Şahin"
+     ],
+     "rc": 0,
+     "ms": 702.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeaf53be90",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 1030.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeaf53be90",
+      "--name",
+      "Çanakkale"
+     ],
+     "rc": 0,
+     "ms": 601.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeaf53be90",
+      "--name",
+      "Muğla"
+     ],
+     "rc": 0,
+     "ms": 1031.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeaf53be90",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 999.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "vision-window-region",
+   "attempt": 0,
+   "vars": {
+    "token": "AYT-PFXV",
+    "pid": 2780725,
+    "title": "Eval Tuval RX6J",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 45.8,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval RX6J",
+      "--region",
+      "0,0,300,120"
+     ],
+     "rc": 0,
+     "ms": 45.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "vision-window-zoom",
+   "attempt": 0,
+   "vars": {
+    "token": "66K-JXTM",
+    "pid": 2780830,
+    "title": "Eval Tuval MUWH",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 38.2,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval MUWH",
+      "--zoom",
+      "40,150"
+     ],
+     "rc": 0,
+     "ms": 38.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Çelik",
+    "city": "Çanakkale",
+    "default_city": "Muğla",
+    "title": "Eval Web Form NCMV",
+    "pid": 2780911
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5146.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Web Form NCMV"
+     ],
+     "rc": 0,
+     "ms": 118.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form NCMV",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "Ümit Çelik"
+     ],
+     "rc": 0,
+     "ms": 1027.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form NCMV",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 999.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form NCMV",
+      "--name",
+      "Şehir"
+     ],
+     "rc": 0,
+     "ms": 998.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form NCMV",
+      "--name",
+      "Çanakkale"
+     ],
+     "rc": 0,
+     "ms": 1000.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "Eval Web Form NCMV",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1002.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Zımba",
+    "price": "51,54 TL",
+    "title": "Eval Fiyatlar 4LME",
+    "pid": 2782105
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 77.4,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Fiyatlar 4LME"
+     ],
+     "rc": 0,
+     "ms": 77.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "xray-port",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-svc-9dlm",
+    "port": "40313",
+    "pid": 2782929
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 55.8,
+   "steps": [
+    {
+     "args": [
+      "ps",
+      "--match",
+      "eval-svc-9dlm"
+     ],
+     "rc": 0,
+     "ms": 23.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "xray",
+      "--pid",
+      "2782929"
+     ],
+     "rc": 0,
+     "ms": 32.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  }
+ ]
+}

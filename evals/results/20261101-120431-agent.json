@@ -1,0 +1,275 @@
+{
+ "tier": "agent",
+ "started": "20261101-120431",
+ "seed": 383606446,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "e7f3527",
+ "summary": {
+  "tasks": [
+   {
+    "task": "recipe-web-form",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 16713.2,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 43779,
+    "median_output_tokens": 819,
+    "cost_usd": 0.0085
+   },
+   {
+    "task": "ui-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 22729.2,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 38560,
+    "median_output_tokens": 800,
+    "cost_usd": 0.0079
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 15474.2,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 43282,
+    "median_output_tokens": 711,
+    "cost_usd": 0.0087
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0251
+ },
+ "runs": [
+  {
+   "task": "recipe-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "İlkay Işık",
+    "city": "İstanbul",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form WMYE",
+    "pid": 2825391
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 16713.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00265852,
+   "input_tokens": 43779,
+   "output_tokens": 819,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1,
+    "pc_eye_click_ui": 1
+   }
+  },
+  {
+   "task": "recipe-web-form",
+   "attempt": 1,
+   "vars": {
+    "name": "Şükrü Işık",
+    "city": "İzmir",
+    "default_city": "Muğla",
+    "title": "Eval Web Form V32Y",
+    "pid": 2828079
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19194.1,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0038484300000000003,
+   "input_tokens": 75830,
+   "output_tokens": 1392,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_ui": 1,
+    "pc_eye_vision": 2,
+    "pc_eye_run": 1
+   }
+  },
+  {
+   "task": "recipe-web-form",
+   "attempt": 2,
+   "vars": {
+    "name": "Ilgın Doğru",
+    "city": "Muğla",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form 6K2N",
+    "pid": 2830825
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 11836.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0020042000000000003,
+   "input_tokens": 29793,
+   "output_tokens": 555,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1
+   }
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Şükrü Çelik",
+    "city": "Şanlıurfa",
+    "default_city": "Ankara",
+    "pid": 2832262,
+    "title": "Eval Form TDAD"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 22729.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0020996400000000003,
+   "input_tokens": 38560,
+   "output_tokens": 794,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 2
+   }
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Doğan Öztürk",
+    "city": "İstanbul",
+    "default_city": "Çanakkale",
+    "pid": 2833174,
+    "title": "Eval Form 7PEL"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19830.3,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0017837299999999999,
+   "input_tokens": 27283,
+   "output_tokens": 800,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1
+   }
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "Ilgın Şahin",
+    "city": "Çanakkale",
+    "default_city": "Şanlıurfa",
+    "pid": 2834017,
+    "title": "Eval Form ELCD"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 27063.8,
+   "is_error": false,
+   "turns": 11,
+   "cost_usd": 0.0039987,
+   "input_tokens": 96122,
+   "output_tokens": 1620,
+   "tool_calls": 10,
+   "tools": {
+    "pc_eye_snapshot": 4,
+    "pc_eye_run": 1,
+    "pc_eye_click_ui": 4,
+    "pc_eye_vision": 1
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Güneş",
+    "city": "Ankara",
+    "default_city": "Muğla",
+    "title": "Eval Web Form ERYG",
+    "pid": 2835059
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13499.1,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00249759,
+   "input_tokens": 43256,
+   "output_tokens": 595,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1,
+    "pc_eye_click_ui": 1
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Öykü Öztürk",
+    "city": "Çanakkale",
+    "default_city": "İstanbul",
+    "title": "Eval Web Form DFUW",
+    "pid": 2836515
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 15474.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0025493900000000003,
+   "input_tokens": 43282,
+   "output_tokens": 711,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 2
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "Gülşen Doğru",
+    "city": "Şanlıurfa",
+    "default_city": "Ankara",
+    "title": "Eval Web Form TLHF",
+    "pid": 2838026
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 27039.5,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0036796300000000006,
+   "input_tokens": 75699,
+   "output_tokens": 1312,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 3,
+    "pc_eye_vision": 1
+   }
+  }
+ ]
+}

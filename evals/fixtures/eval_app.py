@@ -66,16 +66,22 @@ def build_form(args, out):
     city.update_property([Gtk.AccessibleProperty.LABEL], ["Şehir"])
     box.append(city)
 
+    # Gerçek formlar gönderimi onaylar; onay yokken ajan sonucu ekran görüntüsü ve günlüklerle
+    # aramak zorunda kalıyordu (web formunda "Kaydedildi" zaten vardı).
+    status = Gtk.Label(label="")
+
     def submit(_b):
         write_out(out, {
             "name": name.get_text(),
             "newsletter": newsletter.get_active(),
             "city": cities[city.get_selected()],
         })
+        status.set_label("Kaydedildi")
 
     send = Gtk.Button(label="Gönder")
     send.connect("clicked", submit)
     box.append(send)
+    box.append(status)
     return box
 
 

@@ -70,6 +70,30 @@ Ajan katmanı, Sonnet 5.5 ×3, aynı 7 görev:
 | 054034 | F2: eylem programı, kararlı mark'lar, otomatik delta, kısa şema | 27/27 | $0.81 | 20.3K | 70 |
 | 074248 | F2 düzeltmeleri: mark yolunda doğrulama, select ipucu | 26/27 (1 OCR: 8→S) | $0.74 | 20.2K | 62 |
 
+| 115603 | F3: Firefox metin okuma düzeltmesi, tarif önerisi ana ipucunda (+tarif görevi) | 30/30 (Haiku) | $0.063 (Haiku) | 27.9K | 101 |
+
+**Model kıyası (F3, aynı makine, aynı görevler ×3):**
+
+| | Sonnet 5.5 (074248, F2) | Haiku 5.5 (115603, F3) |
+| --- | --- | --- |
+| Başarı | 26/27 | 30/30 |
+| Toplam | $0.74 (27 koşu) | $0.063 (30 koşu) |
+| Görev başı medyan | ~$0.02–0.12 | ~$0.003–0.010 |
+
+Form görevleri ×3 (120431 Haiku / 120811 Sonnet, F3 sonrası): web formu 4 tur ($0.009 / $0.118),
+GTK formu 4 tur ($0.008 / $0.091), **tarifli web formu** Sonnet 3/3 koşuda `snapshot → run(recipe)`
+(3 tur, $0.110), Haiku 6 koşunun 4'ünde tarifi seçti. Model olmadan: `pc-eye recipe run` aynı formu
+~6 s'de doldurup gönderiyor, $0 (`recipe-replay-cli`). Sonnet'te maliyetin çoğu sabit taban
+(sistem istemi + şema); tarif tur sayısını 4 → 3'e indiriyor, asıl kaldıraç model seçimi.
+
+F3'te bulunan hatalar: Firefox'ta `GetText(0, 500)` metin 500 karakterden kısaysa hata döndürüyordu,
+yani giriş değerleri, `set_text` geri okuması ve sayfa metni **hiç** okunmuyordu (F1a'daki
+"SetTextContents sahte başarı" bulgusunun bir kısmı buydu). `role="status"` gibi adsız metin kapları
+listelenmiyordu: ajan gönderim sonrası "Kaydedildi"yi göremeyip ekran görüntüsü alıyordu (web formu
+Haiku'da 8 → 4 tur). GTK form sahnesine de gönderim onayı eklendi (gerçek formlar onay gösterir;
+önce ajan sonucu günlüklerde arıyordu). Eşzamanlı build uyuşmazlığında sahipsiz daemon'lar birikiyordu
+(5 adet); artık `flock` ile tek örnek.
+
 F2 form görevleri: web formu 10 tur/99K → 4 tur/39K, masaüstü formu 9 tur/80K → 4 tur/34K
 (her koşuda aynı; varyans kayboldu). En basit görevin tabanı 18,4K → 14,5K token (kısa şema).
 

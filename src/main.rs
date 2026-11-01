@@ -109,6 +109,12 @@ enum Commands {
         allow_protected: bool,
     },
 
+    /// Tarif hafızası: başarılı akışları listele, göster, model olmadan yeniden oynat
+    Recipe {
+        #[command(subcommand)]
+        op: RecipeOp,
+    },
+
     /// Göz 3: Penceresi olmayan süreçleri de ad/komut satırı parçasına veya dinlediği porta göre bulur
     Ps {
         /// Ad veya komut satırında geçen metin
@@ -281,6 +287,29 @@ enum Commands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+enum RecipeOp {
+    /// Kayıtlı tarifler (verilirse yalnız bu pencereye uyanlar)
+    List {
+        #[arg(long)]
+        window: Option<String>,
+    },
+    /// Tarifin adımları ve parametreleri
+    Show { id: String },
+    /// Tarifi oynat: --arg "Ad Soyad=Ali" (parametre başına bir kez)
+    Run {
+        id: String,
+        #[arg(long)]
+        window: Option<String>,
+        #[arg(long = "arg")]
+        args: Vec<String>,
+        #[arg(long)]
+        allow_protected: bool,
+    },
+    Rename { id: String, name: String },
+    Rm { id: String },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -331,10 +360,11 @@ fn main() -> Result<()> {
                 "window": window, "max_elements": max_elements, "icons": icons,
                 "seq_since": seq_since, "since": since,
             });
-            let snap = match daemon::rpc::request("snapshot", args) {
+            let mut snap = match daemon::rpc::request("snapshot", args) {
                 Some(reply) => reply.map_err(|e| anyhow::anyhow!(e))?,
                 None => eyes::snapshot::build_snapshot(window.as_deref(), max_elements, icons, seq_since, since)?,
             };
+            director::recipes::annotate_snapshot(&mut snap);
             println!("{}", serde_json::to_string_pretty(&snap)?);
         }
         Commands::Ui {
@@ -396,6 +426,7 @@ fn main() -> Result<()> {
             let out = director::program::run_program(&parsed, allow_protected)?;
             println!("{}", serde_json::to_string_pretty(&out)?);
         }
+        Commands::Recipe { op } => run_recipe_command(op)?,
         Commands::Ps { query, port, limit } => {
             let found = eyes::process_xray::find_processes(query.as_deref(), port, limit)?;
             println!("{}", serde_json::to_string_pretty(&found)?);
@@ -620,4 +651,50 @@ fn parse_two_ints(s: &str) -> Option<[i64; 2]> {
     } else {
         None
     }
+}
+
+fn run_recipe_command(op: RecipeOp) -> anyhow::Result<()> {
+    use director::recipes;
+    use serde_json::{json, Value};
+    let out: Value = match op {
+        RecipeOp::List { window } => {
+            let list = match window {
+                Some(w) => {
+                    let ui = eyes::ui_atspi::inspect_window_ui(Some(&w), None, 80)?;
+                    let names: Vec<String> = ui.elements.iter().map(|e| e.name.clone()).collect();
+                    recipes::applicable(&ui.window_class, &names)
+                }
+                None => recipes::load(),
+            };
+            json!(list
+                .iter()
+                .map(|r| json!({
+                    "id": r["id"], "name": r["name"], "params": r["params"],
+                    "seen": r["seen"], "runs": r["runs"],
+                }))
+                .collect::<Vec<_>>())
+        }
+        RecipeOp::Show { id } => recipes::find(&id)?,
+        RecipeOp::Run { id, window, args, allow_protected } => {
+            let mut map = serde_json::Map::new();
+            for a in args {
+                let (k, v) = a
+                    .split_once('=')
+                    .ok_or_else(|| anyhow::anyhow!("--arg ad=değer biçiminde olmalı: {}", a))?;
+                map.insert(k.to_string(), json!(v));
+            }
+            let program = json!({ "recipe": id, "args": map, "window": window });
+            director::program::run_program(&program, allow_protected)?
+        }
+        RecipeOp::Rename { id, name } => {
+            recipes::rename(&id, &name)?;
+            json!({ "ok": true })
+        }
+        RecipeOp::Rm { id } => {
+            recipes::remove(&id)?;
+            json!({ "ok": true })
+        }
+    };
+    println!("{}", serde_json::to_string_pretty(&out)?);
+    Ok(())
 }

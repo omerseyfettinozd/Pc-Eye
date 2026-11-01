@@ -3,6 +3,7 @@ pub mod guard;
 pub mod input;
 pub mod process_ctl;
 pub mod program;
+pub mod recipes;
 pub mod sequence;
 pub mod x11_input;
 pub mod wait;

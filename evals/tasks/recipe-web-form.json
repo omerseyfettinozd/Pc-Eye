@@ -1,0 +1,55 @@
+{
+  "id": "recipe-web-form",
+  "scene": "web_form",
+  "tags": [
+    "recipe",
+    "browser",
+    "tool:run"
+  ],
+  "prime": [
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"{name}\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Şehir\", \"option\": \"{city}\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+      ],
+      "expect_contains": [
+        "\"ok\": true"
+      ],
+      "timeout": 60
+    }
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasındaki formu doldur: ad soyad \"{name}\", bültene abone olsun, şehir \"{city}\". Sonra Gönder'e bas.",
+  "probe": [
+    {
+      "args": [
+        "snapshot",
+        "--window",
+        "{title}"
+      ],
+      "expect_contains": [
+        "\"recipes\"",
+        "set Ad Soyad"
+      ]
+    },
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"recipe\": \"Ad Soyad\", \"args\": {\"Ad Soyad\": \"{name}\", \"Şehir\": \"{city}\"}}"
+      ],
+      "expect_contains": [
+        "\"ok\": true",
+        "\"completed\": 4",
+        "\"recipe\""
+      ],
+      "timeout": 60
+    }
+  ],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "name": "{name}",
+      "newsletter": true,
+      "city": "{city}"
+    }
+  }
+}

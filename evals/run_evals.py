@@ -499,6 +499,22 @@ def run_probe(task, scene):
     }
 
 
+def prime(task, sb, rng, work):
+    """`prime` adımlarını aynı türden ayrı bir sahnede (başka değerlerle) çalıştırır.
+
+    Ölçülen görev bir "ikinci sefer" olur: tarif hafızası önceki başarılı akışı bilir.
+    """
+    pwork = work / "prime"
+    pwork.mkdir(parents=True, exist_ok=True)
+    scene = SCENES[task["scene"]](sb, rng, pwork)
+    try:
+        r = run_probe({"probe": task["prime"], "check": {"type": "none"}}, scene)
+    finally:
+        sb.kill_all()
+    if not r["ok"]:
+        raise RuntimeError(f"hazırlık başarısız: {r['detail']}")
+
+
 def parse_stream(lines):
     """`claude -p --output-format stream-json` çıktısından ölçümleri çıkarır."""
     tools = {}
@@ -537,7 +553,10 @@ class ApiUnavailable(RuntimeError):
 
 def run_agent(task, scene, sb, work, args, transcript):
     mcp = work / "mcp.json"
-    mcp.write_text(json.dumps({"mcpServers": {"pc-eye": {"command": PCEYE, "args": ["mcp"]}}}))
+    mcp.write_text(json.dumps({"mcpServers": {"pc-eye": {
+        "command": PCEYE, "args": ["mcp"],
+        "env": {"PC_EYE_RECIPES": os.environ["PC_EYE_RECIPES"]},
+    }}}))
     cmd = [
         "claude", "-p", fill(task["prompt"], scene.vars),
         "--output-format", "stream-json", "--verbose",
@@ -701,7 +720,11 @@ def main():
                 work.mkdir(parents=True, exist_ok=True)
                 sb.remember_user_focus()
                 record = {"task": task["id"], "attempt": i}
+                # Her görev boş tarif hafızasıyla başlar (pc-eye CLI ve MCP sunucusu ortamı devralır).
+                os.environ["PC_EYE_RECIPES"] = str(work / "recipes.json")
                 try:
+                    if task.get("prime"):
+                        prime(task, sb, rng, work)
                     scene = SCENES[task["scene"]](sb, rng, work)
                     record["vars"] = {k: v for k, v in scene.vars.items() if k != "window"}
                     if args.tier == "probe":

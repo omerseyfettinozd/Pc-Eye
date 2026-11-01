@@ -1,0 +1,62 @@
+{
+  "id": "recipe-replay-cli",
+  "scene": "web_form",
+  "tags": [
+    "recipe",
+    "browser",
+    "no-llm"
+  ],
+  "prime": [
+    {
+      "args": [
+        "run",
+        "{\"window\": \"{title}\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"{name}\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Şehir\", \"option\": \"{city}\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+      ],
+      "expect_contains": [
+        "\"ok\": true"
+      ],
+      "timeout": 60
+    }
+  ],
+  "probe": [
+    {
+      "args": [
+        "recipe",
+        "list",
+        "--window",
+        "{title}"
+      ],
+      "expect_contains": [
+        "Ad Soyad",
+        "Şehir"
+      ]
+    },
+    {
+      "args": [
+        "recipe",
+        "run",
+        "Ad Soyad",
+        "--window",
+        "{title}",
+        "--arg",
+        "Ad Soyad={name}",
+        "--arg",
+        "Şehir={city}"
+      ],
+      "expect_contains": [
+        "\"ok\": true",
+        "\"completed\": 4"
+      ],
+      "max_ms": 8000,
+      "timeout": 60
+    }
+  ],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "name": "{name}",
+      "newsletter": true,
+      "city": "{city}"
+    }
+  }
+}

@@ -214,7 +214,8 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                     .filter(|(_, at)| at.elapsed() < AUTO_DELTA_WINDOW)
                     .map(|(id, _)| *id)
             });
-            let snap = crate::eyes::snapshot::build_snapshot(win, max, icons, seq_since, since)?;
+            let mut snap = crate::eyes::snapshot::build_snapshot(win, max, icons, seq_since, since)?;
+            crate::director::recipes::annotate_snapshot(&mut snap);
             if let (Some(id), Ok(mut last)) = (snap["snap"].as_u64(), LAST_SNAP.lock()) {
                 last.insert(window_key, (id, std::time::Instant::now()));
             }
@@ -362,9 +363,12 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 .unwrap_or(false);
             let rec =
                 click_ui_element_ext(win, name_q, mark, btn, prefer_dbus, set_text, allow_prot)?;
+            note_click_for_recipes(win, name_q, set_text, btn, &rec);
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
         "pc_eye_input" => {
+            // Koordinatla girdi yeniden oynatılamaz: tarif izi burada kopar.
+            crate::director::recipes::break_trail();
             let op = args.get("op").and_then(|v| v.as_str()).unwrap_or("click");
             let allow_prot = args
                 .get("allow_protected")
@@ -615,11 +619,13 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_run",
-            "description": "Run several steps in ONE call, verifying each; stops at the first failure and returns the final state (`after`). Use for forms and multi-step flows instead of repeated click_ui. Steps: {\"click\":T}, {\"set\":T,\"text\":\"..\"}, {\"select\":T,\"option\":\"..\"}, {\"type\":\"..\"}, {\"key\":\"ctrl+s\"}, {\"wait\":\"text\"}. T = element name or {\"mark\":N}. Dropdowns: use select with the option's visible text; no need to open it first. Any step may add \"expect\":\"text that must appear\" or {\"gone\":\"..\"} (timeout_ms, default 3000).",
+            "description": "Run several steps in ONE call, verifying each; stops at the first failure and returns the final state (`after`). Use for forms and multi-step flows instead of repeated click_ui; include the final submit click and its expected result. Steps: {\"click\":T}, {\"set\":T,\"text\":\"..\"}, {\"select\":T,\"option\":\"..\"}, {\"type\":\"..\"}, {\"key\":\"ctrl+s\"}, {\"wait\":\"text\"}. T = element name or {\"mark\":N}. Dropdowns: use select with the option's visible text; no need to open it first. Any step may add \"expect\":\"text that must appear\" or {\"gone\":\"..\"} (timeout_ms, default 3000). Or replay a recipe offered by snapshot: {\"recipe\":ID,\"args\":{..}}.",
             "annotations": { "readOnlyHint": false },
-            "inputSchema": { "type": "object", "required": ["steps"], "properties": {
+            "inputSchema": { "type": "object", "properties": {
                 "window": win.clone(),
-                "steps": { "type": "array", "items": { "type": "object" } }
+                "steps": { "type": "array", "items": { "type": "object" } },
+                "recipe": { "type": "string" },
+                "args": { "type": "object" }
             } }
         },
         {
@@ -813,4 +819,30 @@ mod tests {
         let long = tool_call_budget(&json!({ "timeout_ms": 120_000 }));
         assert_eq!(long, Duration::from_millis(120_000 + TOOL_TIMEOUT_SLACK_MS));
     }
+}
+
+/// Programdan hemen sonra gelen tekil `click_ui` (ör. ayrı basılan Gönder) tarif izine eklenir.
+fn note_click_for_recipes(
+    win: Option<&str>,
+    name_q: Option<&str>,
+    set_text: Option<&str>,
+    button: &str,
+    rec: &crate::director::input::ActionReceipt,
+) {
+    let missed = rec.verification.as_ref().map_or(false, |v| !v.visible_change);
+    let name = name_q.map(String::from).or_else(|| {
+        let rest = rec.target.split_once("] ").map(|(_, r)| r)?;
+        Some(rest.rsplit_once(" (").map_or(rest, |(n, _)| n).trim().to_string()).filter(|n| !n.is_empty())
+    });
+    let (Some(name), false, "left") = (name, missed, button) else {
+        crate::director::recipes::break_trail();
+        return;
+    };
+    let Ok(ui) = inspect_window_ui(win, None, 80) else { return };
+    let step = match set_text {
+        Some(t) => json!({ "set": name, "text": t }),
+        None => json!({ "click": name }),
+    };
+    let names: Vec<String> = ui.elements.iter().map(|e| e.name.clone()).collect();
+    crate::director::recipes::record(&ui.window_address, &ui.window_class, &[step], &names);
 }

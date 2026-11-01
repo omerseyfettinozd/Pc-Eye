@@ -535,15 +535,17 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
     };
 
     match then_mode {
-        "context" => {
-            if let Ok(ctx) = build_context_report(None) {
-                items.push(json!({ "type": "text", "text": serde_json::to_string_pretty(&ctx)? }));
+        // Eylem sonrası durum kompakt snapshot'tır: tam `context` (~38 KB) ya da tam `ui` (~20 KB)
+        // tek çağrıda bütün bir görevin taban maliyeti kadar token yiyordu (ajan ölçümü 045024).
+        "context" | "ui" | "snapshot" => {
+            let win = args.get("window").and_then(|v| v.as_str());
+            if let Ok(snap) = crate::eyes::snapshot::build_snapshot(win, 40, false, None, None) {
+                items.push(json!({ "type": "text", "text": serde_json::to_string(&snap)? }));
             }
         }
-        "ui" => {
-            let win = args.get("window").and_then(|v| v.as_str());
-            if let Ok(ui) = inspect_window_ui(win, None, 60) {
-                items.push(json!({ "type": "text", "text": serde_json::to_string_pretty(&ui)? }));
+        "full_context" => {
+            if let Ok(ctx) = build_context_report(None) {
+                items.push(json!({ "type": "text", "text": serde_json::to_string_pretty(&ctx)? }));
             }
         }
         "vision" | "screenshot" => {
@@ -686,7 +688,7 @@ fn mcp_tools_schema() -> Value {
                     "button": { "type": "string", "description": "left | right | middle" },
                     "prefer_dbus": { "type": "boolean", "description": "Fareyi hareket ettirmeden doğrudan D-Bus DoAction(0) kullan." },
                     "set_text": { "type": "string", "description": "Kontrol bir metin kutusuysa içine bu metni yaz." },
-                    "then": { "type": "string", "description": "context | ui | vision | xray" }
+                    "then": { "type": "string", "description": "Eylemden sonra aynı yanıtta: snapshot (kompakt, önerilen; context/ui da bunu döner) | vision | xray | full_context (~38 KB, gerekmedikçe kullanma)" }
                 }
             }
         },
@@ -710,7 +712,7 @@ fn mcp_tools_schema() -> Value {
                     "text": { "type": "string" },
                     "keys": { "type": "string" },
                     "window": { "type": "string", "description": "Pencere adresi (0x…), tam/kısmi başlığı veya sınıfı; belirsizse adaylar listelenir." },
-                    "then": { "type": "string", "description": "context | ui | vision | xray" }
+                    "then": { "type": "string", "description": "Eylemden sonra aynı yanıtta: snapshot (kompakt, önerilen; context/ui da bunu döner) | vision | xray | full_context (~38 KB, gerekmedikçe kullanma)" }
                 }
             }
         },

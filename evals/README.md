@@ -66,7 +66,14 @@ Ajan katmanı, Sonnet 5.5 ×3, aynı 7 görev:
 | 032721 | snapshot'a OCR güveni geri, pencereye göreli zoom/region | 21/21 | $0.74 | 25.9K | 63 |
 | 042455 | F1: yerel zbus, paralel AT-SPI okuma, Ctrl düzeltmesi (+2 tarayıcı görevi) | 27/27 (aynı 7: 21/21) | $0.85 (aynı 7: $0.63) | 24.6K | 85 (aynı 7: 68) |
 
+| 045024 | F1b: olay güdümlü önbellek, daemon soketi, delta snapshot | 27/27 | $1.11 | 24.8K | 91 |
+
 F1 okuma süreleri: GTK formu 298 → 32 ms, Firefox sayfası 1311 → 40 ms (form ve tablo artık görünür).
+F1b: CLI snapshot 32 → ~8 ms, MCP tekrar 42 → ~6 ms, değişmeyen delta 4,1 KB → 136 bayt.
+045024'teki maliyet artışı F1b'den değil: ajan delta'yı hiç kullanmadı; form görevleri koşudan
+koşuya 7–14 tur oynuyor (70K–167K token) ve bir koşuda `then: "context"` tek başına 38 KB döndü
+(düzeltildi: artık kompakt snapshot, 2,5 KB). Görev başı 3 tekrarla ±%25 fark gürültü sınırında;
+maliyet iddiaları için daha çok tekrar gerekir.
 Tarayıcı: tablo okuma 2 tur; form doldurma 10 tur ($0.15) → F2'nin (eylem programı) hedefi.
 
 Probe katmanı: %50 → %100 (11 görev, 33/33). Aşağıdaki iki bölüm başlangıçtaki

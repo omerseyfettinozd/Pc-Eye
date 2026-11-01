@@ -54,6 +54,24 @@ git dışıdır. `--seed` aynı rastgele değerlerle yeniden koşar.
 - `check`: `out_json` (uygulama çıktısındaki alanlar) veya `answer` (ajanın son
   `CEVAP:` satırı; liste verilirse alternatiflerden biri).
 
+## Ölçüm geçmişi
+
+Ajan katmanı, Sonnet 5.5 ×3, aynı 7 görev:
+
+| Koşu | Değişiklik | Başarı | Maliyet | Medyan girdi token | Toplam tur |
+| --- | --- | --- | --- | --- | --- |
+| 020555 | başlangıç | 20/21 | $2.19 | 72.6K | 130 |
+| 031039 | koordinat, click doğrulama, OCR önbelleği, başlıkla pencere, `ps`, launch kısıtı, coredump | 21/21 | $1.04 | 26.6K | 72 |
+| 031813 | + `snapshot` | 20/21 | $0.77 | 26.6K | 70 |
+| 032721 | snapshot'a OCR güveni geri, pencereye göreli zoom/region | 21/21 | $0.74 | 25.9K | 63 |
+
+Probe katmanı: %50 → %100 (11 görev, 33/33). Aşağıdaki iki bölüm başlangıçtaki
+durumu anlatır; listelenen hataların hepsi `feat/eval-harness` dalında düzeltildi.
+
+Bilinen sınırlar: tesseract tuval metninde ~10 denemede 1 karakter karıştırır (ajan
+`conf` düşükse yakınlaştırıp doğrular); `click-ui` doğrulaması eylem başına ~400 ms ekler;
+Electron gibi AT-SPI'sız pencerelerde tam pencere OCR'ı birkaç saniye sürer.
+
 ## İlk ölçüm (2026-11-01, probe ×3)
 
 | Görev | Sonuç | Neden |

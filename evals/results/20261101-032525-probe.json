@@ -1,0 +1,1302 @@
+{
+ "tier": "probe",
+ "started": "20261101-032525",
+ "seed": 673697558,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "7a6a144",
+ "summary": {
+  "tasks": [
+   {
+    "task": "crash-signal",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 52.9
+   },
+   {
+    "task": "logs-journal",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 41.9
+   },
+   {
+    "task": "ocr-canvas-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 749.5
+   },
+   {
+    "task": "terminal-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 1013.0
+   },
+   {
+    "task": "ui-click-button-dbus",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 744.5
+   },
+   {
+    "task": "ui-click-button",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 1803.4
+   },
+   {
+    "task": "ui-click-miss-detect",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 1344.5
+   },
+   {
+    "task": "ui-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 5828.6
+   },
+   {
+    "task": "vision-window-region",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 15.9
+   },
+   {
+    "task": "vision-window-zoom",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 31.3
+   },
+   {
+    "task": "xray-port",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 56.2
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "runs": [
+  {
+   "task": "crash-signal",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-crash-9ly3",
+    "signal": "SIGABRT",
+    "signal_short": "ABRT",
+    "crash_pid": 1395404,
+    "signal_num": 6
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 52.9,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 52.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "crash-signal",
+   "attempt": 1,
+   "vars": {
+    "marker": "eval-crash-f64m",
+    "signal": "SIGFPE",
+    "signal_short": "FPE",
+    "crash_pid": 1395693,
+    "signal_num": 8
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 39.8,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 39.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "crash-signal",
+   "attempt": 2,
+   "vars": {
+    "marker": "eval-crash-gfl8",
+    "signal": "SIGFPE",
+    "signal_short": "FPE",
+    "crash_pid": 1395949,
+    "signal_num": 8
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 59.8,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 59.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 0,
+   "vars": {
+    "tag": "eval-vxna",
+    "token": "VWP763PJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 54.0,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 54.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 1,
+   "vars": {
+    "tag": "eval-mc4w",
+    "token": "49HJJ8L4"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 41.9,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 41.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "logs-journal",
+   "attempt": 2,
+   "vars": {
+    "tag": "eval-yvw7",
+    "token": "FWXUAMGL"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 40.8,
+   "steps": [
+    {
+     "args": [
+      "logs",
+      "--limit",
+      "100"
+     ],
+     "rc": 0,
+     "ms": 40.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 0,
+   "vars": {
+    "token": "XGD-L483",
+    "pid": 1396312,
+    "title": "Eval Tuval G42T",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 618.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Tuval G42T"
+     ],
+     "rc": 0,
+     "ms": 479.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb0755a00"
+     ],
+     "rc": 0,
+     "ms": 139.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 1,
+   "vars": {
+    "token": "6KR-U966",
+    "pid": 1396462,
+    "title": "Eval Tuval 36RK",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 749.5,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Tuval 36RK"
+     ],
+     "rc": 0,
+     "ms": 582.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073d690"
+     ],
+     "rc": 0,
+     "ms": 167.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ocr-canvas-read",
+   "attempt": 2,
+   "vars": {
+    "token": "8NM-74UD",
+    "pid": 1396669,
+    "title": "Eval Tuval 4XK6",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 777.3,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Tuval 4XK6"
+     ],
+     "rc": 0,
+     "ms": 582.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073d690"
+     ],
+     "rc": 0,
+     "ms": 194.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 0,
+   "vars": {
+    "token": "CW4473T7",
+    "pid": 1396880,
+    "title": "Eval Terminal JP8L"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1609.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal JP8L"
+     ],
+     "rc": 0,
+     "ms": 1089.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073d690"
+     ],
+     "rc": 0,
+     "ms": 520.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 1,
+   "vars": {
+    "token": "GKNWUYET",
+    "pid": 1397079,
+    "title": "Eval Terminal GMX8"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 936.1,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal GMX8"
+     ],
+     "rc": 0,
+     "ms": 503.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073d690"
+     ],
+     "rc": 0,
+     "ms": 433.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 2,
+   "vars": {
+    "token": "JKFT8EP4",
+    "pid": 1397245,
+    "title": "Eval Terminal YUTW"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1013.0,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal YUTW"
+     ],
+     "rc": 0,
+     "ms": 441.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073d690"
+     ],
+     "rc": 0,
+     "ms": 571.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button-dbus",
+   "attempt": 0,
+   "vars": {
+    "target": "Yeşil",
+    "pid": 1397405,
+    "title": "Eval Düğmeler X9CG"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 745.1,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb073d690",
+      "--name",
+      "Yeşil",
+      "--prefer-dbus"
+     ],
+     "rc": 0,
+     "ms": 745.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button-dbus",
+   "attempt": 1,
+   "vars": {
+    "target": "Kırmızı",
+    "pid": 1397675,
+    "title": "Eval Düğmeler RR6A"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 744.5,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb073d690",
+      "--name",
+      "Kırmızı",
+      "--prefer-dbus"
+     ],
+     "rc": 0,
+     "ms": 744.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button-dbus",
+   "attempt": 2,
+   "vars": {
+    "target": "İncir",
+    "pid": 1397934,
+    "title": "Eval Düğmeler MRGX"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 642.1,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb073d690",
+      "--name",
+      "İncir",
+      "--prefer-dbus"
+     ],
+     "rc": 0,
+     "ms": 642.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 0,
+   "vars": {
+    "target": "İncir",
+    "pid": 1398211,
+    "title": "Eval Düğmeler F7AR"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1803.4,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler F7AR"
+     ],
+     "rc": 0,
+     "ms": 396.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073d690"
+     ],
+     "rc": 0,
+     "ms": 410.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb073d690",
+      "--name",
+      "İncir"
+     ],
+     "rc": 0,
+     "ms": 996.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 1,
+   "vars": {
+    "target": "Gökyüzü",
+    "pid": 1398818,
+    "title": "Eval Düğmeler KHYM"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 2028.3,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler KHYM"
+     ],
+     "rc": 0,
+     "ms": 534.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073d690"
+     ],
+     "rc": 0,
+     "ms": 518.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb073d690",
+      "--name",
+      "Gökyüzü"
+     ],
+     "rc": 0,
+     "ms": 974.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-button",
+   "attempt": 2,
+   "vars": {
+    "target": "Ilgaz",
+    "pid": 1399402,
+    "title": "Eval Düğmeler RYK6"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1660.0,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Düğmeler RYK6"
+     ],
+     "rc": 0,
+     "ms": 385.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55aeb073d690"
+     ],
+     "rc": 0,
+     "ms": 394.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb073d690",
+      "--name",
+      "Ilgaz"
+     ],
+     "rc": 0,
+     "ms": 880.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-miss-detect",
+   "attempt": 0,
+   "vars": {
+    "target": "Gökyüzü",
+    "pid": 1399996,
+    "title": "Eval Düğmeler 9JX6"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1271.5,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb073d690",
+      "--name",
+      "Bir düğme seç"
+     ],
+     "rc": 0,
+     "ms": 1271.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-miss-detect",
+   "attempt": 1,
+   "vars": {
+    "target": "Lacivert",
+    "pid": 1400251,
+    "title": "Eval Düğmeler G6DF"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1489.0,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb0750000",
+      "--name",
+      "Bir düğme seç"
+     ],
+     "rc": 0,
+     "ms": 1489.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-click-miss-detect",
+   "attempt": 2,
+   "vars": {
+    "target": "Çınar",
+    "pid": 1400503,
+    "title": "Eval Düğmeler 7E2U"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1344.5,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb0750000",
+      "--name",
+      "Bir düğme seç"
+     ],
+     "rc": 0,
+     "ms": 1344.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Doğan Yıldız",
+    "city": "Ankara",
+    "default_city": "Çanakkale",
+    "pid": 1400764,
+    "title": "Eval Form 4P23"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6264.1,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb0884ba0",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "Doğan Yıldız"
+     ],
+     "rc": 0,
+     "ms": 992.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb0884ba0",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 1233.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb0884ba0",
+      "--name",
+      "Çanakkale"
+     ],
+     "rc": 0,
+     "ms": 800.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb0884ba0",
+      "--name",
+      "Ankara"
+     ],
+     "rc": 0,
+     "ms": 1804.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb0884ba0",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1433.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Gülşen Çelik",
+    "city": "İzmir",
+    "default_city": "Şanlıurfa",
+    "pid": 1401629,
+    "title": "Eval Form WHWW"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5715.5,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb08b2d90",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "Gülşen Çelik"
+     ],
+     "rc": 0,
+     "ms": 1016.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb08b2d90",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 1233.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb08b2d90",
+      "--name",
+      "Şanlıurfa"
+     ],
+     "rc": 0,
+     "ms": 839.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb08b2d90",
+      "--name",
+      "İzmir"
+     ],
+     "rc": 0,
+     "ms": 1393.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb08b2d90",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1233.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "ui-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "İlkay Ağaoğlu",
+    "city": "Çanakkale",
+    "default_city": "Muğla",
+    "pid": 1402489,
+    "title": "Eval Form 27FU"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5828.6,
+   "steps": [
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb077daf0",
+      "--name",
+      "Ad Soyad",
+      "--set-text",
+      "İlkay Ağaoğlu"
+     ],
+     "rc": 0,
+     "ms": 1161.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb077daf0",
+      "--name",
+      "Bültene abone ol"
+     ],
+     "rc": 0,
+     "ms": 1265.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb077daf0",
+      "--name",
+      "Muğla"
+     ],
+     "rc": 0,
+     "ms": 800.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb077daf0",
+      "--name",
+      "Çanakkale"
+     ],
+     "rc": 0,
+     "ms": 1365.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "click-ui",
+      "--window",
+      "0x55aeb077daf0",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 1235.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "vision-window-region",
+   "attempt": 0,
+   "vars": {
+    "token": "RAW-G3JC",
+    "pid": 1403370,
+    "title": "Eval Tuval D2F6",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 15.0,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval D2F6",
+      "--region",
+      "0,0,300,120"
+     ],
+     "rc": 0,
+     "ms": 15.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "vision-window-region",
+   "attempt": 1,
+   "vars": {
+    "token": "RR8-LHP4",
+    "pid": 1403460,
+    "title": "Eval Tuval Y7FE",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 15.9,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval Y7FE",
+      "--region",
+      "0,0,300,120"
+     ],
+     "rc": 0,
+     "ms": 15.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "vision-window-region",
+   "attempt": 2,
+   "vars": {
+    "token": "FM9-J6NC",
+    "pid": 1403524,
+    "title": "Eval Tuval AG93",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 41.0,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval AG93",
+      "--region",
+      "0,0,300,120"
+     ],
+     "rc": 0,
+     "ms": 41.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "vision-window-zoom",
+   "attempt": 0,
+   "vars": {
+    "token": "VYC-2TEC",
+    "pid": 1403603,
+    "title": "Eval Tuval ECLE",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 31.3,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval ECLE",
+      "--zoom",
+      "40,150"
+     ],
+     "rc": 0,
+     "ms": 31.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "vision-window-zoom",
+   "attempt": 1,
+   "vars": {
+    "token": "A9P-W4EN",
+    "pid": 1403662,
+    "title": "Eval Tuval CYWD",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19.2,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval CYWD",
+      "--zoom",
+      "40,150"
+     ],
+     "rc": 0,
+     "ms": 19.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "vision-window-zoom",
+   "attempt": 2,
+   "vars": {
+    "token": "PHL-8YGR",
+    "pid": 1403749,
+    "title": "Eval Tuval 9PCG",
+    "win_x": 3560
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 35.7,
+   "steps": [
+    {
+     "args": [
+      "vision",
+      "--window",
+      "Eval Tuval 9PCG",
+      "--zoom",
+      "40,150"
+     ],
+     "rc": 0,
+     "ms": 35.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "xray-port",
+   "attempt": 0,
+   "vars": {
+    "marker": "eval-svc-dc3r",
+    "port": "24723",
+    "pid": 1403812
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 80.1,
+   "steps": [
+    {
+     "args": [
+      "ps",
+      "--match",
+      "eval-svc-dc3r"
+     ],
+     "rc": 0,
+     "ms": 22.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "xray",
+      "--pid",
+      "1403812"
+     ],
+     "rc": 0,
+     "ms": 57.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "xray-port",
+   "attempt": 1,
+   "vars": {
+    "marker": "eval-svc-2u24",
+    "port": "20222",
+    "pid": 1403906
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 56.2,
+   "steps": [
+    {
+     "args": [
+      "ps",
+      "--match",
+      "eval-svc-2u24"
+     ],
+     "rc": 0,
+     "ms": 22.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "xray",
+      "--pid",
+      "1403906"
+     ],
+     "rc": 0,
+     "ms": 33.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "xray-port",
+   "attempt": 2,
+   "vars": {
+    "marker": "eval-svc-3g78",
+    "port": "58409",
+    "pid": 1403973
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 54.6,
+   "steps": [
+    {
+     "args": [
+      "ps",
+      "--match",
+      "eval-svc-3g78"
+     ],
+     "rc": 0,
+     "ms": 22.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "xray",
+      "--pid",
+      "1403973"
+     ],
+     "rc": 0,
+     "ms": 32.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  }
+ ]
+}

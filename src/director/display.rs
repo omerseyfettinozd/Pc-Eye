@@ -1,5 +1,5 @@
 use crate::director::input::ActionReceipt;
-use crate::eyes::compositor::{hypr_query_json, hypr_request_raw};
+use crate::eyes::compositor::{hypr_query_json, hypr_request_raw, workspace_id_of};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use std::thread;
@@ -26,7 +26,7 @@ fn monitor_summary(m: &Value) -> Value {
         "x": m["x"],
         "y": m["y"],
         "scale": m["scale"],
-        "workspace_id": m["activeWorkspace"]["id"],
+        "workspace_id": workspace_id_of(m.get("activeWorkspace"), 0),
         "workspace_name": m["activeWorkspace"]["name"],
         "headless": is_headless(m),
     })

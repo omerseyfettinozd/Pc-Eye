@@ -84,6 +84,34 @@ pub fn hypr_request_raw(command: &str) -> Result<String> {
     Ok(response)
 }
 
+/// Çalışma alanı nesnesinin (`activeWorkspace`, istemcinin `workspace`'i, `workspaces` öğesi) id'si.
+///
+/// Hyprland 0.57 adlı çalışma alanları için JSON'da `id` vermiyor (yalnız `name`/`type`/`address`;
+/// 2026-11-13, 0.57.2'de ölçüldü). Eskiden adlılar negatif id alırdı; ajan oturumu (`session.rs`)
+/// "adlı mı" kararını ve görünürlük karşılaştırmaları id eşitliğini buna dayandırıyor. id yoksa:
+/// sayısal ad -> o sayı, diğer ad -> addan türetilen sabit negatif id.
+pub fn workspace_id_of(ws: Option<&Value>, fallback: i64) -> i64 {
+    let Some(ws) = ws else { return fallback };
+    if let Some(id) = ws.get("id").and_then(|v| v.as_i64()) {
+        return id;
+    }
+    match ws.get("name").and_then(|v| v.as_str()) {
+        Some(n) if !n.is_empty() => n.parse::<i64>().unwrap_or_else(|_| named_workspace_id(n)),
+        _ => fallback,
+    }
+}
+
+/// Adlı çalışma alanı için süreçler arası sabit negatif id (FNV-1a; std hasher'ı tohumlu).
+/// -1000'in altında: özel çalışma alanlarının (-98, -99 ...) aralığıyla çakışmaz.
+fn named_workspace_id(name: &str) -> i64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in name.trim_start_matches("name:").bytes() {
+        h ^= u64::from(b);
+        h = h.wrapping_mul(0x0100_0000_01b3);
+    }
+    -((h % 1_000_000_000) as i64) - 1000
+}
+
 /// Hyprland `.socket.sock` üzerinden JSON sorgusu (`j/<endpoint>`) çalıştırır.
 pub fn hypr_query_json(endpoint: &str) -> Result<Value> {
     let cmd = format!("j/{}", endpoint.trim_start_matches("j/"));
@@ -473,11 +501,7 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
                 x: m.get("x").and_then(|v| v.as_i64()).unwrap_or(0),
                 y: m.get("y").and_then(|v| v.as_i64()).unwrap_or(0),
                 scale: m.get("scale").and_then(|v| v.as_f64()).unwrap_or(1.0),
-                active_workspace_id: m
-                    .get("activeWorkspace")
-                    .and_then(|w| w.get("id"))
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(1),
+                active_workspace_id: workspace_id_of(m.get("activeWorkspace"), 1),
                 active_workspace_name: m
                     .get("activeWorkspace")
                     .and_then(|w| w.get("name"))
@@ -494,7 +518,7 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
     if let Some(arr) = workspaces_val.as_array() {
         for w in arr {
             workspaces.push(WorkspaceInfo {
-                id: w.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+                id: workspace_id_of(Some(w), 0),
                 name: w
                     .get("name")
                     .and_then(|v| v.as_str())
@@ -585,11 +609,7 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
                 class,
                 title,
                 pid,
-                workspace_id: c
-                    .get("workspace")
-                    .and_then(|w| w.get("id"))
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(0),
+                workspace_id: workspace_id_of(c.get("workspace"), 0),
                 workspace_name: c
                     .get("workspace")
                     .and_then(|w| w.get("name"))
@@ -758,6 +778,21 @@ mod dispatch_tests {
         let t = HyprDispatch::Fullscreen { maximized: false, state: None, window: None };
         assert_eq!(t.lua(), "hl.dsp.window.fullscreen({mode=\"fullscreen\"})");
         assert!(t.legacy_equivalent());
+    }
+
+    #[test]
+    fn workspace_id_without_id_field() {
+        use serde_json::json;
+        // Hyprland 0.57.2: numaralı alan id'li, adlı alan id'siz geliyor
+        assert_eq!(workspace_id_of(Some(&json!({"id": 2, "name": "2"})), 0), 2);
+        assert_eq!(workspace_id_of(Some(&json!({"address": "3", "type": "normal", "name": "3"})), 0), 3);
+        let a = workspace_id_of(Some(&json!({"address": "pceye-agent", "type": "normal", "name": "pceye-agent"})), 0);
+        assert!(a < -999, "adlı alan negatif olmalı: {a}");
+        assert_eq!(a, workspace_id_of(Some(&json!({"name": "pceye-agent"})), 0), "aynı ad aynı id");
+        assert_eq!(a, workspace_id_of(Some(&json!({"name": "name:pceye-agent"})), 0));
+        assert_ne!(a, workspace_id_of(Some(&json!({"name": "pceye-other"})), 0));
+        assert_eq!(workspace_id_of(None, 7), 7);
+        assert_eq!(workspace_id_of(Some(&json!({})), 7), 7);
     }
 }
 

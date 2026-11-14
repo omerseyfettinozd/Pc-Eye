@@ -1,0 +1,121 @@
+{
+ "tier": "agent",
+ "started": "20261115-024943-f8ag2",
+ "seed": 801239261,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "b7fe72e",
+ "summary": {
+  "tasks": [
+   {
+    "task": "download-wait",
+    "runs": 4,
+    "passed": 4,
+    "setup_errors": 0,
+    "median_ms": 12985.0,
+    "median_turns": 4.0,
+    "median_tool_calls": 3.0,
+    "median_input_tokens": 27489.0,
+    "median_output_tokens": 782.5,
+    "cost_usd": 0.006
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.006
+ },
+ "session": "f8ag2",
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "download-wait",
+   "attempt": 0,
+   "vars": {
+    "file": "fatura-26k4f.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "cevap='fatura-26k4f.pdf'",
+   "ms": 12655.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00123194,
+   "input_tokens": 17721,
+   "output_tokens": 485,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_events": 1,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 1,
+   "vars": {
+    "file": "fatura-rv9ah.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "cevap='fatura-rv9ah.pdf'",
+   "ms": 14782.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00158324,
+   "input_tokens": 27444,
+   "output_tokens": 810,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 2,
+   "vars": {
+    "file": "fatura-crpne.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "cevap='fatura-crpne.pdf'",
+   "ms": 11622.7,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0015775300000000002,
+   "input_tokens": 27534,
+   "output_tokens": 785,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 3,
+   "vars": {
+    "file": "fatura-lrghu.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "cevap='fatura-lrghu.pdf'",
+   "ms": 13314.4,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0015834200000000003,
+   "input_tokens": 27651,
+   "output_tokens": 780,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

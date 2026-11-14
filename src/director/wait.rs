@@ -36,6 +36,12 @@ pub fn wait_for_condition(
             mode_lower = "event".to_string();
             Some(shorthand.as_str())
         }
+        // `{"event": "file", "match": ".pdf"}`: tür event'te, metin match'te.
+        None if EVENT_KINDS.contains(&mode.to_ascii_lowercase().as_str()) => {
+            shorthand = format!("{}:{}", mode.to_ascii_lowercase(), match_str.unwrap_or(""));
+            mode_lower = "event".to_string();
+            Some(shorthand.as_str())
+        }
         _ => match_str,
     };
 

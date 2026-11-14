@@ -21,3 +21,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 zbus = "5"
 x11rb = { version = "0.13", default-features = false, features = ["xtest"] }
+# Sinir ağı OCR (F6b): ONNX Runtime çalışma zamanında yüklenir (load-dynamic); kütüphane yoksa tesseract.
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "ndarray", "api-30", "load-dynamic"] }
+ndarray = "0.17"

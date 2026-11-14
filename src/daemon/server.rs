@@ -160,6 +160,7 @@ pub fn ensure_background_daemon() -> bool {
 
 /// `pc-eye daemon` komutu için kesintisiz arka plan Kara Kutu (Flight Recorder) döngüsü.
 pub fn run_daemon_forever() -> Result<()> {
+    crate::eyes::ocr_neural::set_long_lived();
     // Tek örnek: aynı anda build uyuşmazlığı gören iki istemci iki daemon başlatıyor ve pid
     // dosyasına yalnız sonuncusu yazıldığı için diğerleri sahipsiz kalıyordu (5 eski daemon birikti).
     // Kilit önceki daemon kapanana kadar kısa süre beklenir; alınamazsa bu örnek çıkar.

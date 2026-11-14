@@ -26,6 +26,19 @@ cargo build --release
 install -m 755 target/release/pc-eye ~/.local/bin/pc-eye
 ```
 
+### Sinir ağı OCR (isteğe bağlı, F6b)
+
+Daemon ve MCP sunucusu, aşağıdaki dosyalar varsa tesseract yerine PP-OCRv5 (ONNX Runtime) kullanır;
+yoksa tesseract'a düşer. `pc-eye doctor` → `neural_ocr` kurulumu gösterir. `PCEYE_OCR=tesseract` kapatır.
+
+```bash
+M=~/.local/share/pc-eye/models/ppocrv5; mkdir -p $M
+for f in pp-ocrv5_mobile_det.onnx latin_pp-ocrv5_mobile_rec.onnx ppocrv5_latin_dict.txt; do
+  curl -sSL --fail -o $M/$f https://github.com/GreatV/oar-ocr/releases/download/v0.3.0/$f; done
+O=~/.local/share/pc-eye/onnxruntime; mkdir -p $O
+curl -sSL --fail https://github.com/microsoft/onnxruntime/releases/download/v1.30.1/onnxruntime-linux-x64-1.30.1.tgz | tar xz -C $O
+```
+
 ### Temel CLI Komutları
 
 ```bash

@@ -491,7 +491,7 @@ async fn collect_atspi_elements_for_window(
     let matching_services = if pid_services.is_empty() { name_services } else { pid_services };
     let services: Vec<String> = matching_services.iter().map(|(s, _)| s.clone()).collect();
 
-    let filter_lower = query_filter.map(|q| q.to_lowercase());
+    let filter_lower = query_filter.map(crate::eyes::fold);
     // Tablo satırı bağlamı için: belge düğümlerinin rolü/adı/çocukları ve ebeveyn eşlemesi.
     let mut offscreen_seen = 0usize;
     let mut parent_of: HashMap<String, String> = HashMap::new();
@@ -586,7 +586,7 @@ async fn collect_atspi_elements_for_window(
                     continue;
                 }
                 let matches_query = filter_lower.as_ref().map_or(true, |q| {
-                    node.name.to_lowercase().contains(q) || node.role.to_lowercase().contains(q)
+                    crate::eyes::fold(&node.name).contains(q.as_str()) || node.role.to_lowercase().contains(q.as_str())
                 });
                 if matches_query {
                     candidates.push((service.clone(), NodeInfo { in_document: in_doc, ..node }));
@@ -606,7 +606,7 @@ async fn collect_atspi_elements_for_window(
                     entry.1 = node.name.clone();
                 }
                 document_ready = true;
-                let matches_query = filter_lower.as_ref().map_or(true, |q| node.name.to_lowercase().contains(q));
+                let matches_query = filter_lower.as_ref().map_or(true, |q| crate::eyes::fold(&node.name).contains(q.as_str()));
                 if matches_query {
                     candidates.push((service.clone(), node));
                 }

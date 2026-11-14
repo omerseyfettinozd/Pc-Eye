@@ -194,10 +194,10 @@ pub fn resolve_chooser(window_addr: Option<&str>, name: &str) -> Option<usize> {
 /// klasörü, açık klasördeki Belgeler = hedef) kabı pencere başlığında geçen tercih edilir: içerik
 /// görünümleri çoğunlukla açık belgenin/klasörün adını taşır.
 fn pick_named_element_in(elements: &[UiElement], query: &str, window_title: &str) -> Option<UiElement> {
-    let q = query.to_lowercase();
-    let title = window_title.to_lowercase();
+    let q = crate::eyes::fold(query);
+    let title = crate::eyes::fold(window_title);
     let rank = |e: &UiElement| {
-        let name = e.name.to_lowercase();
+        let name = crate::eyes::fold(&e.name);
         let name_rank = if name == q { 0 } else if name.contains(&q) { 1 } else { 2 };
         let role_rank = if ACTIONABLE_ROLES.contains(&e.role.as_str()) { 0 } else { 1 };
         let container_rank = match &e.container {
@@ -215,7 +215,7 @@ fn pick_named_element_in(elements: &[UiElement], query: &str, window_title: &str
 fn pick_named_element(elements: &[UiElement], query: &str) -> Option<UiElement> {
     // Türkçe büyük/küçük harf: `İ` küçültülünce `i` + U+0307 olur, `I` ise `ı` olmalıydı. Ajan
     // "iptal" yazınca "İptal" düğmesi bulunsun diye iki taraf da noktasız/noktalı ayrımsız katlanır.
-    let fold = |s: &str| s.to_lowercase().replace('\u{307}', "").replace('ı', "i");
+    let fold = crate::eyes::fold;
     let q = fold(query);
     let rank = |e: &UiElement| {
         let name = fold(&e.name);

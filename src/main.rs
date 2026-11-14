@@ -448,6 +448,7 @@ fn run() -> Result<()> {
                 "atspi_enabled": a11y_enabled,
                 "atspi_bus_address": a11y_bus,
                 "ocr_available": ocr_ok,
+                "neural_ocr": eyes::ocr_neural::installed(),
                 "tessdata_dir": tess_dir,
                 "grim_available": grim_ok,
                 "pipewire_available": pw_ok,
@@ -789,7 +790,11 @@ fn run() -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&out)?);
         }
         Commands::OcrBench { file } => {
+            eyes::ocr_neural::set_long_lived();
             let bytes = std::fs::read(&file)?;
+            if std::env::var_os("PCEYE_OCR_DUMP").is_some() {
+                return eyes::ocr::dump(&bytes);
+            }
             println!("{}", serde_json::to_string_pretty(&eyes::ocr::bench(&bytes)?)?);
         }
         Commands::BrowserHost { .. } => {

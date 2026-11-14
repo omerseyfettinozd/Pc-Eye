@@ -479,7 +479,7 @@ pub fn remove(id: &str) -> Result<()> {
 
 /// Bu pencereye uyan tarifler (sınıf + gerekli adların hepsi görünür).
 pub fn applicable(class: &str, element_names: &[String]) -> Vec<Value> {
-    let names: Vec<String> = element_names.iter().map(|n| n.to_lowercase()).collect();
+    let names: Vec<String> = element_names.iter().map(|n| crate::eyes::fold(n)).collect();
     let mut hits: Vec<Value> = load()
         .into_iter()
         .filter(|r| r["class"].as_str().map_or(false, |c| c.eq_ignore_ascii_case(class)))
@@ -487,7 +487,7 @@ pub fn applicable(class: &str, element_names: &[String]) -> Vec<Value> {
             let req = r["requires"].as_array().cloned().unwrap_or_default();
             !req.is_empty()
                 && req.iter().all(|q| {
-                    let q = q.as_str().unwrap_or("").to_lowercase();
+                    let q = crate::eyes::fold(q.as_str().unwrap_or(""));
                     names.iter().any(|n| n.contains(&q))
                 })
         })

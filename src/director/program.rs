@@ -55,9 +55,9 @@ fn visible_names(window: Option<&str>) -> Option<std::collections::BTreeSet<Stri
 /// Beklenen metni filtreli taze okumayla tüm ağaçta arar: `visible_names` ilk 150 elemanla
 /// sınırlı olduğu için uzun listelerde metin kaçıyordu (`wait` adımı da filtreyle arıyor).
 fn text_visible(window: Option<&str>, text: &str) -> bool {
-    let needle = text.to_lowercase();
+    let needle = crate::eyes::fold(text);
     with_fresh_reads(|| inspect_window_ui(window, Some(text), 10))
-        .map(|ui| ui.elements.iter().any(|e| e.name.to_lowercase().contains(&needle)))
+        .map(|ui| ui.elements.iter().any(|e| crate::eyes::fold(&e.name).contains(&needle)))
         .unwrap_or(false)
 }
 
@@ -74,13 +74,13 @@ fn wait_text_with_baseline(
     baseline: Option<&std::collections::BTreeSet<String>>,
 ) -> Result<u64> {
     let start = Instant::now();
-    let needle = text.to_lowercase();
+    let needle = crate::eyes::fold(text);
     let mut last_names = baseline.cloned();
     let mut last_change: Option<Instant> = None;
     loop {
         let names = visible_names(window);
         if let Some(n) = &names {
-            if n.iter().any(|x| x.to_lowercase().contains(&needle)) {
+            if n.iter().any(|x| crate::eyes::fold(x).contains(&needle)) {
                 return Ok(start.elapsed().as_millis() as u64);
             }
             if last_names.as_ref() != Some(n) {
@@ -127,11 +127,11 @@ fn wait_text(window: Option<&str>, text: &str, gone: bool, timeout_ms: u64) -> R
         wait_for_condition("ui_match", Some(text), window, timeout_ms)?;
         return Ok(start.elapsed().as_millis() as u64);
     }
-    let needle = text.to_lowercase();
+    let needle = crate::eyes::fold(text);
     // `timeout_ms: 0` bile en az bir yoklama yapsın (wait_for_condition da en az 100 ms bekliyor).
     while start.elapsed() < Duration::from_millis(timeout_ms.max(100)) {
         let present = match with_fresh_reads(|| inspect_window_ui(window, Some(text), 10)) {
-            Ok(ui) => ui.elements.iter().any(|e| e.name.to_lowercase().contains(&needle)),
+            Ok(ui) => ui.elements.iter().any(|e| crate::eyes::fold(&e.name).contains(&needle)),
             // Hedef pencere kapandıysa metin de onunla gitti: kaybolmuş sayılır, süre beklenmez.
             Err(_) if !window_open(window) => return Ok(start.elapsed().as_millis() as u64),
             Err(_) => true,

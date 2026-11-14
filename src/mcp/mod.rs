@@ -36,6 +36,7 @@ static LAST_SNAP: std::sync::LazyLock<
 const AUTO_DELTA_WINDOW: std::time::Duration = std::time::Duration::from_secs(300);
 
 pub fn run_mcp_stdio_server() -> Result<()> {
+    crate::eyes::ocr_neural::set_long_lived();
     let _bg_state = spawn_background_collectors();
     // Uzun yaşayan süreç: AT-SPI olaylarını dinleyip eleman önbelleğini geçerli tut.
     crate::eyes::a11y_events::start();

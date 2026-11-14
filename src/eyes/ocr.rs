@@ -196,11 +196,11 @@ pub fn ocr_ppm_bytes_to_elements(
         built
     };
 
-    let q_lower = query_filter.map(|q| q.to_lowercase());
+    let q_lower = query_filter.map(crate::eyes::fold);
     let mut filtered = Vec::new();
     for mut el in all_elements {
         if let Some(ref q) = q_lower {
-            if !el.name.to_lowercase().contains(q) && !el.role.to_lowercase().contains(q) {
+            if !crate::eyes::fold(&el.name).contains(q.as_str()) && !el.role.to_lowercase().contains(q.as_str()) {
                 continue;
             }
         }
@@ -268,7 +268,9 @@ pub fn ocr_region_lines(region: [i64; 4], max_lines: usize) -> Result<Vec<String
     }
 
     let img = parse_ppm_p6(&grim_out.stdout)?;
-    let words = ocr_words(&img, 30.0)?;
+    // Terminal satırları tesseract'ta kalır: sinir ağı küçük eş aralıklı yazıda karakter düşürüyordu
+    // ("Dağıtım anahtarı: PVDYEG9L" → "Dağtm anahtar: PVDYEGL"); tesseract bu yazı tipinde kararlı.
+    let words = ocr_words_with(&img, 30.0, ocr_single_band)?;
     Ok(reconstruct_lines(&words, max_lines))
 }
 
@@ -507,6 +509,11 @@ where
 }
 
 fn ocr_words(img: &image::RgbImage, min_conf: f64) -> Result<Vec<OcrWord>> {
+    if crate::eyes::ocr_neural::available() {
+        if let Ok(words) = crate::eyes::ocr_neural::recognize(img) {
+            return Ok(words.into_iter().filter(|w| w.conf >= min_conf).collect());
+        }
+    }
     ocr_words_with(img, min_conf, ocr_single_band)
 }
 
@@ -855,12 +862,53 @@ level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theigh
 
 /// Geliştirme ölçümü: soğuk / sıcak / önbellekli / tek bant değişmiş OCR süreleri ve tek parça
 /// tesseract'a göre kelime örtüşmesi (`pc-eye ocr-bench --file x.ppm`).
+/// Geliştirme: sinir ağı ve tesseract çıktısını satır satır döker (`PCEYE_OCR_DUMP=1 pc-eye ocr-bench`).
+pub fn dump(ppm: &[u8]) -> Result<()> {
+    let img = crate::eyes::vision::parse_ppm_p6(ppm)?;
+    for w in crate::eyes::ocr_neural::recognize(&img)? {
+        println!("N {:>4},{:>4} {:>3.0} {}", w.left, w.top, w.conf, w.text);
+    }
+    for w in parse_tesseract_tsv(&run_tesseract_tsv(ppm)?, 35.0) {
+        println!("T {:>4},{:>4} {:>3.0} {}", w.left, w.top, w.conf, w.text);
+    }
+    Ok(())
+}
+
 pub fn bench(ppm: &[u8]) -> Result<serde_json::Value> {
     let base = crate::eyes::vision::parse_ppm_p6(ppm)?;
     let (w, h) = base.dimensions();
     let t = std::time::Instant::now();
     let whole = parse_tesseract_tsv(&run_tesseract_tsv(ppm)?, 35.0);
     let whole_ms = t.elapsed().as_millis();
+    let set = |v: &[OcrWord]| v.iter().map(|w| w.text.to_lowercase()).collect::<std::collections::HashSet<_>>();
+    let a = set(&whole);
+    // Sinir ağı ilklendirmesini runs döngüsünden önce ölç ki ms_soguk gerçek soğuk başlangıcı yansıtsın.
+    let t0 = std::time::Instant::now();
+    let neural = if crate::eyes::ocr_neural::available() {
+        if let Ok(first) = crate::eyes::ocr_neural::recognize(&base) {
+            let ms_soguk = t0.elapsed().as_millis();
+            let t1 = std::time::Instant::now();
+            let second = crate::eyes::ocr_neural::recognize(&base).unwrap_or_else(|_| first.clone());
+            let ms_sicak = t1.elapsed().as_millis();
+            let neural_words: std::collections::HashSet<String> = second
+                .iter()
+                .filter(|w| w.conf >= 35.0)
+                .flat_map(|w| w.text.split_whitespace())
+                .map(|s| s.to_lowercase())
+                .collect();
+            serde_json::json!({
+                "available": true,
+                "ms_soguk": ms_soguk,
+                "ms_sicak": ms_sicak,
+                "kelime": second.len(),
+                "ortak_kelime_tek_parca": a.intersection(&neural_words).count(),
+            })
+        } else {
+            serde_json::json!({ "available": false, "ms_soguk": 0, "ms_sicak": 0, "kelime": 0, "ortak_kelime_tek_parca": 0 })
+        }
+    } else {
+        serde_json::json!({ "available": false, "ms_soguk": 0, "ms_sicak": 0, "kelime": 0, "ortak_kelime_tek_parca": 0 })
+    };
     let mut runs = Vec::new();
     let mut last = Vec::new();
     for (i, label) in ["soguk", "sicak_tum_bantlar_degisti", "degismedi", "alt_bant_degisti"].iter().enumerate() {
@@ -877,11 +925,11 @@ pub fn bench(ppm: &[u8]) -> Result<serde_json::Value> {
         last = ocr_words(&img, 35.0)?;
         runs.push(serde_json::json!({ "run": label, "ms": t.elapsed().as_millis(), "words": last.len() }));
     }
-    let set = |v: &[OcrWord]| v.iter().map(|w| w.text.to_lowercase()).collect::<std::collections::HashSet<_>>();
-    let (a, b) = (set(&whole), set(&last));
+    let b = set(&last);
     Ok(serde_json::json!({
         "size": [w, h], "tek_parca_cli_ms": whole_ms, "tek_parca_kelime": whole.len(),
         "runs": runs, "ortak_kelime": a.intersection(&b).count(), "tek_parca_benzersiz": a.len(),
+        "neural": neural,
     }))
 }
 

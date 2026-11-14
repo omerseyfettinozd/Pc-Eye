@@ -1,4 +1,5 @@
 use crate::eyes::compositor::{capture_desktop_state, normalize_window_address};
+use crate::protocol::types::WindowInfo;
 use anyhow::{anyhow, Result};
 
 /// K5 Kuralı: Asla dondurulamayacak (`SIGSTOP` atılamayacak) kritik sistem ve masaüstü süreçleri.
@@ -58,6 +59,54 @@ pub fn enforce_action_guard(
     Ok(())
 }
 
+/// MCP yolunda `allow_protected` yalnız sunucu `PC_EYE_MCP_ALLOW_PROTECTED=1` ile başlatıldıysa geçerlidir;
+/// korumayı kaldırma yetkisi ajanın JSON argümanında değil, sunucuyu başlatan kullanıcıda olmalıdır.
+pub fn mcp_allow_protected(requested: bool) -> bool {
+    requested && std::env::var("PC_EYE_MCP_ALLOW_PROTECTED").as_deref() == Ok("1")
+}
+
+/// (x, y) noktasını içeren görünür ve korumalı pencere (saf mantık: masaüstü yakalamadan test edilir).
+fn protected_window_at<'a>(
+    windows: &'a [WindowInfo],
+    active_workspaces: &[i64],
+    x: i64,
+    y: i64,
+) -> Option<&'a WindowInfo> {
+    windows.iter().find(|w| {
+        w.protected_window
+            && w.mapped
+            && !w.hidden
+            && active_workspaces.contains(&w.workspace_id)
+            && x >= w.x
+            && x < w.x + w.width
+            && y >= w.y
+            && y < w.y + w.height
+    })
+}
+
+/// Odaktaki pencere korumasız olsa da tıklanan (x, y) noktası korumalı bir pencerenin üzerinde olabilir.
+pub fn enforce_point_guard(x: i64, y: i64, allow_protected: bool) -> Result<()> {
+    if allow_protected {
+        return Ok(());
+    }
+    let desktop = capture_desktop_state()?;
+    let active_ws: Vec<i64> = desktop
+        .monitors
+        .iter()
+        .map(|m| m.active_workspace_id)
+        .collect();
+    if let Some(win) = protected_window_at(&desktop.windows, &active_ws, x, y) {
+        return Err(anyhow!(
+            "PROTECTED_WINDOW_REFUSED: ({}, {}) noktası korumalı pencere (`{}` - `{}`) üzerindedir (AI öz-koruma / şifre yöneticisi). Zorlamak için `--allow-protected` gerekir.",
+            x,
+            y,
+            win.class,
+            win.title
+        ));
+    }
+    Ok(())
+}
+
 const SHELLS: &[&str] = &["sh", "bash", "zsh", "fish", "dash", "ksh", "mksh", "csh", "tcsh", "busybox"];
 const INTERPRETERS: &[&str] = &["perl", "ruby", "node", "nodejs", "lua", "php", "pwsh", "osascript"];
 
@@ -73,10 +122,20 @@ pub fn enforce_mcp_launch_policy(cmd: &[String]) -> Result<()> {
         let rest = &cmd[i + 1..];
         let is_shell = SHELLS.contains(&base.as_str());
         let is_interp = base.starts_with("python") || INTERPRETERS.contains(&base.as_str());
-        // `-c`, `-lc`, `-ec` gibi birleşik kabuk bayrakları; yorumlayıcılarda `-c`/`-e`/`--eval`.
+        let is_node = matches!(base.as_str(), "node" | "nodejs");
+        // `-c`, `-lc`, `-ec` gibi birleşik kabuk bayrakları; yorumlayıcılarda `-uc`/`-Ec`/`-ne` gibi birleşik
+        // kısa bayraklar, yapışık `--eval=...` ve `--command` biçimleri de satır içi koddur.
         let inline = rest.iter().any(|a| {
+            let lower = a.to_ascii_lowercase();
             (is_shell && a.starts_with('-') && !a.starts_with("--") && a.contains('c'))
-                || (is_interp && matches!(a.as_str(), "-c" | "-e" | "-E" | "--eval" | "-r"))
+                || (is_interp
+                    && (matches!(a.as_str(), "-c" | "-e" | "-E" | "--eval" | "-r")
+                        || (a.starts_with('-')
+                            && !a.starts_with("--")
+                            && (lower.contains('c') || lower.contains('e')))
+                        || lower.starts_with("--eval")
+                        || lower.starts_with("--command")))
+                || (is_node && (a == "-p" || lower.starts_with("--print")))
         });
         if (is_shell || is_interp) && inline {
             return Err(anyhow!(
@@ -139,6 +198,13 @@ mod tests {
             &["kitty", "sh", "-c", "curl x | sh"],
             &["python3", "-c", "import os"],
             &["perl", "-e", "print 1"],
+            &["python3", "-uc", "import os; os.system('id')"],
+            &["python3", "-Ec", "import os"],
+            &["perl", "-ne", "system('id')"],
+            &["node", "--eval=require('child_process').execSync('id')"],
+            &["node", "-p", "process.env"],
+            &["pwsh", "-Command", "Get-Process"],
+            &["pwsh", "--command", "Get-Process"],
         ] {
             assert!(enforce_mcp_launch_policy(&argv(bad)).is_err(), "{:?}", bad);
         }
@@ -148,8 +214,54 @@ mod tests {
             &["python3", "/home/u/app.py", "--scene", "form"],
             &["gnome-text-editor", "-c"],
             &["bash", "script.sh"],
+            &["python3", "-u", "app.py"],
+            &["node", "app.js", "--max-old-space-size=512"],
         ] {
             assert!(enforce_mcp_launch_policy(&argv(ok)).is_ok(), "{:?}", ok);
         }
+    }
+
+    #[test]
+    fn mcp_allow_protected_never_trusts_agent_alone() {
+        // Sunucu ortam değişkeni ne olursa olsun ajanın `false` demesi korumayı açmaz.
+        assert!(!mcp_allow_protected(false));
+    }
+
+    fn win(protected: bool, workspace: i64, geometry: [i64; 4]) -> WindowInfo {
+        WindowInfo {
+            address: "0x1".to_string(),
+            class: "1password".to_string(),
+            title: "Vault".to_string(),
+            pid: 42,
+            workspace_id: workspace,
+            workspace_name: workspace.to_string(),
+            monitor: 0,
+            x: geometry[0],
+            y: geometry[1],
+            width: geometry[2],
+            height: geometry[3],
+            floating: true,
+            fullscreen: 0,
+            xwayland: false,
+            mapped: true,
+            hidden: false,
+            focused: false,
+            protected_window: protected,
+        }
+    }
+
+    #[test]
+    fn point_guard_finds_any_protected_window_under_point() {
+        let windows = vec![
+            win(false, 1, [0, 0, 800, 600]),
+            win(true, 1, [900, 100, 400, 300]),
+            win(true, 2, [0, 0, 500, 500]),
+        ];
+        let active = [1i64];
+        assert!(protected_window_at(&windows, &active, 1000, 200).is_some());
+        assert!(protected_window_at(&windows, &active, 100, 100).is_none());
+        // Etkin çalışma alanı değişince aynı nokta korumalı olabilir.
+        assert!(protected_window_at(&windows, &[2i64], 100, 100).is_some());
+        assert!(protected_window_at(&windows, &active, 5000, 5000).is_none());
     }
 }

@@ -242,30 +242,18 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             // Görüntü her zaman yanıta eklenir: MCP istemcisi dosya okuyamaz; tam pencere yakalamada
             // yalnız yol dönmek ajana boşa bir tur yaktırıyordu ("ekran görüntüsü dönmedi").
             let include_b64 = args.get("include_base64").and_then(|v| v.as_bool()).unwrap_or(true);
-            let region = args
-                .get("region")
-                .and_then(|v| v.as_array())
-                .and_then(|arr| {
-                    if arr.len() == 4 {
-                        Some([
-                            arr[0].as_i64()?,
-                            arr[1].as_i64()?,
-                            arr[2].as_i64()?,
-                            arr[3].as_i64()?,
-                        ])
-                    } else {
-                        None
-                    }
-                });
-            let zoom = args.get("zoom").and_then(|v| v.as_array()).and_then(|arr| {
-                if arr.len() == 2 {
-                    Some([arr[0].as_i64()?, arr[1].as_i64()?])
-                } else {
-                    None
-                }
-            });
+            // Geçersiz `region`/`zoom` sessizce yok sayılmasın: istenen kırpma yerine tüm ekran dönmesin.
+            let region = parse_region_arg(args)?;
+            let zoom = parse_zoom_arg(args)?;
             // Kare dizisi (animasyon izlenebilirliği) modu: `frames` verilirse dizi yakalanır.
-            if let Some(n) = args.get("frames").and_then(|v| v.as_u64()) {
+            // Bozuk `frames` sessizce tek kare moduna düşmesin: anlaşılır hata dön.
+            let frames = match args.get("frames") {
+                None | Some(Value::Null) => None,
+                Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+                    anyhow::anyhow!("`frames` pozitif tam sayı olmalı (verilen: {})", v)
+                })?),
+            };
+            if let Some(n) = frames {
                 let interval_ms = args
                     .get("interval_ms")
                     .and_then(|v| v.as_u64())
@@ -357,10 +345,10 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             let set_text = args.get("set_text").and_then(|v| v.as_str());
-            let allow_prot = args
-                .get("allow_protected")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
+            // Korumayı ajan JSON argümanıyla kaldıramaz: yalnız sunucuyu başlatan kullanıcı açabilir.
+            let allow_prot = crate::director::guard::mcp_allow_protected(
+                args.get("allow_protected").and_then(|v| v.as_bool()).unwrap_or(false),
+            );
             let clicks = args.get("clicks").and_then(|v| v.as_u64()).unwrap_or(1).clamp(1, 3) as u32;
             let rec = crate::director::input::click_ui_element_n(
                 win, name_q, mark, btn, prefer_dbus, set_text, allow_prot, clicks,
@@ -372,10 +360,9 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             // Koordinatla girdi yeniden oynatılamaz: tarif izi burada kopar.
             crate::director::recipes::break_trail();
             let op = args.get("op").and_then(|v| v.as_str()).unwrap_or("click");
-            let allow_prot = args
-                .get("allow_protected")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
+            let allow_prot = crate::director::guard::mcp_allow_protected(
+                args.get("allow_protected").and_then(|v| v.as_bool()).unwrap_or(false),
+            );
             let win = args.get("window").and_then(|v| v.as_str());
             let rec = match op {
                 "click" => {
@@ -385,7 +372,12 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                         .get("button")
                         .and_then(|v| v.as_str())
                         .unwrap_or("left");
-                    let clicks = args.get("clicks").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+                    // Üst sınır yoktu ve `as u32` kesiyordu; click_ui ile aynı aralığa sıkıştırılır.
+                    let clicks = args
+                        .get("clicks")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(1)
+                        .clamp(1, 3) as u32;
                     click_at(x, y, btn, clicks, allow_prot)?
                 }
                 "move" => {
@@ -469,7 +461,9 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
         }
         "pc_eye_run" => {
-            let allow_prot = args.get("allow_protected").and_then(|v| v.as_bool()).unwrap_or(false);
+            let allow_prot = crate::director::guard::mcp_allow_protected(
+                args.get("allow_protected").and_then(|v| v.as_bool()).unwrap_or(false),
+            );
             let out = crate::director::program::run_program(&args, allow_prot)?;
             vec![json!({ "type": "text", "text": serde_json::to_string(&out)? })]
         }
@@ -516,8 +510,10 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                     let pid = args
                         .get("pid")
                         .and_then(|v| v.as_i64())
-                        .ok_or_else(|| anyhow::anyhow!("pid gerekli"))?
-                        as i32;
+                        .ok_or_else(|| anyhow::anyhow!("pid gerekli"))?;
+                    // i32 aralığı dışındaki pid sessizce kesilip başka süreci durdurmasın.
+                    let pid = i32::try_from(pid)
+                        .map_err(|_| anyhow::anyhow!("pid {} i32 aralığı dışında", pid))?;
                     let max_ms = args
                         .get("max_freeze_ms")
                         .and_then(|v| v.as_u64())
@@ -529,8 +525,10 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                     let pid = args
                         .get("pid")
                         .and_then(|v| v.as_i64())
-                        .ok_or_else(|| anyhow::anyhow!("pid gerekli"))?
-                        as i32;
+                        .ok_or_else(|| anyhow::anyhow!("pid gerekli"))?;
+                    // i32 aralığı dışındaki pid sessizce kesilip başka sürece SIGCONT gitmesin.
+                    let pid = i32::try_from(pid)
+                        .map_err(|_| anyhow::anyhow!("pid {} i32 aralığı dışında", pid))?;
                     let rec = thaw_process(pid)?;
                     vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rec)? })]
                 }
@@ -558,10 +556,9 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
                         .cloned()
                         .unwrap_or_else(|| Value::Array(vec![]));
                     let steps: Vec<SequenceStep> = serde_json::from_value(steps_val)?;
-                    let allow_prot = args
-                        .get("allow_protected")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false);
+                    let allow_prot = crate::director::guard::mcp_allow_protected(
+                        args.get("allow_protected").and_then(|v| v.as_bool()).unwrap_or(false),
+                    );
                     let rep = execute_sequence(&steps, allow_prot)?;
                     vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
                 }
@@ -611,6 +608,52 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
     }
 
     Ok(items)
+}
+
+/// `region` argümanını `[x, y, w, h]` olarak çözer; verilmiş ama biçimi bozuksa açık hata döner.
+fn parse_region_arg(args: &Value) -> Result<Option<[i64; 4]>> {
+    let Some(v) = args.get("region").filter(|v| !v.is_null()) else {
+        return Ok(None);
+    };
+    let arr = v
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("`region` [x,y,w,h] tam sayı dizisi olmalı"))?;
+    if arr.len() != 4 {
+        return Err(anyhow::anyhow!(
+            "`region` tam 4 tam sayı içermeli ([x,y,w,h]); {} eleman verildi",
+            arr.len()
+        ));
+    }
+    let mut out = [0i64; 4];
+    for (i, item) in arr.iter().enumerate() {
+        out[i] = item
+            .as_i64()
+            .ok_or_else(|| anyhow::anyhow!("`region[{}]` tam sayı değil: {}", i, item))?;
+    }
+    Ok(Some(out))
+}
+
+/// `zoom` argümanını `[x, y]` olarak çözer; verilmiş ama biçimi bozuksa açık hata döner.
+fn parse_zoom_arg(args: &Value) -> Result<Option<[i64; 2]>> {
+    let Some(v) = args.get("zoom").filter(|v| !v.is_null()) else {
+        return Ok(None);
+    };
+    let arr = v
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("`zoom` [x,y] tam sayı dizisi olmalı"))?;
+    if arr.len() != 2 {
+        return Err(anyhow::anyhow!(
+            "`zoom` tam 2 tam sayı içermeli ([x,y]); {} eleman verildi",
+            arr.len()
+        ));
+    }
+    let x = arr[0]
+        .as_i64()
+        .ok_or_else(|| anyhow::anyhow!("`zoom[0]` tam sayı değil: {}", arr[0]))?;
+    let y = arr[1]
+        .as_i64()
+        .ok_or_else(|| anyhow::anyhow!("`zoom[1]` tam sayı değil: {}", arr[1]))?;
+    Ok(Some([x, y]))
 }
 
 fn mcp_tools_schema() -> Value {
@@ -834,6 +877,24 @@ mod tests {
         assert!(tool_call_budget(&json!({})) >= Duration::from_millis(1));
         let long = tool_call_budget(&json!({ "timeout_ms": 120_000 }));
         assert_eq!(long, Duration::from_millis(120_000 + TOOL_TIMEOUT_SLACK_MS));
+    }
+
+    #[test]
+    fn vision_region_and_zoom_reject_malformed_arguments() {
+        assert!(parse_region_arg(&json!({})).unwrap().is_none());
+        assert_eq!(
+            parse_region_arg(&json!({ "region": [1, 2, 30, 40] })).unwrap(),
+            Some([1, 2, 30, 40])
+        );
+        assert!(parse_region_arg(&json!({ "region": [1, 2, 3] })).is_err());
+        assert!(parse_region_arg(&json!({ "region": [1, 2, 3, "x"] })).is_err());
+        assert!(parse_region_arg(&json!({ "region": "10,20,30,40" })).is_err());
+        assert_eq!(
+            parse_zoom_arg(&json!({ "zoom": [10, 20] })).unwrap(),
+            Some([10, 20])
+        );
+        assert!(parse_zoom_arg(&json!({ "zoom": [10] })).is_err());
+        assert!(parse_zoom_arg(&json!({ "zoom": [10, 20, 30] })).is_err());
     }
 }
 

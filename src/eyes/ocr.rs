@@ -28,7 +28,8 @@ pub fn resolve_tessdata_dir() -> Option<PathBuf> {
         }
     }
     let sys_tess = PathBuf::from("/usr/share/tessdata");
-    if sys_tess.exists() {
+    // Boş tessdata dizini yüzünden OCR'ın hazır görünüp başarısız olmasını önlemek için model dosyasını doğrula.
+    if sys_tess.join("eng.traineddata").exists() || sys_tess.join("tur.traineddata").exists() {
         return Some(sys_tess);
     }
     None
@@ -279,11 +280,12 @@ fn run_tesseract_tsv(ppm_bytes: &[u8]) -> Result<String> {
         cmd.arg("--tessdata-dir").arg(&tess_dir);
         let has_eng = tess_dir.join("eng.traineddata").exists();
         let has_tur = tess_dir.join("tur.traineddata").exists();
+        // Bilinen diller yoksa anlamsız "afr" yerine varsayılan "eng" kullan.
         let lang = match (has_eng, has_tur) {
             (true, true) => "eng+tur",
             (true, false) => "eng",
             (false, true) => "tur",
-            (false, false) => "afr",
+            (false, false) => "eng",
         };
         cmd.args(["-l", lang]);
     }
@@ -396,25 +398,35 @@ pub fn group_words_into_phrases(words: &[OcrWord], max_gap_px: i64) -> Vec<OcrWo
 
 /// Kelimeleri dikey koordinatlarına göre satır satır düz metin listesine dönüştürür.
 pub fn reconstruct_lines(words: &[OcrWord], max_lines: usize) -> Vec<String> {
-    let phrases = group_words_into_phrases(words, 48);
-    let mut sorted = phrases;
-    sorted.sort_by_key(|p| (p.top / 10, p.left));
+    let mut sorted = group_words_into_phrases(words, 48);
+    // Kova sınırı (top / 10) aynı satırdaki ifadelerin sırasını bozmasın diye önce top ile sırala.
+    sorted.sort_by_key(|p| (p.top, p.left));
 
-    let mut lines: Vec<(i64, String)> = Vec::new();
+    let mut clusters: Vec<(i64, Vec<(i64, String)>)> = Vec::new();
     for p in sorted {
-        if let Some((last_y, last_line)) = lines.last_mut() {
+        if let Some((last_y, items)) = clusters.last_mut() {
             if (p.top - *last_y).abs() <= 12 {
-                last_line.push_str("  ");
-                last_line.push_str(&p.text);
+                items.push((p.left, p.text));
                 continue;
             }
         }
-        lines.push((p.top, p.text));
+        clusters.push((p.top, vec![(p.left, p.text)]));
     }
 
-    let len = lines.len();
+    let len = clusters.len();
     let skip = len.saturating_sub(max_lines);
-    lines.into_iter().skip(skip).map(|(_, s)| s).collect()
+    clusters
+        .into_iter()
+        .skip(skip)
+        .map(|(_, mut items)| {
+            items.sort_by_key(|(left, _)| *left);
+            items
+                .into_iter()
+                .map(|(_, text)| text)
+                .collect::<Vec<_>>()
+                .join("  ")
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -457,5 +469,23 @@ level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theigh
         );
         assert_ne!(content_hash(&a), content_hash(&b));
         assert_eq!(content_hash(&a), content_hash(&a.clone()));
+    }
+
+    #[test]
+    fn reconstruct_lines_ignores_bucket_boundary() {
+        let w = |block_num, left, top, text: &str| OcrWord {
+            block_num,
+            par_num: 1,
+            line_num: 1,
+            word_num: 1,
+            left,
+            top,
+            width: 40,
+            height: 14,
+            conf: 95.0,
+            text: text.to_string(),
+        };
+        let words = vec![w(1, 200, 19, "Sağ"), w(2, 50, 20, "Sol")];
+        assert_eq!(reconstruct_lines(&words, 10), vec!["Sol  Sağ"]);
     }
 }

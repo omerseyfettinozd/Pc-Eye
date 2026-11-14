@@ -129,7 +129,8 @@ class Sandbox:
     def __enter__(self):
         if self.session:
             return self._enter_session()
-        if any(m["name"] == DISPLAY_NAME for m in hyprctl_json("monitors", "all")):
+        # hyprctl çıktısı boşsa None döner; monitör taraması çökmemeli.
+        if any(m["name"] == DISPLAY_NAME for m in hyprctl_json("monitors", "all") or []):
             pceye("display", "remove", "--name", DISPLAY_NAME)
         r = pceye("display", "create", "--name", DISPLAY_NAME, "--mode", DISPLAY_MODE)
         receipt = r.json()
@@ -193,6 +194,9 @@ class Sandbox:
             return {"misplaced": misplaced, "agent_leak": True}
         if cursor == self.user_cursor and active.get("address") == self.user_window:
             return False
+        # hyprctl çıktısı alınamazsa imleç None gelir; koordinat yoksa sızıntı ölçülemez, çökmek yerine False.
+        if not isinstance(cursor, dict) or "x" not in cursor or "y" not in cursor:
+            return False
         # Sızıntı: imleç kullanıcının (headless olmayan) ekranlarının dışına, ya da odak oturumun
         # penceresine geçti. Aksi halde değişim kullanıcının kendi kullanımıdır.
         real = [m for m in hyprctl_json("monitors") or [] if not m["name"].startswith(("PCEYE-", "HEADLESS"))]
@@ -247,14 +251,23 @@ class Sandbox:
                 except ProcessLookupError:
                     pass
 
+        def alive(pid):
+            # Zombi süreç /proc/<pid> altında görünür ama sinyal almaz; ölü sayılmazsa her temizlik
+            # boşuna 2 sn bekliyordu.
+            try:
+                state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[-1].split()
+            except (OSError, ValueError):
+                return False
+            return bool(state) and state[0] != "Z"
+
         for pid in self.pids:
             send(pid, signal.SIGTERM)
         # Bir sonraki sahne eski süreci (ve AT-SPI kaydını) görmesin diye ölmesini bekle.
         deadline = time.time() + 2
-        while time.time() < deadline and any(Path(f"/proc/{p}").exists() for p in self.pids):
+        while time.time() < deadline and any(alive(p) for p in self.pids):
             time.sleep(0.05)
         for pid in self.pids:
-            if Path(f"/proc/{pid}").exists():
+            if alive(pid):
                 send(pid, signal.SIGKILL)
         self.pids.clear()
         for fn in self.cleanups:
@@ -878,7 +891,9 @@ def run_agent(task, scene, sb, work, args, transcript):
         ok, detail = False, f"zaman aşımı ({args.timeout} sn)"
     else:
         ok, detail = check_task(task["check"], scene, m["final_text"])
-        if m["is_error"] and not ok:
+        if m["is_error"]:
+            # Ajan hatası (tur/bütçe sınırı, MCP çökmesi) doğru CEVAP yazsa bile başarı sayılmaz.
+            ok = False
             detail = f"ajan hatası; {detail}"
     m.pop("final_text")
     return {"ok": ok, "detail": detail, "ms": round(ms, 1), **m}

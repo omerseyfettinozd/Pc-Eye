@@ -14,6 +14,10 @@ pub struct SequenceStep {
     pub op: String, // "click" | "click_ui" | "move" | "type" | "key" | "scroll" | "window" | "wait" | "sleep_ms"
     pub x: Option<i64>,
     pub y: Option<i64>,
+    // Tekerlek miktarı ayrı alanlarda: `x`/`y` yalnız imlecin gideceği noktadır, aksi hâlde
+    // koordinatlar kaydırma miktarı sanılıp sayfa yüzlerce adım kayıyordu.
+    pub dx: Option<i32>,
+    pub dy: Option<i32>,
     pub name: Option<String>,
     pub mark: Option<usize>,
     pub text: Option<String>,
@@ -37,7 +41,7 @@ pub struct SequenceReport {
 /// veya kilit ekranı girerse anında durur.
 pub fn execute_sequence(steps: &[SequenceStep], allow_protected: bool) -> Result<SequenceReport> {
     let initial_state = capture_desktop_state()?;
-    let initial_workspace = initial_state
+    let mut initial_workspace = initial_state
         .monitors
         .iter()
         .find(|m| m.focused)
@@ -101,8 +105,8 @@ pub fn execute_sequence(steps: &[SequenceStep], allow_protected: bool) -> Result
             "scroll" => scroll_wheel(
                 step.x,
                 step.y,
-                step.x.unwrap_or(0) as i32,
-                step.y.unwrap_or(-3) as i32,
+                step.dx.unwrap_or(0),
+                step.dy.unwrap_or(-3),
                 allow_protected,
             )?,
             "window" => manage_window(
@@ -142,8 +146,20 @@ pub fn execute_sequence(steps: &[SequenceStep], allow_protected: bool) -> Result
 
         receipts.push(receipt);
 
+        // `window` adımı çalışma alanını bilinçli değiştirebilir: referans yeni duruma çekilir,
+        // yoksa sonraki adım eski referansla karşılaştırılıp dizi haksız yere durdurulur.
+        if op == "window" {
+            let post = capture_desktop_state()?;
+            if let Some(ws) = post
+                .monitors
+                .iter()
+                .find(|m| m.focused)
+                .map(|m| m.active_workspace_id)
+            {
+                initial_workspace = Some(ws);
+            }
         // Eğer adım bir workspace değişimi istemediyse ama workspace beklenmedik şekilde değiştiyse diziyi durdur
-        if op != "window" {
+        } else {
             let post = capture_desktop_state()?;
             let post_ws = post
                 .monitors
@@ -172,4 +188,17 @@ pub fn execute_sequence(steps: &[SequenceStep], allow_protected: bool) -> Result
         aborted_reason: None,
         receipts,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SequenceStep;
+
+    // `x`/`y` yalnız imleç konumudur; tekerlek miktarı verilmezse varsayılanda kalmalı.
+    #[test]
+    fn scroll_step_defaults_dx_dy() {
+        let step: SequenceStep =
+            serde_json::from_str(r#"{"op":"scroll","x":600,"y":400}"#).unwrap();
+        assert_eq!((step.dx, step.dy), (None, None));
+    }
 }

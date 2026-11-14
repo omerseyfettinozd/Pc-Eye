@@ -29,10 +29,13 @@ pub fn runtime_dir() -> PathBuf {
 }
 
 /// Linux VFS `rename(2)` garantisiyle yarış koşulsuz (lock-free atomic) dosya yazımı yapar.
+// Eşzamanlı iş parçacıkları aynı PID'yi paylaştığından geçici dosya adı atomik sayaçla ayrıştırılır.
 pub fn atomic_write_str(target: &std::path::Path, content: &str) {
-    let tmp = target.with_extension(format!("tmp.{}", std::process::id()));
-    if fs::write(&tmp, content).is_ok() {
-        let _ = fs::rename(&tmp, target);
+    static TMP_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = TMP_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let tmp = target.with_extension(format!("tmp.{}.{}", std::process::id(), seq));
+    if fs::write(&tmp, content).is_ok() && fs::rename(&tmp, target).is_err() {
+        let _ = fs::remove_file(&tmp);
     }
 }
 
@@ -87,16 +90,23 @@ pub fn resolve_capture_plan(
     zoom_point: Option<[i64; 2]>,
 ) -> Result<CapturePlan> {
     let desktop = capture_desktop_state()?;
+    resolve_capture_plan_for_desktop(&desktop, window_addr, region, zoom_point)
+}
 
+fn resolve_capture_plan_for_desktop(
+    desktop: &crate::protocol::types::DesktopState,
+    window_addr: Option<&str>,
+    region: Option<[i64; 4]>,
+    zoom_point: Option<[i64; 2]>,
+) -> Result<CapturePlan> {
     if desktop.auth_guard_tripped {
         return Err(anyhow!(
             "AuthGuard aktif: {} — güvenlik nedeniyle ekran yakalama reddedildi",
-            desktop.auth_guard_reason.unwrap_or_default()
+            desktop.auth_guard_reason.clone().unwrap_or_default()
         ));
     }
 
-    let primary_mon = desktop.monitors.first().cloned();
-    let scale = primary_mon.as_ref().map(|m| m.scale).unwrap_or(1.0);
+    let focused_mon = desktop.monitors.first().cloned();
     // Monitör boyutları fiziksel pikseldir; grim/Hyprland yerleşimi mantıksal (ölçeklenmiş) koordinattır.
     let logical = |m: &crate::protocol::types::MonitorInfo| -> [i64; 4] {
         let sc = if m.scale > 0.0 { m.scale } else { 1.0 };
@@ -107,21 +117,30 @@ pub fn resolve_capture_plan(
             ((m.height as f64) / sc).round() as i64,
         ]
     };
-    // Tüm çıkışların birleşik sınırı: ikincil/headless çıkışlardaki pencereler kırpılmasın.
+    // Taşmayı önlemek ve sol/üst kırpmada sağ/alt kenarın taşmamasını sağlamak için doygun aritmetik kullan.
     let (bx0, by0, bx1, by1) = if desktop.monitors.is_empty() {
         (0, 0, 2560, 1600)
     } else {
         desktop.monitors.iter().map(logical).fold(
             (i64::MAX, i64::MAX, i64::MIN, i64::MIN),
-            |(x0, y0, x1, y1), r| (x0.min(r[0]), y0.min(r[1]), x1.max(r[0] + r[2]), y1.max(r[1] + r[3])),
+            |(x0, y0, x1, y1), r| {
+                (
+                    x0.min(r[0]),
+                    y0.min(r[1]),
+                    x1.max(r[0].saturating_add(r[2])),
+                    y1.max(r[1].saturating_add(r[3])),
+                )
+            },
         )
     };
     let clamp_rect = |x: i64, y: i64, w: i64, h: i64| -> [i64; 4] {
-        let x = x.clamp(bx0, (bx1 - 10).max(bx0));
-        let y = y.clamp(by0, (by1 - 10).max(by0));
-        let w = w.clamp(10, (bx1 - x).max(10));
-        let h = h.clamp(10, (by1 - y).max(10));
-        [x, y, w, h]
+        let rx0 = x.clamp(bx0, bx1.saturating_sub(10).max(bx0));
+        let ry0 = y.clamp(by0, by1.saturating_sub(10).max(by0));
+        let rx1 = x.saturating_add(w.max(0)).min(bx1);
+        let ry1 = y.saturating_add(h.max(0)).min(by1);
+        let rw = rx1.saturating_sub(rx0).clamp(10, bx1.saturating_sub(rx0).max(10));
+        let rh = ry1.saturating_sub(ry0).clamp(10, by1.saturating_sub(ry0).max(10));
+        [rx0, ry0, rw, rh]
     };
 
     // `window` ile verilen nokta/bölge: pencerenin içine düşüyorsa mutlak (snapshot'ın `at` değerleri),
@@ -134,9 +153,17 @@ pub fn resolve_capture_plan(
         }
         None => None,
     };
+    // Taşma korumalı göreli/mutlak dönüşüm (`zoom` için snapshot `at` değerlerini korur).
     let to_abs = |x: i64, y: i64| -> (i64, i64) {
         match &target_win {
-            Some(w) if !(x >= w.x && x < w.x + w.width && y >= w.y && y < w.y + w.height) => (w.x + x, w.y + y),
+            Some(w)
+                if !(x >= w.x
+                    && x < w.x.saturating_add(w.width)
+                    && y >= w.y
+                    && y < w.y.saturating_add(w.height)) =>
+            {
+                (w.x.saturating_add(x), w.y.saturating_add(y))
+            }
             _ => (x, y),
         }
     };
@@ -145,34 +172,70 @@ pub fn resolve_capture_plan(
         let zw = 480i64;
         let zh = 320i64;
         let (zx, zy) = to_abs(zx, zy);
-        // Pencere verildiyse kutu pencerenin içinde kalsın (komşu ekran/boşluk yakalanmasın).
+        // Pencere verildiyse kutu hem pencerenin hem masaüstü sınırlarının içinde kalsın.
         let (lx0, ly0, lx1, ly1) = match &target_win {
-            Some(w) if w.width >= zw && w.height >= zh => (w.x, w.y, w.x + w.width, w.y + w.height),
+            Some(w) if w.width >= zw && w.height >= zh => {
+                let wx0 = w.x.max(bx0);
+                let wy0 = w.y.max(by0);
+                let wx1 = w.x.saturating_add(w.width).min(bx1);
+                let wy1 = w.y.saturating_add(w.height).min(by1);
+                if wx1.saturating_sub(wx0) >= zw && wy1.saturating_sub(wy0) >= zh {
+                    (wx0, wy0, wx1, wy1)
+                } else {
+                    (bx0, by0, bx1, by1)
+                }
+            }
             _ => (bx0, by0, bx1, by1),
         };
-        let x = (zx - zw / 2).clamp(lx0, (lx1 - zw).max(lx0));
-        let y = (zy - zh / 2).clamp(ly0, (ly1 - zh).max(ly0));
+        let x = zx.saturating_sub(zw / 2).clamp(lx0, lx1.saturating_sub(zw).max(lx0));
+        let y = zy.saturating_sub(zh / 2).clamp(ly0, ly1.saturating_sub(zh).max(ly0));
         (
             "zoom".to_string(),
             target_win.as_ref().map(|w| w.address.clone()),
-            [x, y, zw, zh],
+            clamp_rect(x, y, zw, zh),
         )
     } else if let (Some(r), Some(win)) = (region, target_win.as_ref()) {
         let norm = win.address.clone();
         let (ax, ay) = to_abs(r[0], r[1]);
-        let x = ax.clamp(win.x, (win.x + win.width - 10).max(win.x));
-        let y = ay.clamp(win.y, (win.y + win.height - 10).max(win.y));
-        let w = r[2].clamp(10, (win.x + win.width - x).max(10));
-        let h = r[3].clamp(10, (win.y + win.height - y).max(10));
+        let wx1 = win.x.saturating_add(win.width);
+        let wy1 = win.y.saturating_add(win.height);
+        let x = ax.clamp(win.x, wx1.saturating_sub(10).max(win.x));
+        let y = ay.clamp(win.y, wy1.saturating_sub(10).max(win.y));
+        let rx1 = ax.saturating_add(r[2].max(0)).min(wx1);
+        let ry1 = ay.saturating_add(r[3].max(0)).min(wy1);
+        let w = rx1.saturating_sub(x).clamp(10, wx1.saturating_sub(x).max(10));
+        let h = ry1.saturating_sub(y).clamp(10, wy1.saturating_sub(y).max(10));
         ("window-region".to_string(), Some(norm), clamp_rect(x, y, w, h))
     } else if let Some(r) = region {
         ("region".to_string(), None, clamp_rect(r[0], r[1], r[2], r[3]))
     } else if let Some(win) = target_win.as_ref() {
         ("window".to_string(), Some(win.address.clone()), clamp_rect(win.x, win.y, win.width, win.height))
     } else {
-        let g = primary_mon.as_ref().map(logical).unwrap_or([0, 0, 2560, 1600]);
+        let g = focused_mon.as_ref().map(logical).unwrap_or([0, 0, 2560, 1600]);
         ("monitor".to_string(), None, g)
     };
+
+    // Ölçeği yakalanan bölgenin merkezini içeren monitörden al.
+    let cx = geom[0].saturating_add(geom[2] / 2);
+    let cy = geom[1].saturating_add(geom[3] / 2);
+    let scale = desktop
+        .monitors
+        .iter()
+        .find(|m| {
+            let mr = logical(m);
+            cx >= mr[0]
+                && cx < mr[0].saturating_add(mr[2])
+                && cy >= mr[1]
+                && cy < mr[1].saturating_add(mr[3])
+        })
+        .or_else(|| {
+            target_win
+                .as_ref()
+                .and_then(|w| desktop.monitors.iter().find(|m| m.id == w.monitor))
+        })
+        .or(focused_mon.as_ref())
+        .map(|m| m.scale)
+        .unwrap_or(1.0);
 
     Ok(CapturePlan {
         mode,
@@ -269,7 +332,8 @@ pub fn grab_region_ppm(geom: [i64; 4]) -> Result<RgbImage> {
 /// Ham P6 PPM ikili verisini sıfır kopya ile `RgbImage`'e dönüştürür.
 pub fn parse_ppm_p6(bytes: &[u8]) -> Result<RgbImage> {
     // Format: P6\n<width> <height>\n<maxval>\n<rgb bytes>
-    if bytes.len() < 15 || &bytes[0..2] != b"P6" {
+    // En küçük geçerli 1x1 P6 PPM (ör. "P6\n1 1\n1\n" + 3 bayt) 12 bayt olduğundan alt sınır 11 tutulur.
+    if bytes.len() < 11 || &bytes[0..2] != b"P6" || !(bytes[2].is_ascii_whitespace() || bytes[2] == b'#') {
         return Err(anyhow!("Geçersiz PPM P6 başlığı"));
     }
     let mut pos = 2;
@@ -295,24 +359,41 @@ pub fn parse_ppm_p6(bytes: &[u8]) -> Result<RgbImage> {
         }
     }
 
-    // Başlık sonundaki tek whitespace karakterini atla
-    if pos < bytes.len() && bytes[pos].is_ascii_whitespace() {
-        pos += 1;
+    // Başlık sonundaki tek whitespace karakterini atla; yoksa başlık eksiktir.
+    if pos >= bytes.len() || !bytes[pos].is_ascii_whitespace() {
+        return Err(anyhow!("Geçersiz PPM P6 başlık sonu"));
     }
+    pos += 1;
 
+    const MAX_PPM_DIM: u32 = 16_384;
     let width = *tokens.first().ok_or_else(|| anyhow!("PPM genişlik yok"))?;
     let height = *tokens.get(1).ok_or_else(|| anyhow!("PPM yükseklik yok"))?;
-    let expected_len = (width as usize) * (height as usize) * 3;
+    let maxval = *tokens.get(2).ok_or_else(|| anyhow!("PPM maxval yok"))?;
+    if width == 0 || height == 0 || width > MAX_PPM_DIM || height > MAX_PPM_DIM {
+        return Err(anyhow!("Geçersiz PPM boyutları: {}x{}", width, height));
+    }
+    if !(1..=255).contains(&maxval) {
+        return Err(anyhow!("Desteklenmeyen PPM maxval: {}", maxval));
+    }
+    // Büyük boyutlarda tamsayı taşmasını ve dilimleme paniğini önlemek için checked_mul kullan.
+    let expected_len = (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|px| px.checked_mul(3))
+        .ok_or_else(|| anyhow!("PPM boyut taşması: {}x{}", width, height))?;
 
-    if bytes.len() < pos + expected_len {
+    let available = bytes.len().saturating_sub(pos);
+    if available < expected_len {
         return Err(anyhow!(
             "PPM veri boyutu eksik: beklenen {}, gelen {}",
             expected_len,
-            bytes.len().saturating_sub(pos)
+            available
         ));
     }
 
-    let raw_rgb = bytes[pos..pos + expected_len].to_vec();
+    let end = pos
+        .checked_add(expected_len)
+        .ok_or_else(|| anyhow!("PPM veri aralığı taşması"))?;
+    let raw_rgb = bytes[pos..end].to_vec();
     RgbImage::from_raw(width, height, raw_rgb)
         .ok_or_else(|| anyhow!("RgbImage oluşturulamadı"))
 }
@@ -861,5 +942,94 @@ mod tests {
         // Hiç hareket yok -> ilk karşılaştırmadan itibaren stabil.
         let still = vec![None, Some(0.0), Some(0.0)];
         assert_eq!(compute_motion_settled(&still, STABLE_DIFF_PCT), Some(1));
+    }
+
+    #[test]
+    fn test_parse_ppm_p6_validation_and_1x1() {
+        let one_by_one = b"P6\n1 1\n255\n\x10\x20\x30";
+        let img = parse_ppm_p6(one_by_one).expect("1x1 P6 PPM geçerli olmalı");
+        assert_eq!((img.width(), img.height()), (1, 1));
+        assert!(parse_ppm_p6(b"P6\n# yorum yeterli uzunluk\n0 0\n255\n").is_err());
+        assert!(parse_ppm_p6(b"P6\n2147483648 2147483648\n255\nabc").is_err());
+        assert!(parse_ppm_p6(b"P6\n1 1\n0\n\x00\x00\x00").is_err());
+        assert!(parse_ppm_p6(b"P6\n1 1\n256\n\x00\x00\x00").is_err());
+    }
+
+    #[test]
+    fn test_resolve_capture_plan_relative_region_clamp_and_scale() {
+        use crate::protocol::types::{DesktopState, MonitorInfo, WindowInfo};
+        let desktop = DesktopState {
+            timestamp_ms: 0,
+            cursor_x: 0,
+            cursor_y: 0,
+            active_window_address: Some("0x1".to_string()),
+            active_window_class: None,
+            active_window_title: None,
+            active_window_pid: None,
+            auth_guard_tripped: false,
+            auth_guard_reason: None,
+            monitors: vec![
+                MonitorInfo {
+                    id: 0,
+                    name: "DP-1".into(),
+                    width: 1920,
+                    height: 1080,
+                    x: 0,
+                    y: 0,
+                    scale: 1.0,
+                    active_workspace_id: 1,
+                    active_workspace_name: "1".into(),
+                    focused: false,
+                },
+                MonitorInfo {
+                    id: 1,
+                    name: "DP-2".into(),
+                    width: 3840,
+                    height: 2160,
+                    x: 1920,
+                    y: 0,
+                    scale: 2.0,
+                    active_workspace_id: 2,
+                    active_workspace_name: "2".into(),
+                    focused: true,
+                },
+            ],
+            workspaces: vec![],
+            windows: vec![WindowInfo {
+                address: "0x1".into(),
+                class: "app".into(),
+                title: "App".into(),
+                pid: 10,
+                workspace_id: 1,
+                workspace_name: "1".into(),
+                monitor: 0,
+                x: 200,
+                y: 100,
+                width: 1000,
+                height: 800,
+                floating: true,
+                fullscreen: 0,
+                xwayland: false,
+                mapped: true,
+                hidden: false,
+                focused: true,
+                protected_window: false,
+            }],
+            layers: vec![],
+        };
+
+        // Pencerenin içine düşen nokta mutlaktır (snapshot `at`); dışına düşen pencereye görelidir.
+        let p_abs = resolve_capture_plan_for_desktop(&desktop, Some("0x1"), Some([300, 200, 400, 300]), None).unwrap();
+        assert_eq!(p_abs.geom, [300, 200, 400, 300]);
+        let p_rel = resolve_capture_plan_for_desktop(&desktop, Some("0x1"), Some([50, 50, 400, 300]), None).unwrap();
+        assert_eq!(p_rel.geom, [250, 150, 400, 300]);
+        assert!((p_rel.scale - 1.0).abs() < 1e-9);
+
+        let p_zoom_extreme = resolve_capture_plan_for_desktop(&desktop, Some("0x1"), None, Some([i64::MIN, i64::MAX])).unwrap();
+        assert_eq!(p_zoom_extreme.geom, [200, 580, 480, 320]);
+
+        let p_mon = resolve_capture_plan_for_desktop(&desktop, None, None, None).unwrap();
+        assert_eq!(p_mon.geom, [0, 0, 1920, 1080]);
+        assert!((p_mon.scale - 1.0).abs() < 1e-9);
     }
 }

@@ -1,4 +1,4 @@
-use crate::director::guard::enforce_action_guard;
+use crate::director::guard::{enforce_action_guard, enforce_point_guard};
 use crate::eyes::compositor::{
     active_window_is_xwayland, capture_desktop_state, hypr_dispatch_cmd, normalize_window_address, HyprDispatch,
 };
@@ -323,6 +323,8 @@ pub fn click_at(
 ) -> Result<ActionReceipt> {
     enforce_action_guard(None, allow_protected)?;
     if let (Some(cx), Some(cy)) = (x, y) {
+        // Odak korumasız olsa da tıklama noktası bir korumalı pencerenin üzerinde olabilir.
+        enforce_point_guard(cx, cy, allow_protected)?;
         // Yeni açılmış (özellikle XWayland) pencerede ilk tık odak tıkı olarak yutulur:
         // önce hedef pencereyi odakla, odak oturana kadar bekle, sonra imleci gerçek konuma götür.
         focus_window_at(cx, cy);
@@ -369,6 +371,9 @@ pub fn drag_mouse(
     allow_protected: bool,
 ) -> Result<ActionReceipt> {
     enforce_action_guard(None, allow_protected)?;
+    // Sürüklemenin iki ucu da korumalı pencereye düşmemeli (bırakma hedefi dahil).
+    enforce_point_guard(x1, y1, allow_protected)?;
+    enforce_point_guard(x2, y2, allow_protected)?;
     let btn_code = parse_mouse_button(button);
     hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: x1, y: y1 })?;
     thread::sleep(Duration::from_millis(25));
@@ -406,6 +411,8 @@ pub fn scroll_wheel(
 ) -> Result<ActionReceipt> {
     enforce_action_guard(None, allow_protected)?;
     if let (Some(cx), Some(cy)) = (x, y) {
+        // Odak korumasız olsa da tekerlek olayı korumalı pencerenin üzerine gitmemeli.
+        enforce_point_guard(cx, cy, allow_protected)?;
         hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
         thread::sleep(Duration::from_millis(15));
     }

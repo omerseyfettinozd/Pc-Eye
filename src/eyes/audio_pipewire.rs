@@ -16,20 +16,20 @@ pub fn capture_audio_report() -> Result<AudioReport> {
     let media_players = collect_mpris_media_players();
     let mut default_sink = resolve_default_sink();
 
-    let output = Command::new("pw-dump").output()?;
+    // pw-dump başarısızken boş rapor dönmek "akış yok" yanılgısı yaratıyordu; sorgulanamayan ses
+    // grafiği artık Err olarak bildirilir (çağıranlar bu durumu zaten karşılıyor).
+    let Some(output) = output_with_timeout(Command::new("pw-dump"), PROBE_CMD_TIMEOUT) else {
+        return Err(anyhow!(
+            "pw-dump {} ms içinde yanıt vermedi ya da başlatılamadı",
+            PROBE_CMD_TIMEOUT.as_millis()
+        ));
+    };
     if !output.status.success() {
-        let pcm = measure_sink_pcm_signal(default_sink.as_ref());
-        return Ok(AudioReport {
-            timestamp_ms: ts,
-            default_sink_volume,
-            default_sink_muted,
-            active_playback_streams: 0,
-            active_recording_streams: 0,
-            pcm_signal_note: pcm.as_ref().err().cloned(),
-            pcm_signal: pcm.ok(),
-            media_players,
-            nodes: Vec::new(),
-        });
+        return Err(anyhow!(
+            "pw-dump başarısız ({}): {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
     }
 
     let arr: Vec<Value> = serde_json::from_slice(&output.stdout).unwrap_or_default();
@@ -296,13 +296,20 @@ fn output_with_timeout(mut cmd: Command, timeout: Duration) -> Option<Output> {
     let mut child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .ok()?;
     let mut stdout = child.stdout.take()?;
+    let mut stderr_pipe = child.stderr.take()?;
     let reader = std::thread::spawn(move || {
         let mut v = Vec::new();
         let _ = stdout.read_to_end(&mut v);
+        v
+    });
+    // stderr de toplanır: başarısız kontrol komutlarının hata metni çağırana taşınabilsin.
+    let err_reader = std::thread::spawn(move || {
+        let mut v = Vec::new();
+        let _ = stderr_pipe.read_to_end(&mut v);
         v
     });
     let deadline = Instant::now() + timeout;
@@ -318,10 +325,11 @@ fn output_with_timeout(mut cmd: Command, timeout: Duration) -> Option<Output> {
         }
     };
     let stdout = reader.join().unwrap_or_default();
+    let stderr = err_reader.join().unwrap_or_default();
     Some(Output {
         status,
         stdout,
-        stderr: Vec::new(),
+        stderr,
     })
 }
 
@@ -390,7 +398,10 @@ pub fn compute_pcm_s16le_metrics(pcm_bytes: &[u8]) -> PcmSignalMetrics {
 
 /// D-Bus üzerindeki tüm `org.mpris.MediaPlayer2.*` servislerini (Firefox, Spotify, MPV, Chromium vb.) tarar.
 pub fn collect_mpris_media_players() -> Vec<MprisMediaInfo> {
-    let Ok(list_out) = Command::new("busctl").args(["--user", "list"]).output() else {
+    // D-Bus/pipewire takılırsa süresiz beklememek için listeleme de süre sınırlı çalışır.
+    let mut cmd = Command::new("busctl");
+    cmd.args(["--user", "list"]);
+    let Some(list_out) = output_with_timeout(cmd, PROBE_CMD_TIMEOUT) else {
         return Vec::new();
     };
     let text = String::from_utf8_lossy(&list_out.stdout);
@@ -431,18 +442,17 @@ pub fn collect_mpris_media_players() -> Vec<MprisMediaInfo> {
 }
 
 fn mpris_get_string(service: &str, prop: &str) -> Option<String> {
-    let out = Command::new("busctl")
-        .args([
-            "--user",
-            "get-property",
-            service,
-            "/org/mpris/MediaPlayer2",
-            "org.mpris.MediaPlayer2.Player",
-            prop,
-            "--json=short",
-        ])
-        .output()
-        .ok()?;
+    let mut cmd = Command::new("busctl");
+    cmd.args([
+        "--user",
+        "get-property",
+        service,
+        "/org/mpris/MediaPlayer2",
+        "org.mpris.MediaPlayer2.Player",
+        prop,
+        "--json=short",
+    ]);
+    let out = output_with_timeout(cmd, PROBE_CMD_TIMEOUT)?;
     if !out.status.success() {
         return None;
     }
@@ -453,18 +463,17 @@ fn mpris_get_string(service: &str, prop: &str) -> Option<String> {
 fn mpris_get_metadata(
     service: &str,
 ) -> (Option<String>, Option<String>, Option<String>, Option<f64>) {
-    let Ok(out) = Command::new("busctl")
-        .args([
-            "--user",
-            "get-property",
-            service,
-            "/org/mpris/MediaPlayer2",
-            "org.mpris.MediaPlayer2.Player",
-            "Metadata",
-            "--json=short",
-        ])
-        .output()
-    else {
+    let mut cmd = Command::new("busctl");
+    cmd.args([
+        "--user",
+        "get-property",
+        service,
+        "/org/mpris/MediaPlayer2",
+        "org.mpris.MediaPlayer2.Player",
+        "Metadata",
+        "--json=short",
+    ]);
+    let Some(out) = output_with_timeout(cmd, PROBE_CMD_TIMEOUT) else {
         return (None, None, None, None);
     };
     if !out.status.success() {
@@ -560,9 +569,19 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
         }
         "set-volume" | "volume" => {
             let vol = arg.ok_or_else(|| anyhow!("Ses seviyesi gerekli (ör. 0.5 veya 50%)"))?;
-            Command::new("wpctl")
-                .args(["set-volume", "@DEFAULT_AUDIO_SINK@", vol])
-                .status()?;
+            // wpctl geçersiz seviyede ya da sink yokken sıfırdan farklı kodla çıkar; denetlenmezse
+            // ajan hiçbir şey değişmediği hâlde "ayarlandı" sanır.
+            let mut cmd = Command::new("wpctl");
+            cmd.args(["set-volume", "@DEFAULT_AUDIO_SINK@", vol]);
+            let out = output_with_timeout(cmd, PROBE_CMD_TIMEOUT)
+                .ok_or_else(|| anyhow!("wpctl set-volume yanıt vermedi"))?;
+            if !out.status.success() {
+                return Err(anyhow!(
+                    "wpctl set-volume başarısız ({}): {}",
+                    out.status,
+                    String::from_utf8_lossy(&out.stderr).trim()
+                ));
+            }
             Ok(ActionReceipt {
                 ok: true,
                 action: "audio_set_volume".to_string(),
@@ -578,9 +597,18 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                 "unmute" => "0",
                 _ => "toggle",
             };
-            Command::new("wpctl")
-                .args(["set-mute", "@DEFAULT_AUDIO_SINK@", mode])
-                .status()?;
+            // Aynı denetim mute dalında da gerekli: sink yokken wpctl hata koduyla çıkar.
+            let mut cmd = Command::new("wpctl");
+            cmd.args(["set-mute", "@DEFAULT_AUDIO_SINK@", mode]);
+            let out = output_with_timeout(cmd, PROBE_CMD_TIMEOUT)
+                .ok_or_else(|| anyhow!("wpctl set-mute yanıt vermedi"))?;
+            if !out.status.success() {
+                return Err(anyhow!(
+                    "wpctl set-mute başarısız ({}): {}",
+                    out.status,
+                    String::from_utf8_lossy(&out.stderr).trim()
+                ));
+            }
             Ok(ActionReceipt {
                 ok: true,
                 action: "audio_mute".to_string(),
@@ -595,8 +623,14 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
                 .and_then(|s| s.trim_end_matches("ms").parse::<u64>().ok())
                 .unwrap_or(2000)
                 .clamp(100, 15000);
-            let out_path = crate::eyes::vision::runtime_dir().join("audio_capture.wav");
-            let _ = std::fs::remove_file(&out_path);
+            // Sabit dosya adı eşzamanlı iki kayıtta birbirinin verisini siliyordu; pid + nanosecond
+            // damgası her çağrıya kendi .wav dosyasını verir.
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0);
+            let out_path = crate::eyes::vision::runtime_dir()
+                .join(format!("audio_capture_{}_{}.wav", std::process::id(), stamp));
             let sink = resolve_default_sink().ok_or_else(|| {
                 anyhow!("Varsayılan sink çözülemedi; mikrofona düşmemek için kayıt yapılmadı")
             })?;
@@ -644,10 +678,10 @@ pub fn control_audio_and_media(op: &str, arg: Option<&str>) -> Result<ActionRece
 }
 
 fn read_default_sink_volume() -> (Option<f64>, bool) {
-    let Ok(output) = Command::new("wpctl")
-        .args(["get-volume", "@DEFAULT_AUDIO_SINK@"])
-        .output()
-    else {
+    // Ses raporu wpctl yanıt vermese de dönmeli; yalnız bu sorgu süre sınırına alınır.
+    let mut cmd = Command::new("wpctl");
+    cmd.args(["get-volume", "@DEFAULT_AUDIO_SINK@"]);
+    let Some(output) = output_with_timeout(cmd, PROBE_CMD_TIMEOUT) else {
         return (None, false);
     };
     if !output.status.success() {

@@ -64,8 +64,12 @@ pub fn current_offset(address: &str, geom: [i64; 4]) -> Option<(i64, i64)> {
     offset_for(address, window_pid(address), geom)
 }
 
+// Eşzamanlı kalibrasyon yazımlarında oku-değiştir-yaz yarışını önlemek için kilit kullan.
+static STORE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn store(address: &str, geom: [i64; 4], dx: i64, dy: i64) {
     let pid = window_pid(address);
+    let _guard = STORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut all = load();
     if let Some(obj) = all.as_object_mut() {
         // Kapanmış pencerelerin kayıtları birikmesin.
@@ -157,11 +161,24 @@ const MAX_SHIFT_PX: i64 = 64;
 /// OCR yalnız birkaç kısa etiketin çevresinde koşar: tüm pencerede tesseract 5 sn sürüyordu.
 /// En üstteki birkaç etiket seçilir (aynı satırlarda kalsın, bölge küçük olsun).
 fn probe_region(elements: &[UiElement], geom: [i64; 4]) -> Option<[i64; 4]> {
+    let [wx, wy, ww, wh] = geom;
+    // Görünüm dışındaki (offscreen) veya pencere geometrisiyle kesişmeyen etiketleri ele.
     let mut labels: Vec<&UiElement> = elements
         .iter()
         .filter(|e| !e.dbus_service.is_empty())
+        .filter(|e| !e.states.iter().any(|s| s == "offscreen"))
         .filter(|e| norm(&e.name).chars().count() >= 3)
-        .filter(|e| e.screen_bounds[2] > 0 && e.screen_bounds[2] <= 500 && e.screen_bounds[3] <= 60)
+        .filter(|e| {
+            let [ex, ey, ew, eh] = e.screen_bounds;
+            ew > 0
+                && ew <= 500
+                && eh > 0
+                && eh <= 60
+                && ex.saturating_add(ew) > wx
+                && ex < wx.saturating_add(ww)
+                && ey.saturating_add(eh) > wy
+                && ey < wy.saturating_add(wh)
+        })
         .collect();
     if labels.len() < 2 {
         return None;
@@ -172,9 +189,8 @@ fn probe_region(elements: &[UiElement], geom: [i64; 4]) -> Option<[i64; 4]> {
     let y0 = pick.iter().map(|e| e.screen_bounds[1]).min()? - MAX_SHIFT_PX;
     let x1 = pick.iter().map(|e| e.screen_bounds[0] + e.screen_bounds[2]).max()? + MAX_SHIFT_PX;
     let y1 = pick.iter().map(|e| e.screen_bounds[1] + e.screen_bounds[3]).max()? + MAX_SHIFT_PX;
-    let [wx, wy, ww, wh] = geom;
     let (x0, y0) = (x0.max(wx), y0.max(wy));
-    let (x1, y1) = (x1.min(wx + ww), y1.min(wy + wh));
+    let (x1, y1) = (x1.min(wx.saturating_add(ww)), y1.min(wy.saturating_add(wh)));
     (x1 - x0 > 8 && y1 - y0 > 8).then_some([x0, y0, x1 - x0, y1 - y0])
 }
 
@@ -256,5 +272,19 @@ mod tests {
         apply(&mut els, (3, 4));
         assert_eq!(els[0].click_point, [8, 9]);
         assert_eq!(els[1].click_point, [10, 10]);
+    }
+
+    #[test]
+    fn probe_region_ignores_offscreen_and_out_of_window_elements() {
+        let mut off = el("Gizli Etiket", [120, 220, 120, 20], true);
+        off.states.push("offscreen".to_string());
+        let els = vec![
+            el("Yukarıda Kaymış", [120, -200, 120, 20], true),
+            el("Üst Dışı", [120, -160, 120, 20], true),
+            off,
+            el("Kaydet", [150, 260, 80, 20], true),
+            el("İptal", [250, 260, 80, 20], true),
+        ];
+        assert_eq!(probe_region(&els, [100, 200, 800, 600]), Some([100, 200, 294, 144]));
     }
 }

@@ -52,6 +52,15 @@ fn visible_names(window: Option<&str>) -> Option<std::collections::BTreeSet<Stri
         .map(|ui| ui.elements.into_iter().map(|e| e.name).filter(|n| !n.is_empty()).collect())
 }
 
+/// Beklenen metni filtreli taze okumayla tüm ağaçta arar: `visible_names` ilk 150 elemanla
+/// sınırlı olduğu için uzun listelerde metin kaçıyordu (`wait` adımı da filtreyle arıyor).
+fn text_visible(window: Option<&str>, text: &str) -> bool {
+    let needle = text.to_lowercase();
+    with_fresh_reads(|| inspect_window_ui(window, Some(text), 10))
+        .map(|ui| ui.elements.iter().any(|e| e.name.to_lowercase().contains(&needle)))
+        .unwrap_or(false)
+}
+
 /// Değişim oturduktan sonra bu kadar beklenir; beklenen metin hâlâ yoksa erken bırakılır.
 const SETTLED_FAIL_MS: u64 = 1200;
 
@@ -81,7 +90,14 @@ fn wait_text_with_baseline(
                 last_names = Some(n.clone());
             }
         }
-        let settled = last_change.map_or(false, |t| t.elapsed() >= Duration::from_millis(SETTLED_FAIL_MS));
+        // Liste 150 sınırına dayandıysa metin kesilen kısımda olabilir: yalnız o zaman filtreli
+        // ikinci okuma yapılır (her yoklamada ek okuma beklentiyi yavaşlatırdı).
+        if names.as_ref().map_or(true, |n| n.len() >= 140) && text_visible(window, text) {
+            return Ok(start.elapsed().as_millis() as u64);
+        }
+        // Çağıran açıkça daha uzun süre istediyse erken "duruldu" çıkışı beklemeyi kesmesin.
+        let settled = timeout_ms <= DEFAULT_EXPECT_MS
+            && last_change.map_or(false, |t| t.elapsed() >= Duration::from_millis(SETTLED_FAIL_MS));
         if settled || start.elapsed() >= Duration::from_millis(timeout_ms) {
             let appeared: Vec<String> = match (baseline, &last_names) {
                 (Some(b), Some(n)) => n.difference(b).take(6).cloned().collect(),
@@ -97,6 +113,13 @@ fn wait_text_with_baseline(
     }
 }
 
+/// Hedef pencere hâlâ açık mı: `gone` beklentisinde okuma hatası "pencere kapandı" demek olabilir.
+fn window_open(window: Option<&str>) -> bool {
+    let Some(addr) = window else { return true };
+    let Ok(desktop) = crate::eyes::compositor::capture_desktop_state() else { return true };
+    crate::eyes::compositor::resolve_window_ref(addr, &desktop.windows).is_ok()
+}
+
 /// Metin görünene ya da kaybolana kadar taze okumayla bekler.
 fn wait_text(window: Option<&str>, text: &str, gone: bool, timeout_ms: u64) -> Result<u64> {
     let start = Instant::now();
@@ -105,10 +128,14 @@ fn wait_text(window: Option<&str>, text: &str, gone: bool, timeout_ms: u64) -> R
         return Ok(start.elapsed().as_millis() as u64);
     }
     let needle = text.to_lowercase();
-    while start.elapsed() < Duration::from_millis(timeout_ms) {
-        let present = with_fresh_reads(|| inspect_window_ui(window, Some(text), 10))
-            .map(|ui| ui.elements.iter().any(|e| e.name.to_lowercase().contains(&needle)))
-            .unwrap_or(true);
+    // `timeout_ms: 0` bile en az bir yoklama yapsın (wait_for_condition da en az 100 ms bekliyor).
+    while start.elapsed() < Duration::from_millis(timeout_ms.max(100)) {
+        let present = match with_fresh_reads(|| inspect_window_ui(window, Some(text), 10)) {
+            Ok(ui) => ui.elements.iter().any(|e| e.name.to_lowercase().contains(&needle)),
+            // Hedef pencere kapandıysa metin de onunla gitti: kaybolmuş sayılır, süre beklenmez.
+            Err(_) if !window_open(window) => return Ok(start.elapsed().as_millis() as u64),
+            Err(_) => true,
+        };
         if !present {
             return Ok(start.elapsed().as_millis() as u64);
         }
@@ -123,7 +150,19 @@ fn check_expect(
     step: &Value,
     baseline: Option<&std::collections::BTreeSet<String>>,
 ) -> Result<Option<String>> {
-    let Some(exp) = step.get("expect") else { return Ok(None) };
+    let top_gone;
+    let exp = match step.get("expect") {
+        Some(e) => e,
+        // Beklenti yanlışlıkla adımın üst düzeyine yazılırsa (`{"click":"Tamam","gone":".."}`)
+        // sessizce yutulmasın: `expect` yerine değerlendirilir.
+        None => match step.get("gone").and_then(Value::as_str) {
+            Some(g) => {
+                top_gone = json!({ "gone": g });
+                &top_gone
+            }
+            None => return Ok(None),
+        },
+    };
     let timeout = step
         .get("timeout_ms")
         .or_else(|| exp.get("timeout_ms"))
@@ -132,6 +171,8 @@ fn check_expect(
     let (text, gone) = match exp {
         Value::String(t) => (t.as_str(), false),
         Value::Object(o) => match (o.get("text").and_then(Value::as_str), o.get("gone").and_then(Value::as_str)) {
+            // İkisi birlikte verilirse hangisinin geçerli olduğu belirsiz: sessizce birini seçme.
+            (Some(_), Some(_)) => return Err(anyhow!("expect: text ve gone birlikte verilemez")),
             (Some(t), _) => (t, false),
             (None, Some(g)) => (g, true),
             _ => return Err(anyhow!("expect: text ya da gone gerekli")),
@@ -344,12 +385,19 @@ fn learn(after: &Value, replay: Option<&(String, Vec<Value>)>, portable: Option<
 
 #[cfg(test)]
 mod tests {
-    use super::receipt_name;
+    use super::{check_expect, receipt_name};
 
     #[test]
     fn receipt_name_strips_mark_and_role() {
         assert_eq!(receipt_name("[7] Gönder (push button)").as_deref(), Some("Gönder"));
         assert_eq!(receipt_name("[3] Ad (Soyad) (entry)").as_deref(), Some("Ad (Soyad)"));
         assert_eq!(receipt_name("[3]  (entry)"), None);
+    }
+
+    // `text` ve `gone` birlikte verilirse hangisinin geçerli olduğu belirsiz: hata dönmeli.
+    #[test]
+    fn expect_rejects_text_and_gone_together() {
+        let step = serde_json::json!({ "click": "Tamam", "expect": { "text": "A", "gone": "B" } });
+        assert!(check_expect(None, &step, None).is_err());
     }
 }

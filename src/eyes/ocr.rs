@@ -1,9 +1,11 @@
 use crate::eyes::vision::parse_ppm_p6;
 use crate::protocol::types::UiElement;
 use anyhow::{anyhow, Result};
+use std::collections::HashMap;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Debug, Clone)]
 pub struct OcrWord {
@@ -131,8 +133,7 @@ pub fn ocr_ppm_bytes_to_elements(
             1.0
         };
 
-        let tsv = run_tesseract_tsv(ppm_bytes)?;
-        let words = parse_tesseract_tsv(&tsv, 35.0);
+        let words = ocr_words(&img, 35.0)?;
         let phrases = group_words_into_phrases(&words, 32);
 
         let mut built = Vec::new();
@@ -266,9 +267,247 @@ pub fn ocr_region_lines(region: [i64; 4], max_lines: usize) -> Result<Vec<String
         return Ok(Vec::new());
     }
 
-    let tsv = run_tesseract_tsv(&grim_out.stdout)?;
-    let words = parse_tesseract_tsv(&tsv, 30.0);
+    let img = parse_ppm_p6(&grim_out.stdout)?;
+    let words = ocr_words(&img, 30.0)?;
     Ok(reconstruct_lines(&words, max_lines))
+}
+
+fn tess_lang(tess_dir: &Path) -> String {
+    let has_eng = tess_dir.join("eng.traineddata").exists();
+    let has_tur = tess_dir.join("tur.traineddata").exists();
+    // Bilinen diller yoksa anlamsız "afr" yerine varsayılan "eng" kullan.
+    match (has_eng, has_tur) {
+        (true, true) => "eng+tur".to_string(),
+        (true, false) => "eng".to_string(),
+        (false, true) => "tur".to_string(),
+        (false, false) => "eng".to_string(),
+    }
+}
+
+const BAND_OVERLAP_PX: u32 = 24;
+const BAND_CUT_SEARCH_PX: u32 = 40;
+const BAND_CACHE_MAX_ENTRIES: usize = 512;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BandSpec {
+    core_y0: u32,
+    core_y1: u32,
+    ocr_y0: u32,
+    ocr_y1: u32,
+}
+
+fn is_uniform_row(img: &image::RgbImage, y: u32) -> bool {
+    let w = img.width() as usize;
+    if w <= 1 {
+        return true;
+    }
+    let row_start = (y as usize) * w * 3;
+    let row = &img.as_raw()[row_start..row_start + w * 3];
+    let first = &row[0..3];
+    row.chunks_exact(3).skip(1).all(|px| px == first)
+}
+
+fn split_into_bands(img: &image::RgbImage) -> Vec<BandSpec> {
+    let h = img.height();
+    if h == 0 || img.width() == 0 {
+        return Vec::new();
+    }
+    // Ölçüm (1600x900 metin yoğun sayfa, 16 çekirdek): 75 px / en çok 16 bant en hızlısı (0,7 sn) ve tek
+    // parça OCR'a en yakın kelime kümesi; daha ince bantlarda satır kesimi kaybı artıyor.
+    let bpx: u32 = std::env::var("PCEYE_OCR_BAND_PX").ok().and_then(|v| v.parse().ok()).unwrap_or(75);
+    let kmax: u32 = std::env::var("PCEYE_OCR_BANDS").ok().and_then(|v| v.parse().ok()).unwrap_or(16);
+    let k = (h / bpx.max(16)).clamp(1, kmax.max(1));
+    let mut cuts = Vec::with_capacity((k + 1) as usize);
+    cuts.push(0);
+
+    // Satır ortasından kesip harf koparmamak için kesim noktasını yakın düz renkli satıra kaydır.
+    for i in 1..k {
+        let nominal = (i * h) / k;
+        let prev = *cuts.last().unwrap_or(&0);
+        let min_y = nominal.saturating_sub(BAND_CUT_SEARCH_PX).max(prev + 1);
+        let max_y = (nominal + BAND_CUT_SEARCH_PX).min(h.saturating_sub(1));
+
+        let mut chosen = nominal.clamp(prev + 1, h.saturating_sub(1));
+        for delta in 0..=BAND_CUT_SEARCH_PX {
+            if let Some(y_up) = nominal.checked_sub(delta) {
+                if y_up >= min_y && y_up <= max_y && is_uniform_row(img, y_up) {
+                    chosen = y_up;
+                    break;
+                }
+            }
+            let y_down = nominal + delta;
+            if y_down >= min_y && y_down <= max_y && is_uniform_row(img, y_down) {
+                chosen = y_down;
+                break;
+            }
+        }
+        cuts.push(chosen);
+    }
+    cuts.push(h);
+
+    let mut bands = Vec::with_capacity(k as usize);
+    for i in 0..(k as usize) {
+        let core_y0 = cuts[i];
+        let core_y1 = cuts[i + 1];
+        let ocr_y0 = core_y0.saturating_sub(BAND_OVERLAP_PX);
+        let ocr_y1 = (core_y1 + BAND_OVERLAP_PX).min(h);
+        bands.push(BandSpec {
+            core_y0,
+            core_y1,
+            ocr_y0,
+            ocr_y1,
+        });
+    }
+    bands
+}
+
+fn band_content_hash(w: u32, pixels: &[u8]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    w.hash(&mut h);
+    pixels.hash(&mut h);
+    h.finish()
+}
+
+fn band_cache() -> &'static Mutex<HashMap<u64, Vec<OcrWord>>> {
+    static CACHE: OnceLock<Mutex<HashMap<u64, Vec<OcrWord>>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn encode_ppm_p6(img: &image::RgbImage) -> Vec<u8> {
+    let header = format!("P6\n{} {}\n255\n", img.width(), img.height());
+    let raw = img.as_raw();
+    let mut out = Vec::with_capacity(header.len() + raw.len());
+    out.extend_from_slice(header.as_bytes());
+    out.extend_from_slice(raw);
+    out
+}
+
+fn ocr_single_band(band_img: &image::RgbImage) -> Result<Vec<OcrWord>> {
+    let tsv = if let Some(tess_dir) = resolve_tessdata_dir() {
+        let lang = tess_lang(&tess_dir);
+        if let Some(Ok(tsv)) = crate::eyes::tess_ffi::with_engine(&tess_dir, &lang, |eng| {
+            eng.tsv(band_img.as_raw(), band_img.width(), band_img.height())
+        }) {
+            tsv
+        } else {
+            let ppm = encode_ppm_p6(band_img);
+            run_tesseract_tsv(&ppm)?
+        }
+    } else {
+        let ppm = encode_ppm_p6(band_img);
+        run_tesseract_tsv(&ppm)?
+    };
+    Ok(parse_tesseract_tsv(&tsv, 0.0))
+}
+
+fn merge_band_words(
+    bands: &[BandSpec],
+    band_results: &[Option<Vec<OcrWord>>],
+    min_conf: f64,
+) -> Vec<OcrWord> {
+    let mut merged = Vec::new();
+    // Örtüşme bölgesinde iki bandın da okuduğu kelimeleri yalnız çekirdek aralığına düşen bantta tut.
+    for (band, words_opt) in bands.iter().zip(band_results.iter()) {
+        let Some(words) = words_opt else { continue };
+        let y_offset = band.ocr_y0 as i64;
+        let core_y0 = band.core_y0 as i64;
+        let core_y1 = band.core_y1 as i64;
+        for w in words {
+            if w.conf < min_conf {
+                continue;
+            }
+            let abs_top = w.top + y_offset;
+            let center_y = abs_top + w.height / 2;
+            if center_y >= core_y0 && center_y < core_y1 {
+                let mut shifted = w.clone();
+                shifted.top = abs_top;
+                merged.push(shifted);
+            }
+        }
+    }
+    merged
+}
+
+fn ocr_words_with<F>(
+    img: &image::RgbImage,
+    min_conf: f64,
+    recognize_band: F,
+) -> Result<Vec<OcrWord>>
+where
+    F: Fn(&image::RgbImage) -> Result<Vec<OcrWord>> + Sync,
+{
+    let (w, h) = img.dimensions();
+    if w == 0 || h == 0 {
+        return Ok(Vec::new());
+    }
+
+    let bands = split_into_bands(img);
+    let row_bytes = (w as usize) * 3;
+    let raw = img.as_raw();
+
+    let mut band_results: Vec<Option<Vec<OcrWord>>> = vec![None; bands.len()];
+    let mut pending: Vec<(usize, u64, image::RgbImage)> = Vec::new();
+
+    {
+        let cache = band_cache()
+            .lock()
+            .map_err(|_| anyhow!("OCR bant önbelleği kilitlenemedi"))?;
+        for (idx, band) in bands.iter().enumerate() {
+            let start = (band.ocr_y0 as usize) * row_bytes;
+            let end = (band.ocr_y1 as usize) * row_bytes;
+            let slice = &raw[start..end];
+            let hash = band_content_hash(w, slice);
+            if let Some(cached) = cache.get(&hash) {
+                band_results[idx] = Some(cached.clone());
+            } else {
+                let band_h = band.ocr_y1 - band.ocr_y0;
+                let band_img = image::RgbImage::from_raw(w, band_h, slice.to_vec())
+                    .ok_or_else(|| anyhow!("bant görüntüsü oluşturulamadı"))?;
+                pending.push((idx, hash, band_img));
+            }
+        }
+    }
+
+    if !pending.is_empty() {
+        let recognized: Vec<Result<(usize, u64, Vec<OcrWord>)>> = std::thread::scope(|s| {
+            let handles: Vec<_> = pending
+                .iter()
+                .map(|(idx, hash, band_img)| {
+                    let recognize_ref = &recognize_band;
+                    s.spawn(move || {
+                        let words = recognize_ref(band_img)?;
+                        Ok((*idx, *hash, words))
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|h| {
+                    h.join()
+                        .map_err(|_| anyhow!("OCR bant iş parçacığı panikledi"))?
+                })
+                .collect()
+        });
+
+        let mut cache = band_cache()
+            .lock()
+            .map_err(|_| anyhow!("OCR bant önbelleği kilitlenemedi"))?;
+        for item in recognized {
+            let (idx, hash, words) = item?;
+            if !cache.contains_key(&hash) && cache.len() >= BAND_CACHE_MAX_ENTRIES {
+                cache.clear();
+            }
+            cache.insert(hash, words.clone());
+            band_results[idx] = Some(words);
+        }
+    }
+
+    Ok(merge_band_words(&bands, &band_results, min_conf))
+}
+
+fn ocr_words(img: &image::RgbImage, min_conf: f64) -> Result<Vec<OcrWord>> {
+    ocr_words_with(img, min_conf, ocr_single_band)
 }
 
 fn run_tesseract_tsv(ppm_bytes: &[u8]) -> Result<String> {
@@ -277,17 +516,9 @@ fn run_tesseract_tsv(ppm_bytes: &[u8]) -> Result<String> {
         .args(["stdin", "stdout"]);
 
     if let Some(tess_dir) = resolve_tessdata_dir() {
+        let lang = tess_lang(&tess_dir);
         cmd.arg("--tessdata-dir").arg(&tess_dir);
-        let has_eng = tess_dir.join("eng.traineddata").exists();
-        let has_tur = tess_dir.join("tur.traineddata").exists();
-        // Bilinen diller yoksa anlamsız "afr" yerine varsayılan "eng" kullan.
-        let lang = match (has_eng, has_tur) {
-            (true, true) => "eng+tur",
-            (true, false) => "eng",
-            (false, true) => "tur",
-            (false, false) => "eng",
-        };
-        cmd.args(["-l", lang]);
+        cmd.args(["-l", &lang]);
     }
 
     cmd.args(["--psm", "11", "-c", "tessedit_create_tsv=1"])
@@ -488,4 +719,177 @@ level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theigh
         let words = vec![w(1, 200, 19, "Sağ"), w(2, 50, 20, "Sol")];
         assert_eq!(reconstruct_lines(&words, 10), vec!["Sol  Sağ"]);
     }
+
+    #[test]
+    fn split_into_bands_covers_full_height_without_core_gaps_or_overlap() {
+        for (h, expected_k) in [(60u32, 1usize), (300, 4), (900, 12), (1600, 16)] {
+            let mut img = image::RgbImage::from_pixel(120, h, image::Rgb([240, 240, 240]));
+            // Nominal kesimden 12 px aşağısı dışında tüm satırları tekdüze olmaktan çıkar.
+            for y in 0..h {
+                img.put_pixel(0, y, image::Rgb([10, 20, 30]));
+            }
+            if expected_k > 1 {
+                let target_cut = (h / (expected_k as u32)) + 12;
+                img.put_pixel(0, target_cut, image::Rgb([240, 240, 240]));
+            }
+
+            let bands = split_into_bands(&img);
+            assert_eq!(bands.len(), expected_k);
+            assert_eq!(bands.first().unwrap().core_y0, 0);
+            assert_eq!(bands.last().unwrap().core_y1, h);
+
+            if expected_k > 1 {
+                assert_eq!(bands[0].core_y1, (h / (expected_k as u32)) + 12);
+            }
+
+            for (i, b) in bands.iter().enumerate() {
+                assert!(b.core_y0 < b.core_y1);
+                assert_eq!(b.ocr_y0, b.core_y0.saturating_sub(24));
+                assert_eq!(b.ocr_y1, (b.core_y1 + 24).min(h));
+                if i + 1 < bands.len() {
+                    assert_eq!(b.core_y1, bands[i + 1].core_y0);
+                    assert!(b.ocr_y1 > bands[i + 1].ocr_y0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn core_filter_eliminates_duplicate_words_in_overlap() {
+        let bands = vec![
+            BandSpec {
+                core_y0: 0,
+                core_y1: 150,
+                ocr_y0: 0,
+                ocr_y1: 174,
+            },
+            BandSpec {
+                core_y0: 150,
+                core_y1: 300,
+                ocr_y0: 126,
+                ocr_y1: 300,
+            },
+        ];
+        let mk_word = |top: i64, text: &str| OcrWord {
+            block_num: 1,
+            par_num: 1,
+            line_num: 1,
+            word_num: 1,
+            left: 20,
+            top,
+            width: 50,
+            height: 14,
+            conf: 90.0,
+            text: text.to_string(),
+        };
+        // Her iki kelime de [126, 174) örtüşme bölgesinde olduğu için iki bant tarafından da üretilir.
+        let band_results = vec![
+            Some(vec![mk_word(140, "UstSatir"), mk_word(152, "AltSatir")]),
+            Some(vec![
+                mk_word(140 - 126, "UstSatir"),
+                mk_word(152 - 126, "AltSatir"),
+            ]),
+        ];
+
+        let merged = merge_band_words(&bands, &band_results, 35.0);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].text, "UstSatir");
+        assert_eq!(merged[0].top, 140);
+        assert_eq!(merged[1].text, "AltSatir");
+        assert_eq!(merged[1].top, 152);
+    }
+
+    #[test]
+    fn band_cache_skips_ocr_on_unchanged_bands() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+        fn fake_ocr(band_img: &image::RgbImage) -> Result<Vec<OcrWord>> {
+            CALL_COUNT.fetch_add(1, Ordering::SeqCst);
+            let marker = band_img.get_pixel(0, 10)[0];
+            Ok(vec![OcrWord {
+                block_num: 1,
+                par_num: 1,
+                line_num: 1,
+                word_num: 1,
+                left: 10,
+                top: 30,
+                width: 40,
+                height: 12,
+                conf: 92.0,
+                text: format!("bant-{}", marker),
+            }])
+        }
+
+        // 150 px yükseklik → 75 px'lik iki bant (çekirdekler 0..75, 75..150; OCR aralığı ±24 px).
+        let mut img = image::RgbImage::from_pixel(100, 150, image::Rgb([250, 250, 250]));
+        for y in 0..75 {
+            img.put_pixel(0, y, image::Rgb([11, y as u8, 77]));
+        }
+        for y in 75..150 {
+            img.put_pixel(0, y, image::Rgb([22, y as u8, 88]));
+        }
+
+        let fake_fn: fn(&image::RgbImage) -> Result<Vec<OcrWord>> = fake_ocr;
+        CALL_COUNT.store(0, Ordering::SeqCst);
+
+        let first = ocr_words_with(&img, 35.0, fake_fn).unwrap();
+        assert_eq!(CALL_COUNT.load(Ordering::SeqCst), 2);
+        assert_eq!(first.len(), 2);
+        assert_eq!(first[0].top, 30);
+        assert_eq!(first[1].top, 51 + 30);
+
+        // Aynı görüntüyle ikinci çağrı tamamen bant önbelleğinden dönmeli.
+        let second = ocr_words_with(&img, 35.0, fake_fn).unwrap();
+        assert_eq!(CALL_COUNT.load(Ordering::SeqCst), 2);
+        assert_eq!(second.len(), 2);
+        assert_eq!(second[1].top, first[1].top);
+
+        // Yalnız alt bandın pikseli değiştiğinde sadece o bant yeniden OCR edilmeli.
+        img.put_pixel(50, 130, image::Rgb([99, 99, 99]));
+        let third = ocr_words_with(&img, 35.0, fake_fn).unwrap();
+        assert_eq!(CALL_COUNT.load(Ordering::SeqCst), 3);
+        assert_eq!(third.len(), 2);
+    }
+}
+
+/// Geliştirme ölçümü: soğuk / sıcak / önbellekli / tek bant değişmiş OCR süreleri ve tek parça
+/// tesseract'a göre kelime örtüşmesi (`pc-eye ocr-bench --file x.ppm`).
+pub fn bench(ppm: &[u8]) -> Result<serde_json::Value> {
+    let base = crate::eyes::vision::parse_ppm_p6(ppm)?;
+    let (w, h) = base.dimensions();
+    let t = std::time::Instant::now();
+    let whole = parse_tesseract_tsv(&run_tesseract_tsv(ppm)?, 35.0);
+    let whole_ms = t.elapsed().as_millis();
+    let mut runs = Vec::new();
+    let mut last = Vec::new();
+    for (i, label) in ["soguk", "sicak_tum_bantlar_degisti", "degismedi", "alt_bant_degisti"].iter().enumerate() {
+        let mut img = base.clone();
+        match i {
+            1 => for y in 0..h { img.put_pixel(0, y, image::Rgb([1, 2, 3])); },
+            3 => for x in 0..w.min(40) { img.put_pixel(x, h - 1, image::Rgb([9, 9, 9])); },
+            _ => {}
+        }
+        if i == 2 {
+            img = runs_img_cache(&base, h);
+        }
+        let t = std::time::Instant::now();
+        last = ocr_words(&img, 35.0)?;
+        runs.push(serde_json::json!({ "run": label, "ms": t.elapsed().as_millis(), "words": last.len() }));
+    }
+    let set = |v: &[OcrWord]| v.iter().map(|w| w.text.to_lowercase()).collect::<std::collections::HashSet<_>>();
+    let (a, b) = (set(&whole), set(&last));
+    Ok(serde_json::json!({
+        "size": [w, h], "tek_parca_cli_ms": whole_ms, "tek_parca_kelime": whole.len(),
+        "runs": runs, "ortak_kelime": a.intersection(&b).count(), "tek_parca_benzersiz": a.len(),
+    }))
+}
+
+/// 2. çalıştırmanın görüntüsü (tüm satırlarda ilk piksel değişmiş): "değişmedi" ölçümü aynısını tekrarlar.
+fn runs_img_cache(base: &image::RgbImage, h: u32) -> image::RgbImage {
+    let mut img = base.clone();
+    for y in 0..h {
+        img.put_pixel(0, y, image::Rgb([1, 2, 3]));
+    }
+    img
 }

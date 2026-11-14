@@ -8,5 +8,6 @@ pub mod media;
 pub mod ocr;
 pub mod process_xray;
 pub mod snapshot;
+pub mod tess_ffi;
 pub mod ui_atspi;
 pub mod vision;

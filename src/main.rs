@@ -351,6 +351,13 @@ enum Commands {
         args: Option<String>,
     },
 
+    /// OCR ölçümü (geliştirme): PPM dosyasında soğuk/sıcak/önbellekli süreler
+    #[command(hide = true)]
+    OcrBench {
+        #[arg(long)]
+        file: String,
+    },
+
     /// Firefox native messaging ana makinesi (Firefox başlatır; elle çağrılmaz)
     #[command(hide = true)]
     BrowserHost {
@@ -400,6 +407,12 @@ enum RecipeOp {
 }
 
 fn main() -> Result<()> {
+    let res = run();
+    eyes::tess_ffi::shutdown();
+    res
+}
+
+fn run() -> Result<()> {
     let cli = Cli::parse();
     // MCP sunucusu Claude Code her açıldığında başlar: oturum ilk araç çağrısında açılır ki
     // kullanılmayan her oturum için boşta bir iç Hyprland çalışmasın.
@@ -774,6 +787,10 @@ fn main() -> Result<()> {
             put("submit", submit.then(|| json!(true)));
             let out = browser::command(&op, &a)?;
             println!("{}", serde_json::to_string_pretty(&out)?);
+        }
+        Commands::OcrBench { file } => {
+            let bytes = std::fs::read(&file)?;
+            println!("{}", serde_json::to_string_pretty(&eyes::ocr::bench(&bytes)?)?);
         }
         Commands::BrowserHost { .. } => {
             browser::run_native_host()?;

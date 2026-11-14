@@ -500,6 +500,19 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             let rep = wait_for_condition(event, match_str, win, timeout)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
         }
+        "pc_eye_browser" => {
+            let op = args
+                .get("op")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow::anyhow!("op gerekli"))?;
+            let mut rest = args.clone();
+            if let Some(obj) = rest.as_object_mut() {
+                obj.remove("op");
+                obj.remove("then");
+            }
+            let out = crate::browser::command(op, &rest)?;
+            vec![json!({ "type": "text", "text": browser_result_text(&out) })]
+        }
         "pc_eye_director" => {
             let op = args
                 .get("op")
@@ -608,6 +621,37 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
     }
 
     Ok(items)
+}
+
+/// Tarayıcı sonucu: özet (`lines`) JSON dizisi yerine düz satırlar olarak döner; tırnak kaçışları ve
+/// dizi sözdizimi büyük sayfalarda yükün belirgin kısmını oluşturuyordu.
+fn browser_result_text(out: &Value) -> String {
+    let Some(lines) = out.get("lines").and_then(|v| v.as_array()) else {
+        return serde_json::to_string(out).unwrap_or_default();
+    };
+    let s = |k: &str| out.get(k).and_then(|v| v.as_str()).unwrap_or("");
+    let mut text = format!("url: {}\ntitle: {}\n", s("url"), s("title"));
+    if let Some(tab) = out.get("tab").and_then(|v| v.as_i64()) {
+        text.push_str(&format!("tab: {}", tab));
+    }
+    let scroll_max = out["scroll"]["max"].as_i64().unwrap_or(0);
+    if scroll_max > 0 {
+        text.push_str(&format!("  scroll: {}/{}", out["scroll"]["y"].as_i64().unwrap_or(0), scroll_max));
+    }
+    if let Some(f) = out.get("focused").and_then(|v| v.as_str()) {
+        text.push_str(&format!("  focused: {}", f));
+    }
+    if out.get("truncated").and_then(|v| v.as_bool()) == Some(true) {
+        text.push_str("  (truncated: raise max, or narrow with query)");
+    }
+    text.push('\n');
+    for l in lines {
+        if let Some(l) = l.as_str() {
+            text.push_str(l);
+            text.push('\n');
+        }
+    }
+    text
 }
 
 /// `region` argümanını `[x, y, w, h]` olarak çözer; verilmiş ama biçimi bozuksa açık hata döner.
@@ -830,6 +874,32 @@ fn mcp_tools_schema() -> Value {
             "inputSchema": { "type": "object", "properties": {
                 "op": { "type": "string" },
                 "arg": { "type": "string" }
+            } }
+        },
+        {
+            "name": "pc_eye_browser",
+            "description": "Web pages through the Firefox bridge (reads the DOM in ~20 ms; PREFER this over snapshot/click_ui for anything inside a browser). First `launch` (opens the agent's own Firefox, optional url) unless `status` says connected. `snapshot` lists `[eN] role \"name\" = \"value\" [states]`; act by ref. op: launch | status | stop | tabs | snapshot (query, max, all=also plain text, viewport) | click | type (text, submit) | select (option) | check (on) | key | hover | scroll (ref | dy | to: top/bottom) | text (page or ref text) | wait (text | gone | url, timeout_ms) | navigate (url, new_tab) | back | forward | reload | activate | close | eval (code). Actions return url/title/changed/navigated. Password and card fields show as [secret]; banking and password-manager sites are refused.",
+            "annotations": { "readOnlyHint": false, "destructiveHint": true },
+            "inputSchema": { "type": "object", "required": ["op"], "properties": {
+                "op": { "type": "string" },
+                "tab": { "type": "integer" },
+                "ref": { "type": "string", "description": "e.g. e12" },
+                "text": { "type": "string" },
+                "url": { "type": "string" },
+                "query": { "type": "string" },
+                "option": { "type": "string" },
+                "key": { "type": "string" },
+                "code": { "type": "string" },
+                "gone": { "type": "string" },
+                "to": { "type": "string" },
+                "dy": { "type": "integer" },
+                "max": { "type": "integer" },
+                "on": { "type": "boolean" },
+                "all": { "type": "boolean" },
+                "viewport": { "type": "boolean" },
+                "new_tab": { "type": "boolean" },
+                "submit": { "type": "boolean" },
+                "timeout_ms": { "type": "integer" }
             } }
         },
         {

@@ -34,7 +34,7 @@ fn run_command_with_timeout(cmd: &mut Command, timeout: Duration) -> Result<Outp
             let _ = child.kill();
             break child.wait()?;
         }
-        std::thread::sleep(Duration::from_millis(50));
+        std::thread::sleep(Duration::from_millis(4));
     };
 
     Ok(Output {

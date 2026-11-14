@@ -1,3 +1,4 @@
+pub mod browser;
 pub mod daemon;
 pub mod director;
 pub mod eyes;
@@ -302,6 +303,56 @@ enum Commands {
         #[arg(long, default_value_t = 7777)]
         port: u16,
     },
+
+    /// Tarayıcı köprüsü (Firefox eklentisi): sayfayı DOM'dan okur, `ref` ile tıklar/yazar.
+    /// Yerel: install | launch | attach | status. Köprü: tabs | snapshot | click | type | select |
+    /// check | hover | focus | key | scroll | text | rect | wait | navigate | back | forward |
+    /// reload | activate | close | eval | ping
+    Browser {
+        op: String,
+        #[arg(long)]
+        tab: Option<i64>,
+        /// snapshot'ın verdiği eleman numarası (ör. e12)
+        #[arg(long = "ref")]
+        r#ref: Option<String>,
+        #[arg(long)]
+        text: Option<String>,
+        #[arg(long)]
+        url: Option<String>,
+        #[arg(long)]
+        query: Option<String>,
+        #[arg(long)]
+        option: Option<String>,
+        #[arg(long)]
+        key: Option<String>,
+        #[arg(long)]
+        code: Option<String>,
+        #[arg(long)]
+        max: Option<u64>,
+        #[arg(long)]
+        port: Option<u16>,
+        #[arg(long)]
+        timeout_ms: Option<u64>,
+        /// Etkileşimsiz metinleri de dök (snapshot)
+        #[arg(long)]
+        all: bool,
+        #[arg(long)]
+        viewport: bool,
+        #[arg(long)]
+        new_tab: bool,
+        #[arg(long)]
+        submit: bool,
+        /// Ek argümanlar JSON nesnesi olarak (bayraklarla birleştirilir; bayraklar önceliklidir)
+        #[arg(long)]
+        args: Option<String>,
+    },
+
+    /// Firefox native messaging ana makinesi (Firefox başlatır; elle çağrılmaz)
+    #[command(hide = true)]
+    BrowserHost {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
+        _native: Vec<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -349,7 +400,7 @@ fn main() -> Result<()> {
     // MCP sunucusu Claude Code her açıldığında başlar: oturum ilk araç çağrısında açılır ki
     // kullanılmayan her oturum için boşta bir iç Hyprland çalışmasın.
     if !matches!(cli.command, Commands::Session { .. } | Commands::Mcp { .. }) {
-        session::activate(!matches!(cli.command, Commands::Daemon))?;
+        session::activate(!matches!(cli.command, Commands::Daemon | Commands::BrowserHost { .. }))?;
     }
 
     match cli.command {
@@ -685,6 +736,42 @@ fn main() -> Result<()> {
         }
         Commands::Mcp => {
             mcp::run_mcp_stdio_server()?;
+        }
+        Commands::Browser {
+            op, tab, r#ref, text, url, query, option, key, code, max, port, timeout_ms,
+            all, viewport, new_tab, submit, args,
+        } => {
+            let mut a = match args {
+                Some(raw) => serde_json::from_str::<serde_json::Value>(&raw)
+                    .map_err(|e| anyhow::anyhow!("--args geçerli JSON değil: {}", e))?,
+                None => json!({}),
+            };
+            let obj = a.as_object_mut().ok_or_else(|| anyhow::anyhow!("--args bir JSON nesnesi olmalı"))?;
+            let mut put = |k: &str, v: Option<serde_json::Value>| {
+                if let Some(v) = v {
+                    obj.insert(k.to_string(), v);
+                }
+            };
+            put("tab", tab.map(|v| json!(v)));
+            put("ref", r#ref.map(|v| json!(v)));
+            put("text", text.map(|v| json!(v)));
+            put("url", url.map(|v| json!(v)));
+            put("query", query.map(|v| json!(v)));
+            put("option", option.map(|v| json!(v)));
+            put("key", key.map(|v| json!(v)));
+            put("code", code.map(|v| json!(v)));
+            put("max", max.map(|v| json!(v)));
+            put("port", port.map(|v| json!(v)));
+            put("timeout_ms", timeout_ms.map(|v| json!(v)));
+            put("all", all.then(|| json!(true)));
+            put("viewport", viewport.then(|| json!(true)));
+            put("new_tab", new_tab.then(|| json!(true)));
+            put("submit", submit.then(|| json!(true)));
+            let out = browser::command(&op, &a)?;
+            println!("{}", serde_json::to_string_pretty(&out)?);
+        }
+        Commands::BrowserHost { .. } => {
+            browser::run_native_host()?;
         }
         Commands::Serve { port } => {
             web::run_web_dashboard(port)?;

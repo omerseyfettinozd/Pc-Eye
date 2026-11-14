@@ -372,29 +372,32 @@ fn run_with_timeout(cmd: &mut Command, limit: Duration) -> Option<std::process::
     use std::io::Read;
     let mut child = cmd
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
         .spawn()
         .ok()?;
+    // Çıktı süreç bitmeden okunur: 64 KiB'ı aşan terminal dökümünde boru dolar, süreç yazmada
+    // takılır ve zaman aşımına düşerdi.
+    let mut pipe = child.stdout.take();
+    let reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(p) = pipe.as_mut() {
+            let _ = p.read_to_end(&mut buf);
+        }
+        buf
+    });
     let deadline = Instant::now() + limit;
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
-                let mut stdout = Vec::new();
-                let mut stderr = Vec::new();
-                if let Some(mut pipe) = child.stdout.take() {
-                    let _ = pipe.read_to_end(&mut stdout);
-                }
-                if let Some(mut pipe) = child.stderr.take() {
-                    let _ = pipe.read_to_end(&mut stderr);
-                }
-                return Some(std::process::Output { status, stdout, stderr });
+                let stdout = reader.join().unwrap_or_default();
+                return Some(std::process::Output { status, stdout, stderr: Vec::new() });
             }
             Ok(None) if Instant::now() >= deadline => {
                 let _ = child.kill();
                 let _ = child.wait();
                 return None;
             }
-            Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+            Ok(None) => std::thread::sleep(Duration::from_millis(4)),
             Err(_) => return None,
         }
     }

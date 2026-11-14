@@ -56,12 +56,13 @@ fn test_mcp_initialize_and_tools_list() {
     let tools = responses[1]["result"]["tools"]
         .as_array()
         .expect("tools should be an array");
-    assert_eq!(tools.len(), 16, "Expected 16 MCP tools");
+    assert_eq!(tools.len(), 17, "Expected 17 MCP tools");
     assert!(tools.iter().any(|t| t["name"] == "pc_eye_snapshot"));
     assert!(tools.iter().any(|t| t["name"] == "pc_eye_processes"));
 
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     assert!(names.contains(&"pc_eye_context"));
+    assert!(names.contains(&"pc_eye_browser"));
     assert!(names.contains(&"pc_eye_ui"));
     assert!(names.contains(&"pc_eye_vision"));
     assert!(names.contains(&"pc_eye_xray"));

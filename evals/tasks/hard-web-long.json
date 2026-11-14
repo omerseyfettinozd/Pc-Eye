@@ -4,7 +4,8 @@
   "tags": [
     "hard",
     "scroll",
-    "browser"
+    "browser",
+    "bridge"
   ],
   "prompt": "Firefox'ta açık \"{title}\" sayfasındaki listede {code} kodlu ürünün stok sayısı kaç?",
   "probe": [
@@ -25,5 +26,20 @@
   "check": {
     "type": "answer",
     "expect": "{stock}"
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "snapshot",
+        "--query",
+        "{code}"
+      ],
+      "expect_contains": [
+        "{code}",
+        "{stock}"
+      ],
+      "max_ms": 300
+    }
+  ]
 }

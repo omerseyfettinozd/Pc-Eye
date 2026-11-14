@@ -151,6 +151,10 @@ fn host_wrapper_path() -> Result<PathBuf> {
     Ok(home_dir()?.join(".local/share/pc-eye/browser-host.sh"))
 }
 
+fn xpi_output_path() -> Result<PathBuf> {
+    Ok(home_dir()?.join(".local/share/pc-eye/pc-eye-bridge.xpi"))
+}
+
 fn native_manifest_paths() -> Result<[PathBuf; 2]> {
     let home = home_dir()?;
     let file = format!("{}.json", NATIVE_APP_NAME);
@@ -731,6 +735,13 @@ pub(crate) fn extract_url_host(url: &str) -> String {
 }
 
 fn check_navigate_allowed_with_cfg(url: &str, cfg: &FilterConfig) -> Result<()> {
+    let trimmed = url.trim();
+    if trimmed
+        .get(..5)
+        .map_or(false, |s| s.eq_ignore_ascii_case("file:"))
+    {
+        bail!("file:// sayfaları köprüyle açılamaz ve okunamaz; dosyayı http üzerinden sunun (ör. `python3 -m http.server` ile dizini sunup http://127.0.0.1:<port>/... açın)");
+    }
     let host = extract_url_host(url);
     if !host.is_empty() && cfg.is_host_denied(&host) {
         bail!("site yasak listesinde: {}", host);
@@ -745,7 +756,7 @@ fn check_navigate_allowed(url: &str) -> Result<()> {
     check_navigate_allowed_with_cfg(url, &cfg)
 }
 
-/// CLI ve MCP'nin tek giriş noktası. Yerel op'lar: "install", "launch", "attach", "status", "stop"; diğer her op köprüye iletilir (zaman aşımı: wait→timeout_ms+3 sn, navigate/back/forward/reload→25 sn, diğer→12 sn).
+/// CLI ve MCP'nin tek giriş noktası. Yerel op'lar: "install", "pack", "launch", "attach", "status", "stop"; diğer her op köprüye iletilir (zaman aşımı: wait→timeout_ms+3 sn, navigate/back/forward/reload→25 sn, diğer→12 sn).
 pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
     if op.trim().is_empty() {
         bail!("'op' alanı boş olamaz");
@@ -755,11 +766,27 @@ pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json:
     }
     match op {
         "install" => cmd_install(),
+        "pack" => cmd_pack(),
         "launch" => cmd_launch(args),
         "attach" => cmd_attach(args),
         "status" => cmd_status(),
         "stop" => cmd_stop(),
         other => {
+            // `name` verilip `ref` verilmediyse eleman adla bulunur: ajan snapshot + eylem için
+            // iki tur harcamaz, ölçüm probe'ları da sabit argümanla çalışabilir.
+            let resolved;
+            let args = if args.get("ref").map_or(true, |v| v.is_null())
+                && args.get("name").and_then(|v| v.as_str()).is_some()
+                && REF_OPS.contains(&other)
+            {
+                resolved = resolve_name_arg(other, args)?;
+                &resolved
+            } else {
+                args
+            };
+            if other == "click" && args.get("real").and_then(|v| v.as_bool()) == Some(true) {
+                return cmd_real_click(args);
+            }
             if other == "navigate" {
                 if let Some(url) = args.get("url").and_then(|v| v.as_str()) {
                     check_navigate_allowed(url)?;
@@ -779,6 +806,79 @@ pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json:
             request(other, args.clone(), timeout)
         }
     }
+}
+
+/// Ref ile çalışan sayfa op'ları (`name` ile de çağrılabilir).
+const REF_OPS: &[&str] = &["click", "type", "select", "check", "hover", "focus", "rect", "scroll", "text"];
+
+fn resolve_name_arg(op: &str, args: &Value) -> Result<Value> {
+    let name = args.get("name").and_then(|v| v.as_str()).unwrap_or_default();
+    let mut snap_args = json!({ "query": name, "max": 60 });
+    if let Some(tab) = args.get("tab").filter(|v| !v.is_null()) {
+        snap_args["tab"] = tab.clone();
+    }
+    let snap = request("snapshot", snap_args, Duration::from_secs(12))?;
+    let lines: Vec<&str> = snap
+        .get("lines")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|l| l.as_str()).collect())
+        .unwrap_or_default();
+    let r = pick_ref_by_name(&lines, name, op)
+        .ok_or_else(|| anyhow!("`{}` adlı eleman bulunamadı (snapshot ile adları görün)", name))?;
+    let mut out = args.clone();
+    if let Some(obj) = out.as_object_mut() {
+        obj.remove("name");
+        obj.insert("ref".to_string(), json!(r));
+    }
+    Ok(out)
+}
+
+/// Türkçe büyük/küçük harf katlaması: `İ` → `i` + U+0307 olur, `I` → `ı` olmalıydı.
+fn fold_name(s: &str) -> String {
+    s.to_lowercase().replace('\u{307}', "").replace('ı', "i").trim().to_string()
+}
+
+/// Özet satırlarından (`[e12] button "Gönder"`) ada en uygun ref'i seçer: tam ad > içerme,
+/// aynı derecede op'a uygun rol (type → metin kutusu, select → açılır liste, check → onay kutusu).
+pub(crate) fn pick_ref_by_name(lines: &[&str], name: &str, op: &str) -> Option<String> {
+    let want = fold_name(name);
+    if want.is_empty() {
+        return None;
+    }
+    let fits = |role: &str| -> bool {
+        match op {
+            "type" => matches!(role, "textbox" | "searchbox" | "combobox" | "textarea" | "spinbutton"),
+            "select" => matches!(role, "combobox" | "listbox"),
+            "check" => matches!(role, "checkbox" | "radio" | "switch"),
+            _ => true,
+        }
+    };
+    let mut best: Option<((u8, u8, usize), String)> = None;
+    for (i, line) in lines.iter().enumerate() {
+        let Some(rest) = line.strip_prefix("[e") else { continue };
+        let Some((num, rest)) = rest.split_once(']') else { continue };
+        let rest = rest.trim_start();
+        let (role, rest) = rest.split_once(' ').unwrap_or((rest, ""));
+        let label = rest
+            .strip_prefix('"')
+            .and_then(|r| r.split_once('"'))
+            .map(|(l, _)| l)
+            .unwrap_or("");
+        let l = fold_name(label);
+        let name_rank = if l == want {
+            0
+        } else if l.contains(&want) {
+            1
+        } else {
+            continue;
+        };
+        let role_rank = if fits(role) { 0 } else { 1 };
+        let key = (role_rank, name_rank, i);
+        if best.as_ref().map_or(true, |(k, _)| key < *k) {
+            best = Some((key, format!("e{}", num)));
+        }
+    }
+    best.map(|(_, r)| r)
 }
 
 fn cmd_install() -> Result<Value> {
@@ -1294,9 +1394,265 @@ fn cmd_status() -> Result<Value> {
     }))
 }
 
+pub(crate) fn crc32_ieee(data: &[u8]) -> u32 {
+    let mut crc: u32 = 0xFFFF_FFFF;
+    for &b in data {
+        crc ^= b as u32;
+        for _ in 0..8 {
+            let mask = (crc & 1).wrapping_neg();
+            crc = (crc >> 1) ^ (0xEDB8_8320 & mask);
+        }
+    }
+    !crc
+}
+
+pub(crate) fn build_stored_zip(entries: &[(&str, &[u8])]) -> Result<Vec<u8>> {
+    if entries.len() > u16::MAX as usize {
+        bail!("ZIP girdi sayısı 65535 sınırını aşıyor");
+    }
+    let mut out = Vec::new();
+    let mut central = Vec::with_capacity(entries.len());
+
+    for &(name, data) in entries {
+        let name_bytes = name.as_bytes();
+        let name_len = u16::try_from(name_bytes.len())
+            .map_err(|_| anyhow!("ZIP dosya adı çok uzun: {}", name))?;
+        let data_len = u32::try_from(data.len())
+            .map_err(|_| anyhow!("ZIP dosya boyutu 4 GiB sınırını aşıyor: {}", name))?;
+        let local_offset = u32::try_from(out.len())
+            .map_err(|_| anyhow!("ZIP arşivi 4 GiB sınırını aşıyor"))?;
+        let crc = crc32_ieee(data);
+
+        // Yerel dosya başlığı (method 0, zaman alanları 0).
+        out.extend_from_slice(&0x0403_4B50u32.to_le_bytes());
+        out.extend_from_slice(&20u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&crc.to_le_bytes());
+        out.extend_from_slice(&data_len.to_le_bytes());
+        out.extend_from_slice(&data_len.to_le_bytes());
+        out.extend_from_slice(&name_len.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(name_bytes);
+        out.extend_from_slice(data);
+
+        central.push((name_bytes, name_len, data_len, crc, local_offset));
+    }
+
+    let cd_offset = u32::try_from(out.len())
+        .map_err(|_| anyhow!("ZIP arşivi 4 GiB sınırını aşıyor"))?;
+    for (name_bytes, name_len, data_len, crc, local_offset) in central {
+        out.extend_from_slice(&0x0201_4B50u32.to_le_bytes());
+        out.extend_from_slice(&20u16.to_le_bytes());
+        out.extend_from_slice(&20u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&crc.to_le_bytes());
+        out.extend_from_slice(&data_len.to_le_bytes());
+        out.extend_from_slice(&data_len.to_le_bytes());
+        out.extend_from_slice(&name_len.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&0u32.to_le_bytes());
+        out.extend_from_slice(&local_offset.to_le_bytes());
+        out.extend_from_slice(name_bytes);
+    }
+
+    let cd_size = u32::try_from(out.len() - cd_offset as usize)
+        .map_err(|_| anyhow!("ZIP merkezi dizini 4 GiB sınırını aşıyor"))?;
+    let entry_count = entries.len() as u16;
+    out.extend_from_slice(&0x0605_4B50u32.to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes());
+    out.extend_from_slice(&entry_count.to_le_bytes());
+    out.extend_from_slice(&entry_count.to_le_bytes());
+    out.extend_from_slice(&cd_size.to_le_bytes());
+    out.extend_from_slice(&cd_offset.to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes());
+    Ok(out)
+}
+
+fn cmd_pack() -> Result<Value> {
+    let path = xpi_output_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).context("XPI üst dizini oluşturulamadı")?;
+    }
+    let bytes = build_stored_zip(&[
+        ("manifest.json", EXT_MANIFEST_JSON.as_bytes()),
+        ("background.js", EXT_BACKGROUND_JS.as_bytes()),
+        ("content.js", EXT_CONTENT_JS.as_bytes()),
+    ])?;
+    fs::write(&path, &bytes).context("pc-eye-bridge.xpi yazılamadı")?;
+
+    Ok(json!({
+        "xpi": path.to_string_lossy(),
+        "bytes": bytes.len(),
+        "sign": "İmzalamak için AMO API anahtarlarınızla: npx web-ext sign --channel unlisted --source-dir ~/.local/share/pc-eye/extension --api-key $AMO_JWT_ISSUER --api-secret $AMO_JWT_SECRET",
+    }))
+}
+
+pub(crate) fn screen_point(win_xy: (i64, i64), rect: &Value) -> Option<(i64, i64)> {
+    let num = |k: &str| rect.get(k)?.as_f64().filter(|v| v.is_finite());
+    let cx = num("cx")?;
+    let cy = num("cy")?;
+    let chrome_x = num("chrome_x")?;
+    let chrome_y = num("chrome_y")?;
+    let x = (win_xy.0 as f64 + chrome_x + cx).round() as i64;
+    let y = (win_xy.1 as f64 + chrome_y + cy).round() as i64;
+    Some((x, y))
+}
+
+fn parse_ppid_from_stat(stat: &str) -> Option<u32> {
+    // comm alanında boşluk/parantez olabileceği için son ')' sonrası alanlar okunur.
+    let (_, after_comm) = stat.rsplit_once(')')?;
+    let ppid: u32 = after_comm.split_whitespace().nth(1)?.parse().ok()?;
+    (ppid > 0).then_some(ppid)
+}
+
+fn collect_ancestor_pids(start_pid: u32, max_steps: usize) -> Vec<u32> {
+    let mut pids = Vec::with_capacity(max_steps + 1);
+    let mut cur = start_pid;
+    for _ in 0..=max_steps {
+        if cur == 0 {
+            break;
+        }
+        pids.push(cur);
+        let Ok(stat) = fs::read_to_string(format!("/proc/{}/stat", cur)) else {
+            break;
+        };
+        let Some(ppid) = parse_ppid_from_stat(&stat) else {
+            break;
+        };
+        if ppid == cur || ppid <= 1 {
+            break;
+        }
+        cur = ppid;
+    }
+    pids
+}
+
+fn pick_window_for_chain<'a>(
+    ancestor_pids: &[u32],
+    windows: &'a [crate::protocol::types::WindowInfo],
+) -> Option<&'a crate::protocol::types::WindowInfo> {
+    for &pid in ancestor_pids {
+        let best = windows
+            .iter()
+            .filter(|w| w.mapped && !w.hidden && w.pid > 0 && w.pid as u32 == pid)
+            .max_by_key(|w| (w.focused, w.width.max(0).saturating_mul(w.height.max(0))));
+        if best.is_some() {
+            return best;
+        }
+    }
+    None
+}
+
+fn find_agent_firefox_window() -> Result<crate::protocol::types::WindowInfo> {
+    let rdir = runtime_dir();
+    let host_pid = fs::read_to_string(info_path_in(&rdir))
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .and_then(|v| v.get("pid").and_then(|p| p.as_u64()))
+        .filter(|&p| p > 0 && p <= u32::MAX as u64)
+        .map(|p| p as u32)
+        .ok_or_else(|| anyhow!("ajan Firefox penceresi bulunamadı"))?;
+
+    let ancestors = collect_ancestor_pids(host_pid, 8);
+    let desk = crate::eyes::compositor::capture_desktop_state()?;
+    pick_window_for_chain(&ancestors, &desk.windows)
+        .cloned()
+        .ok_or_else(|| anyhow!("ajan Firefox penceresi bulunamadı"))
+}
+
+fn cmd_real_click(args: &Value) -> Result<Value> {
+    let tab = args.get("tab").filter(|v| !v.is_null());
+    if let Some(tab_val) = tab {
+        request("activate", json!({ "tab": tab_val }), Duration::from_secs(12))?;
+    }
+
+    let mut rect_args = json!({
+        "ref": args.get("ref").cloned().unwrap_or(Value::Null),
+    });
+    if let Some(tab_val) = tab {
+        rect_args["tab"] = tab_val.clone();
+    }
+    let rect = request("rect", rect_args, Duration::from_secs(12))?;
+
+    let win = find_agent_firefox_window()?;
+    let (x, y) = screen_point((win.x, win.y), &rect)
+        .ok_or_else(|| anyhow!("rect yanıtında geçerli koordinat yok: {}", rect))?;
+
+    let receipt = crate::director::input::click_at(Some(x), Some(y), "left", 1, false)?;
+    let receipt_val = serde_json::to_value(&receipt).context("ActionReceipt JSON kodlanamadı")?;
+
+    let tabs_val = request("tabs", json!({}), Duration::from_secs(12)).ok();
+    let active_tab = tabs_val.as_ref().and_then(|v| v.as_array()).and_then(|arr| {
+        tab.and_then(|tv| {
+            arr.iter().find(|t| {
+                t.get("active").and_then(|a| a.as_bool()) == Some(true)
+                    && t.get("id") == Some(tv)
+            })
+        })
+        .or_else(|| {
+            arr.iter()
+                .find(|t| t.get("active").and_then(|a| a.as_bool()) == Some(true))
+        })
+        .or_else(|| arr.first())
+    });
+    let url = active_tab
+        .and_then(|t| t.get("url"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let title = active_tab
+        .and_then(|t| t.get("title"))
+        .cloned()
+        .unwrap_or(Value::Null);
+
+    Ok(json!({
+        "ok": true,
+        "real": true,
+        "x": x,
+        "y": y,
+        "window": win.address,
+        "receipt": receipt_val,
+        "url": url,
+        "title": title,
+        "dpr": rect.get("dpr").cloned().unwrap_or(Value::Null),
+        "zoom": rect.get("zoom").cloned().unwrap_or(Value::Null),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn name_resolves_to_ref_by_role_and_turkish_case() {
+        let lines = [
+            "heading(1) \"Sipariş formu\"",
+            "[e1] textbox \"Ad Soyad\"",
+            "[e3] combobox \"Şehir\" = \"Ankara\" {Ankara|İzmir}",
+            "[e4] checkbox \"Bültene abone ol\"",
+            "[e5] button \"Gönder\"",
+            "[e6] link \"Gönderim koşulları\" -> /kosul",
+            "[e7] label \"İptal\"",
+            "[e8] button \"İptal et\"",
+        ];
+        assert_eq!(pick_ref_by_name(&lines, "ad soyad", "type").as_deref(), Some("e1"));
+        assert_eq!(pick_ref_by_name(&lines, "Şehir", "select").as_deref(), Some("e3"));
+        assert_eq!(pick_ref_by_name(&lines, "bültene", "check").as_deref(), Some("e4"));
+        // Tam ad içermeden önce gelir.
+        assert_eq!(pick_ref_by_name(&lines, "Gönder", "click").as_deref(), Some("e5"));
+        assert_eq!(pick_ref_by_name(&lines, "iptal", "click").as_deref(), Some("e7"));
+        assert!(pick_ref_by_name(&lines, "Yok", "click").is_none());
+        assert!(pick_ref_by_name(&lines, "Sipariş", "click").is_none());
+    }
     use std::io::Cursor;
 
     #[test]
@@ -1573,5 +1929,153 @@ mod tests {
         assert!(!state.wait_ready(Duration::from_millis(20)));
         state.mark_ready();
         assert!(state.wait_ready(Duration::from_millis(20)));
+    }
+
+    #[test]
+    fn screen_point_and_window_selection() {
+        let rect = json!({
+            "x": 10.0,
+            "y": 20.0,
+            "w": 100.0,
+            "h": 30.0,
+            "cx": 60.4,
+            "cy": 35.6,
+            "chrome_x": 0,
+            "chrome_y": 85,
+            "dpr": 2.0,
+            "zoom": 1.25
+        });
+        assert_eq!(screen_point((100, 50), &rect), Some((160, 171)));
+        assert_eq!(screen_point((0, 0), &json!({ "cx": 10, "cy": 20 })), None);
+        assert_eq!(
+            screen_point(
+                (0, 0),
+                &json!({ "cx": "bad", "cy": 20, "chrome_x": 0, "chrome_y": 0 })
+            ),
+            None
+        );
+
+        assert_eq!(
+            parse_ppid_from_stat("5432 (Web Content (1)) S 1234 5432 5432 0 -1 0"),
+            Some(1234)
+        );
+        assert_eq!(parse_ppid_from_stat("bozuk"), None);
+
+        let mk_win = |addr: &str, pid: i32, w: i64, h: i64, focused: bool, mapped: bool, hidden: bool| {
+            crate::protocol::types::WindowInfo {
+                address: addr.to_string(),
+                class: "firefox".to_string(),
+                title: "Firefox".to_string(),
+                pid,
+                workspace_id: 1,
+                workspace_name: "1".to_string(),
+                monitor: 0,
+                x: 10,
+                y: 20,
+                width: w,
+                height: h,
+                floating: false,
+                fullscreen: 0,
+                xwayland: false,
+                mapped,
+                hidden,
+                focused,
+                protected_window: false,
+            }
+        };
+
+        let windows = vec![
+            mk_win("0xhidden", 100, 1920, 1080, true, true, true),
+            mk_win("0xsmall_focused", 100, 800, 600, true, true, false),
+            mk_win("0xlarge_unfocused", 100, 1600, 900, false, true, false),
+            mk_win("0xparent", 90, 1920, 1080, true, true, false),
+        ];
+        assert_eq!(
+            pick_window_for_chain(&[200, 100, 90], &windows).map(|w| w.address.as_str()),
+            Some("0xsmall_focused")
+        );
+
+        let unfocused_windows = vec![
+            mk_win("0xsmall", 100, 800, 600, false, true, false),
+            mk_win("0xlarge", 100, 1600, 900, false, true, false),
+        ];
+        assert_eq!(
+            pick_window_for_chain(&[200, 100], &unfocused_windows).map(|w| w.address.as_str()),
+            Some("0xlarge")
+        );
+        assert!(pick_window_for_chain(&[999], &unfocused_windows).is_none());
+    }
+
+    #[test]
+    fn navigate_rejects_file_scheme_early() {
+        let err = command("navigate", &json!({ "url": "file:///etc/passwd" }))
+            .expect_err("file:// URL köprüye gitmeden reddedilmeli");
+        assert_eq!(
+            err.to_string(),
+            "file:// sayfaları köprüyle açılamaz ve okunamaz; dosyayı http üzerinden sunun (ör. `python3 -m http.server` ile dizini sunup http://127.0.0.1:<port>/... açın)"
+        );
+        assert!(command("navigate", &json!({ "url": "  FILE:///tmp/index.html " })).is_err());
+        assert!(check_navigate_allowed_with_cfg("üğü", &FilterConfig::default()).is_ok());
+    }
+
+    #[test]
+    fn crc32_and_xpi_zip_generation() {
+        assert_eq!(crc32_ieee(b"123456789"), 0xCBF4_3926);
+        assert_eq!(crc32_ieee(b""), 0);
+
+        let sources = [
+            ("manifest.json", EXT_MANIFEST_JSON.as_bytes()),
+            ("background.js", EXT_BACKGROUND_JS.as_bytes()),
+            ("content.js", EXT_CONTENT_JS.as_bytes()),
+        ];
+        let zip = build_stored_zip(&sources).expect("ZIP oluşturulmalı");
+        assert!(zip.len() >= 22);
+
+        let eocd = &zip[zip.len() - 22..];
+        assert_eq!(&eocd[0..4], &0x0605_4B50u32.to_le_bytes());
+        let count_disk = u16::from_le_bytes([eocd[8], eocd[9]]);
+        let count_total = u16::from_le_bytes([eocd[10], eocd[11]]);
+        assert_eq!(count_disk, 3);
+        assert_eq!(count_total, 3);
+
+        let cd_size = u32::from_le_bytes([eocd[12], eocd[13], eocd[14], eocd[15]]) as usize;
+        let cd_offset = u32::from_le_bytes([eocd[16], eocd[17], eocd[18], eocd[19]]) as usize;
+        assert_eq!(cd_offset + cd_size, zip.len() - 22);
+
+        let mut pos = cd_offset;
+        for &(expected_name, expected_data) in &sources {
+            assert_eq!(&zip[pos..pos + 4], &0x0201_4B50u32.to_le_bytes());
+            let method = u16::from_le_bytes([zip[pos + 10], zip[pos + 11]]);
+            assert_eq!(method, 0);
+            let crc = u32::from_le_bytes([zip[pos + 16], zip[pos + 17], zip[pos + 18], zip[pos + 19]]);
+            let comp_sz =
+                u32::from_le_bytes([zip[pos + 20], zip[pos + 21], zip[pos + 22], zip[pos + 23]])
+                    as usize;
+            let uncomp_sz =
+                u32::from_le_bytes([zip[pos + 24], zip[pos + 25], zip[pos + 26], zip[pos + 27]])
+                    as usize;
+            let name_len = u16::from_le_bytes([zip[pos + 28], zip[pos + 29]]) as usize;
+            let extra_len = u16::from_le_bytes([zip[pos + 30], zip[pos + 31]]) as usize;
+            let comment_len = u16::from_le_bytes([zip[pos + 32], zip[pos + 33]]) as usize;
+            let local_off =
+                u32::from_le_bytes([zip[pos + 42], zip[pos + 43], zip[pos + 44], zip[pos + 45]])
+                    as usize;
+
+            let name = std::str::from_utf8(&zip[pos + 46..pos + 46 + name_len]).unwrap();
+            assert_eq!(name, expected_name);
+            assert_eq!(comp_sz, expected_data.len());
+            assert_eq!(uncomp_sz, expected_data.len());
+            assert_eq!(crc, crc32_ieee(expected_data));
+
+            assert_eq!(&zip[local_off..local_off + 4], &0x0403_4B50u32.to_le_bytes());
+            let l_name_len = u16::from_le_bytes([zip[local_off + 26], zip[local_off + 27]]) as usize;
+            let l_extra_len =
+                u16::from_le_bytes([zip[local_off + 28], zip[local_off + 29]]) as usize;
+            let data_start = local_off + 30 + l_name_len + l_extra_len;
+            assert_eq!(&zip[data_start..data_start + comp_sz], expected_data);
+
+            pos += 46 + name_len + extra_len + comment_len;
+        }
+        assert_eq!(pos, cd_offset + cd_size);
     }
 }

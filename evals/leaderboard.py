@@ -5,6 +5,7 @@ Aynı görevler, aynı makine; sistem = araç katmanı + model. Yalnız tüm sis
 görevler karşılaştırılır (ör. piksel tabanı arka plan görevini koşmaz).
 
     python3 evals/leaderboard.py evals/results/A.json evals/results/B.json ...
+    python3 evals/leaderboard.py --section "Tarayıcı görevleri" C.json D.json   # LEADERBOARD.md'ye bölüm ekler
 """
 
 import json
@@ -16,6 +17,7 @@ ROOT = Path(__file__).resolve().parent
 
 LABELS = {
     "full": "pc-eye (erişilebilirlik + eylem programı + doğrulama)",
+    "full+bridge": "pc-eye + tarayıcı köprüsü (Firefox DOM, pc_eye_browser)",
     "pixels": "piksel tabanı (yalnız ekran görüntüsü + fare/klavye; computer-use/CUA mimarisi)",
 }
 
@@ -24,7 +26,10 @@ def load(paths):
     systems = {}
     for p in paths:
         d = json.loads(Path(p).read_text(encoding="utf-8"))
-        key = (d.get("toolset") or "full", d.get("model") or "?")
+        toolset = d.get("toolset") or "full"
+        if d.get("browser") == "bridge":
+            toolset += "+bridge"
+        key = (toolset, d.get("model") or "?")
         systems.setdefault(key, []).extend(r for r in d["runs"] if not r.get("setup_error"))
     return systems
 
@@ -44,11 +49,11 @@ def row(runs):
     }
 
 
-def main(paths):
+def main(paths, section=None):
     systems = load(paths)
     common = set.intersection(*({r["task"] for r in runs} for runs in systems.values()))
     lines = [
-        "# Kıyas tablosu",
+        f"## {section}" if section else "# Kıyas tablosu",
         "",
         "Aynı makine (CachyOS + Hyprland), aynı görevler, rastgele değerler; başarı uygulamanın gerçek",
         "durumundan denetlenir. Görevler ajana ayrılmış iç içe Hyprland oturumunda koşar.",
@@ -68,7 +73,7 @@ def main(paths):
         for t in sorted(common):
             per_task.setdefault(t, {})[(toolset, model)] = row([r for r in rs if r["task"] == t])
     keys = sorted(systems)
-    lines += ["", "## Görev bazında (başarı · medyan süre · ortalama $)", "",
+    lines += ["", ("### " if section else "## ") + "Görev bazında (başarı · medyan süre · ortalama $)", "",
               "| Görev | " + " | ".join(f"{t}/{m.replace('claude-', '')}" for t, m in keys) + " |",
               "| --- |" + " --- |" * len(keys)]
     for t, cells in sorted(per_task.items()):
@@ -79,9 +84,23 @@ def main(paths):
         lines.append(f"| {t} | " + " | ".join(vals) + " |")
     lines += ["", "Kaynak dosyalar: " + ", ".join(Path(p).name for p in paths), ""]
     out = ROOT / "LEADERBOARD.md"
-    out.write_text("\n".join(lines), encoding="utf-8")
+    text = "\n".join(lines)
+    if section:
+        # Bölüm ana tabloyu ezmez: aynı başlıklı eski bölüm değiştirilir, yoksa sona eklenir.
+        old = out.read_text(encoding="utf-8") if out.exists() else ""
+        head = f"\n## {section}\n"
+        i = old.find(head)
+        if i >= 0:
+            j = old.find("\n## ", i + len(head))
+            old = old[:i] + (old[j:] if j >= 0 else "\n")
+        text = old.rstrip("\n") + "\n\n" + text
+    out.write_text(text, encoding="utf-8")
     print("\n".join(lines))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    argv = sys.argv[1:]
+    sec = None
+    if argv[:1] == ["--section"]:
+        sec, argv = argv[1], argv[2:]
+    main(argv, sec)

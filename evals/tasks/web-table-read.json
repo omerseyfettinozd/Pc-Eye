@@ -1,10 +1,43 @@
 {
   "id": "web-table-read",
   "scene": "web_table",
-  "tags": ["browser", "perception:atspi", "tool:snapshot"],
+  "tags": [
+    "browser",
+    "perception:atspi",
+    "tool:snapshot",
+    "bridge"
+  ],
   "prompt": "Firefox'ta açık \"{title}\" sayfasındaki fiyat listesine göre \"{item}\" ürününün fiyatı nedir? Fiyatı sayfada yazdığı gibi yaz.",
   "probe": [
-    {"args": ["snapshot", "--window", "{title}"], "expect_contains": ["{item}", "{price}"]}
+    {
+      "args": [
+        "snapshot",
+        "--window",
+        "{title}"
+      ],
+      "expect_contains": [
+        "{item}",
+        "{price}"
+      ]
+    }
   ],
-  "check": {"type": "answer", "expect": "{price}"}
+  "check": {
+    "type": "answer",
+    "expect": "{price}"
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "snapshot",
+        "--query",
+        "{item}"
+      ],
+      "expect_contains": [
+        "{item}",
+        "{price}"
+      ],
+      "max_ms": 300
+    }
+  ]
 }

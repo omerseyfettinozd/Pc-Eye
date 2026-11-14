@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 pub mod browser;
 pub mod daemon;
 pub mod director;
@@ -315,6 +316,9 @@ enum Commands {
         /// snapshot'ın verdiği eleman numarası (ör. e12)
         #[arg(long = "ref")]
         r#ref: Option<String>,
+        /// ref yerine görünen ad (snapshot almadan tek çağrıda: ör. --name "Gönder")
+        #[arg(long)]
+        name: Option<String>,
         #[arg(long)]
         text: Option<String>,
         #[arg(long)]
@@ -738,7 +742,7 @@ fn main() -> Result<()> {
             mcp::run_mcp_stdio_server()?;
         }
         Commands::Browser {
-            op, tab, r#ref, text, url, query, option, key, code, max, port, timeout_ms,
+            op, tab, r#ref, name, text, url, query, option, key, code, max, port, timeout_ms,
             all, viewport, new_tab, submit, args,
         } => {
             let mut a = match args {
@@ -754,6 +758,7 @@ fn main() -> Result<()> {
             };
             put("tab", tab.map(|v| json!(v)));
             put("ref", r#ref.map(|v| json!(v)));
+            put("name", name.map(|v| json!(v)));
             put("text", text.map(|v| json!(v)));
             put("url", url.map(|v| json!(v)));
             put("query", query.map(|v| json!(v)));

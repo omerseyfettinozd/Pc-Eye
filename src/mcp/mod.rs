@@ -878,12 +878,14 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_browser",
-            "description": "Web pages through the Firefox bridge (reads the DOM in ~20 ms; PREFER this over snapshot/click_ui for anything inside a browser). First `launch` (opens the agent's own Firefox, optional url) unless `status` says connected. `snapshot` lists `[eN] role \"name\" = \"value\" [states]`; act by ref. op: launch | status | stop | tabs | snapshot (query, max, all=also plain text, viewport) | click | type (text, submit) | select (option) | check (on) | key | hover | scroll (ref | dy | to: top/bottom) | text (page or ref text) | wait (text | gone | url, timeout_ms) | navigate (url, new_tab) | back | forward | reload | activate | close | eval (code). Actions return url/title/changed/navigated. Password and card fields show as [secret]; banking and password-manager sites are refused.",
+            "description": "Web pages through the Firefox bridge (reads the DOM in ~20 ms; PREFER this over snapshot/click_ui for anything inside a browser). First `launch` (opens the agent's own Firefox, optional url) unless `status` says connected. `snapshot` lists `[eN] role \"name\" = \"value\" [states]`; act by ref. op: launch | status | stop | tabs | snapshot (query, max, all=also plain text, viewport) | click | type (text, submit) | select (option) | check (on) | key | hover | scroll (ref | dy | to: top/bottom) | text (page or ref text) | wait (text | gone | url, timeout_ms) | navigate (url, new_tab) | back | forward | reload | activate | close | eval (code). Actions take `ref` or `name` (e.g. {op:\"click\",name:\"Gönder\"} in one call). Actions return url/title/changed/navigated. Password and card fields show as [secret]; banking and password-manager sites are refused.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": { "type": "object", "required": ["op"], "properties": {
                 "op": { "type": "string" },
                 "tab": { "type": "integer" },
                 "ref": { "type": "string", "description": "e.g. e12" },
+                "name": { "type": "string", "description": "Instead of ref: visible name (no snapshot needed)" },
+                "real": { "type": "boolean", "description": "click with the real pointer (sites ignoring JS clicks)" },
                 "text": { "type": "string" },
                 "url": { "type": "string" },
                 "query": { "type": "string" },

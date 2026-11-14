@@ -130,9 +130,17 @@ function assertAllowed(tab) {
   if (h) throw new Error("site yasak listesinde: " + h);
 }
 
+const FILE_URL_ERR =
+  "file:// sayfaları köprüyle açılamaz ve okunamaz; dosyayı http üzerinden sunun " +
+  "(ör. `python3 -m http.server` ile dizini sunup http://127.0.0.1:<port>/... açın)";
+
 function assertScriptable(tab) {
-  if (!/^(https?|file|ftp):/i.test(tab.url || "")) {
-    throw new Error("bu sayfada içerik betiği çalışmaz: " + (tab.url || ""));
+  const url = tab.url || "";
+  if (/^file:/i.test(url)) {
+    throw new Error("bu sayfada içerik betiği çalışmaz: " + url + " — " + FILE_URL_ERR);
+  }
+  if (!/^(https?|ftp):/i.test(url)) {
+    throw new Error("bu sayfada içerik betiği çalışmaz: " + url);
   }
 }
 
@@ -213,10 +221,61 @@ async function pageCall(tab0, op, args) {
   return { lost: false, result: reply.result, seq0 };
 }
 
+// Arka plan sekmesinde içerik zamanlayıcıları >=1 sn kısıldığından sakinleşmeyi background sürdürür.
+async function settleInBackground(tab, res, seq0) {
+  const t0 = Date.now();
+  const initVer = res.version;
+  let lastVer = initVer;
+  let lastChangeAt = t0;
+  let lastUrl = res.url;
+  let lastTitle = res.title;
+
+  for (;;) {
+    if ((navSeq.get(tab.id) || 0) !== seq0) return { navigated: true };
+    const left = 1500 - (Date.now() - t0);
+    if (left <= 0) break;
+    await sleep(Math.min(50, left));
+    if ((navSeq.get(tab.id) || 0) !== seq0) return { navigated: true };
+    let v;
+    try {
+      v = await pageCall(tab, "ver", {});
+    } catch (e) {
+      if ((navSeq.get(tab.id) || 0) !== seq0) return { navigated: true };
+      throw e;
+    }
+    if (v.lost || (navSeq.get(tab.id) || 0) !== seq0) return { navigated: true };
+    if (v.result && typeof v.result === "object") {
+      if (typeof v.result.version === "number" && v.result.version !== lastVer) {
+        lastVer = v.result.version;
+        lastChangeAt = Date.now();
+      }
+      if (typeof v.result.url === "string") lastUrl = v.result.url;
+      if (typeof v.result.title === "string") lastTitle = v.result.title;
+    }
+    const now = Date.now();
+    if (now - lastChangeAt >= 150 || now - t0 >= 1500) break;
+  }
+
+  delete res.settle;
+  res.version = lastVer;
+  res.changed = Boolean(res.changed) || lastVer !== initVer;
+  res.url = lastUrl;
+  res.title = lastTitle;
+  return { navigated: false, result: res };
+}
+
 // Eylem gezinme başlattıysa yeni belge yüklenene dek bekleyip sonucu background üretir.
 async function afterAction(tab, r) {
-  const navSeen = r.lost || (navSeq.get(tab.id) || 0) !== r.seq0;
-  if (!navSeen) return r.result;
+  let navSeen = r.lost || (navSeq.get(tab.id) || 0) !== r.seq0;
+  if (!navSeen) {
+    if (r.result && r.result.settle === "background") {
+      const settled = await settleInBackground(tab, r.result, r.seq0);
+      if (!settled.navigated) return settled.result;
+      navSeen = true;
+    } else {
+      return r.result;
+    }
+  }
   const t = await waitLoad(tab.id, r.seq0, NAV_WAIT_MS);
   if (!t) throw new Error("sekme kapandı");
   let version = 0;
@@ -251,6 +310,7 @@ function normalizeUrl(u) {
 
 async function opNavigate(args) {
   const url = normalizeUrl(args.url);
+  if (/^file:/i.test(url)) throw new Error(FILE_URL_ERR);
   // Hedef yasaksa gezinmeden reddet; mevcut sekme yasak olsa da uzaklaşmaya izin ver.
   assertAllowed({ url });
   if (args.new_tab) {

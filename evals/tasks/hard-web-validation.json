@@ -4,7 +4,8 @@
   "tags": [
     "hard",
     "recovery",
-    "browser"
+    "browser",
+    "bridge"
   ],
   "prompt": "Firefox'ta açık \"{title}\" sayfasındaki forma telefonu {phone_pretty}, e-postayı {email} olarak gir ve Kaydet'e bas. Kayıt başarılı olana kadar devam et.",
   "probe": [
@@ -35,5 +36,79 @@
       "phone": "{phone}",
       "email": "{email}"
     }
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "type",
+        "--name",
+        "Telefon",
+        "--text",
+        "{phone_pretty}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "type",
+        "--name",
+        "E-posta",
+        "--text",
+        "{email}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kaydet"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "wait",
+        "--text",
+        "Hata:",
+        "--timeout-ms",
+        "3000"
+      ],
+      "expect_contains": [
+        "\"matched\": true"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "type",
+        "--name",
+        "Telefon",
+        "--text",
+        "{phone}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kaydet"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "wait",
+        "--text",
+        "Kaydedildi",
+        "--timeout-ms",
+        "3000"
+      ],
+      "expect_contains": [
+        "\"matched\": true"
+      ]
+    }
+  ]
 }

@@ -484,6 +484,18 @@
   }
 
   async function finishAction(v0) {
+    // Arka plan sekmesinde setTimeout >=1 sn'ye kısıldığından sakinleşmeyi background yürütür.
+    if (document.hidden) {
+      return {
+        ok: true,
+        url: location.href,
+        title: document.title || "",
+        version,
+        navigated: false,
+        changed: version !== v0,
+        settle: "background"
+      };
+    }
     await settleDom(150, 1500);
     return {
       ok: true,
@@ -746,15 +758,26 @@
 
   function opRect(args) {
     const el = resolveRef(args.ref);
-    const r = topViewportRect(el);
-    const dpr = window.devicePixelRatio || 1;
-    const sx = typeof window.mozInnerScreenX === "number" ? window.mozInnerScreenX : window.screenX;
-    const sy = typeof window.mozInnerScreenY === "number" ? window.mozInnerScreenY : window.screenY;
+    let r = topViewportRect(el);
+    const cx0 = r.left + r.width / 2;
+    const cy0 = r.top + r.height / 2;
+    if (isOffscreen(r) || cx0 < 0 || cy0 < 0 || cx0 >= window.innerWidth || cy0 >= window.innerHeight) {
+      el.scrollIntoView({ block: "center", inline: "center" });
+      r = topViewportRect(el);
+    }
+    const chrome_x = Math.round((window.outerWidth - window.innerWidth) / 2);
+    const chrome_y = Math.round(window.outerHeight - window.innerHeight - chrome_x);
     return {
-      x: Math.round((sx + r.left) * dpr),
-      y: Math.round((sy + r.top) * dpr),
-      w: Math.round(r.width * dpr),
-      h: Math.round(r.height * dpr)
+      x: Math.round(r.left),
+      y: Math.round(r.top),
+      w: Math.round(r.width),
+      h: Math.round(r.height),
+      cx: Math.round(r.left + r.width / 2),
+      cy: Math.round(r.top + r.height / 2),
+      chrome_x,
+      chrome_y,
+      dpr: window.devicePixelRatio || 1,
+      zoom: 1
     };
   }
 
@@ -805,6 +828,7 @@
   async function dispatch(op, args) {
     switch (op) {
       case "version": return version;
+      case "ver": return { version, url: location.href, title: document.title || "" };
       case "snapshot": return opSnapshot(args);
       case "click": return opClick(args);
       case "type": return opType(args);

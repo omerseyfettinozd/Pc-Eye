@@ -58,12 +58,17 @@ CRASH_SIGNALS = ["SEGV", "ABRT", "BUS", "FPE", "ILL"]
 # Rakip kıyası: Anthropic computer use / OpenAI CUA mimarisi — model yalnız ekran görüntüsü görür,
 # fare ve klavyeyle koordinata göre çalışır. Aynı model, aynı görevler; yalnız araç katmanı farklı.
 PIXEL_TOOLS = ["mcp__pc-eye__pc_eye_vision", "mcp__pc-eye__pc_eye_input"]
-ALL_TOOLS = ["audio", "click_ui", "context", "director", "display", "input", "launch", "logs", "processes",
+ALL_TOOLS = ["audio", "browser", "click_ui", "context", "director", "display", "input", "launch", "logs", "processes",
              "run", "snapshot", "ui", "vision", "wait", "window", "xray"]
 PIXEL_SYSTEM = (
     " Yalnız ekran görüntüsü (pc_eye_vision, pencere vermeden: tüm ekran) ve fare/klavye (pc_eye_input) "
     "kullanabilirsin; koordinatlar ekran görüntüsündeki piksel koordinatlarıdır."
 )
+
+# Tarayıcı algısı: "atspi" masaüstü erişilebilirlik ağacı (önceki ölçümlerle kıyaslanabilir taban),
+# "bridge" Firefox'a Pc-Eye Bridge eklentisi bağlanır ve ajan pc_eye_browser aracını da kullanabilir.
+BROWSER = "atspi"
+BRIDGE_SYSTEM = " Firefox sayfaları için pc_eye_browser köprüsü bağlı (launch gerekmez)."
 
 AGENT_SYSTEM = (
     "Bir PC-Eye ölçüm görevindesin. Bilgisayarı yalnız pc_eye_* araçlarıyla kullan. "
@@ -432,11 +437,38 @@ def serve_page(sb, page_html, out_path):
 def open_in_firefox(sb, work, url, ready_text, fullscreen=True):
     profile = work / "ffprofile"
     profile.mkdir(exist_ok=True)
-    (profile / "user.js").write_text(FIREFOX_PREFS)
-    window, pid = sb.launch_window(["firefox", "--new-instance", "--profile", str(profile), url],
+    prefs = FIREFOX_PREFS
+    extra = []
+    if BROWSER == "bridge":
+        # Köprü: uzak hata ayıklama portu açılır, eklenti sayfa yüklendikten sonra geçici kurulur
+        # (içerik betiği açık sekmeye ilk istekte enjekte edilir).
+        port = free_port(random.Random())
+        prefs += ('user_pref("devtools.debugger.remote-enabled", true);\n'
+                  'user_pref("devtools.chrome.enabled", true);\n'
+                  'user_pref("devtools.debugger.prompt-connection", false);\n'
+                  'user_pref("extensions.autoDisableScopes", 0);\n')
+        extra = ["--start-debugger-server", str(port)]
+    (profile / "user.js").write_text(prefs)
+    window, pid = sb.launch_window(["firefox", "--new-instance", "--profile", str(profile), *extra, url],
                                    fullscreen=fullscreen)
     pceye("wait", "ui_match", "--window", window, "--match", ready_text, "--timeout-ms", "8000")
+    if BROWSER == "bridge":
+        attach_bridge(port)
     return window, pid
+
+
+def attach_bridge(port):
+    pceye("browser", "install")
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        if pceye("browser", "attach", "--port", str(port), timeout=15).rc == 0:
+            break
+        time.sleep(0.3)
+    while time.time() < deadline:
+        if pceye("browser", "ping", timeout=5).rc == 0:
+            return
+        time.sleep(0.2)
+    raise RuntimeError("tarayıcı köprüsü bağlanmadı")
 
 
 def scene_web_form(sb, rng, work):
@@ -744,7 +776,8 @@ def redact_user_titles(text, scene):
 def run_probe(task, scene):
     steps = []
     ok = True
-    for step in task.get("probe", []):
+    probe = task.get("probe_bridge") if BROWSER == "bridge" and task.get("probe_bridge") else task.get("probe", [])
+    for step in probe:
         args = fill(step["args"], scene.vars)
         r = pceye(*args, timeout=step.get("timeout", 30))
         step_ok = r.rc == 0
@@ -853,6 +886,11 @@ def run_agent(task, scene, sb, work, args, transcript):
     system = AGENT_SYSTEM.format(display=sb.label, workspace=sb.workspace)
     allowed = ["mcp__pc-eye"]
     disallowed = []
+    if BROWSER == "bridge":
+        system += BRIDGE_SYSTEM
+    else:
+        # Taban ölçüm: köprü yokken ajan kendi Firefox'unu açıp sahnenin dışına çıkmasın.
+        disallowed = ["mcp__pc-eye__pc_eye_browser"]
     if args.toolset == "pixels":
         system += PIXEL_SYSTEM
         allowed = PIXEL_TOOLS
@@ -999,8 +1037,12 @@ def main():
     ap.add_argument("--no-save", action="store_true")
     ap.add_argument("--toolset", choices=["full", "pixels"], default="full",
                     help="pixels: yalnız ekran görüntüsü + fare/klavye (rakip mimarisi kıyası)")
+    ap.add_argument("--browser", choices=["atspi", "bridge"], default="atspi",
+                    help="bridge: Firefox sahnelerine Pc-Eye Bridge eklentisi bağlanır (pc_eye_browser)")
     ap.add_argument("--session", help="görevleri bu adla açılan ayrı ajan oturumunda (iç içe Hyprland) koş")
     args = ap.parse_args()
+    global BROWSER
+    BROWSER = args.browser
 
     tasks = select_tasks(load_tasks(), args)
     if args.tier == "list":
@@ -1014,7 +1056,8 @@ def main():
     rng = random.Random(seed)
     # Paralel koşucular (farklı oturumlar) aynı saniyede başlayabilir: dosyalar çakışmasın.
     stamp = (time.strftime("%Y%m%d-%H%M%S") + (f"-{args.session}" if args.session else "")
-             + ("-pixels" if args.toolset == "pixels" else ""))
+             + ("-pixels" if args.toolset == "pixels" else "")
+             + ("-bridge" if args.browser == "bridge" else ""))
     work_root = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "pc-eye-eval" / stamp
     transcripts = RESULTS_DIR / "transcripts" / stamp
     if args.tier == "agent":
@@ -1076,6 +1119,7 @@ def main():
         "summary": summarize(runs),
         "session": args.session,
         "toolset": args.toolset,
+        "browser": args.browser,
         "runs": runs,
     }
     if args.session:

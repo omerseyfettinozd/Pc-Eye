@@ -85,6 +85,13 @@ pc-eye wait visual_settle --timeout-ms 3000
 pc-eye wait ui_match --match "Tamamlandı" --timeout-ms 5000
 pc-eye wait port_open --match "8080" --timeout-ms 5000
 
+# Tarayıcı köprüsü: sayfayı DOM'dan oku (~20 ms), numaralı ref ile tıkla/yaz
+pc-eye browser launch --url https://example.com     # ajan Firefox'u (ayrı profil, eklenti otomatik)
+pc-eye browser snapshot --query "gönder"            # [e12] button "Gönder" ...
+pc-eye browser type --ref e7 --text "Ali Veli" && pc-eye browser click --ref e12
+pc-eye browser wait --text "Kaydedildi" --timeout-ms 3000
+pc-eye browser stop
+
 # Canlı Web Gözlem Paneli (http://127.0.0.1:7777)
 pc-eye serve --port 7777
 ```

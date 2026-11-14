@@ -21,6 +21,17 @@ Binary path: `/home/chaple/.local/bin/pc-eye` (also registered as MCP server `pc
 
 Developing a GUI app with pc-eye: build it, then `pc_eye_launch` (agent server) the dev binary or open `http://localhost:<port>` in Firefox inside the session → `snapshot` → act with `run` programs → verify with `snapshot`/`media`/`logs` (`logs` with the app pid shows its stderr; crashes appear as coredumps) → screenshots only for visual layout review. Recipes learned this way replay the flow later without a model.
 
+## Web pages: use the browser bridge (`pc_eye_browser`)
+
+For anything inside a web page prefer `pc_eye_browser` (CLI: `pc-eye browser <op>`) over `snapshot`/`click_ui`: it reads the DOM through the Pc-Eye Bridge Firefox extension in ~20 ms (the accessibility tree takes 1.5–2.5 s on heavy sites and misses content), and acts by element ref.
+
+- `launch` (optional `url`) opens the agent's own Firefox (separate profile, extension installed automatically). `status` tells whether a bridge is connected; `stop` closes that Firefox. In the isolated session (`pc-eye-agent`) the browser is invisible to the user.
+- `snapshot` → lines like `[e12] button "Gönder"`, `[e7] textbox "Ad Soyad" = "Ali"`, `[e3] combobox "Şehir" = "Ankara" {Ankara|İzmir}`, `heading(2) "…"`, `row "a | b"`, states `[checked] [disabled] [offscreen] [invalid]`. Narrow big pages with `query`, `viewport: true`, or raise `max`; `all: true` adds plain text.
+- Act by ref: `click`, `type` (`text`, `submit: true` presses Enter), `select` (`option`), `check` (`on`), `key`, `hover`, `scroll` (`ref` | `dy` | `to: top/bottom`). Results carry `url`, `title`, `changed`, `navigated`. Refs stay valid until the document reloads; after navigation take a new snapshot.
+- `wait` (`text` | `gone` | `url`, `timeout_ms`) instead of sleeping; `text` returns page or element text; `tabs`, `navigate` (`new_tab`), `back`, `forward`, `reload`, `activate`, `close`; `eval` (`code`) runs JS in the page when nothing else fits.
+- Safety: password/card/one-time-code fields appear as `[secret]` and their values are never returned; banking, payment, password-manager and identity-provider sites are refused (extend or exempt hosts in `~/.config/pc-eye/browser.json`: `{"deny":[],"allow":[]}`); every action is logged to `browser_actions.log` in the runtime dir.
+- Limits: clicks are synthetic (not a real pointer event) — if a site ignores one, fall back to `pc_eye_click_ui` on the browser window. A tab that is not the active one answers slowly (~1 s per action) because the browser throttles background tabs: `activate` it first. `file://` pages are not readable; serve them over http. The user's own daily Firefox only has the bridge after the extension is loaded there (`pc-eye browser install` prints how); otherwise use AT-SPI tools on it as before.
+
 ## Core White-Box Workflow for AI Agents
 
 Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-eye vision`) only when visual verification or pixel-art inspection is needed**:

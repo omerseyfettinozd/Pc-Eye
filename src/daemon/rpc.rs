@@ -6,7 +6,8 @@
 
 use crate::eyes::vision::runtime_dir;
 use serde_json::{json, Value};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -15,6 +16,10 @@ use std::time::{Duration, UNIX_EPOCH};
 
 /// Uzun OCR'lı sorgular (Electron penceresi) birkaç saniye sürebilir.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
+
+/// Tek istek satırı için bayt üst sınırı: yenisatır göndermeyen istemci okuma zaman aşımına
+/// kadar belleği sınırsız büyütemez.
+const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
 pub fn socket_path() -> PathBuf {
     runtime_dir().join("daemon.sock")
@@ -43,6 +48,9 @@ pub fn serve() {
     let path = socket_path();
     let _ = std::fs::remove_file(&path);
     let Ok(listener) = UnixListener::bind(&path) else { return };
+    // Soket yalnız sahibine açık olsun: dizin izinleri gevşekse (/tmp yedeği) başka yerel
+    // kullanıcı masaüstü ağacını ve pano değerlerini bu soketten okuyabilirdi.
+    let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
     thread::spawn(move || {
         for stream in listener.incoming().flatten() {
             thread::spawn(move || handle(stream));
@@ -52,9 +60,13 @@ pub fn serve() {
 
 fn handle(stream: UnixStream) {
     let _ = stream.set_read_timeout(Some(REQUEST_TIMEOUT));
+    // Yanıtı hiç okumayan istemci karşısında bloklanıp iş parçacığını süresiz tutmamak için
+    // yazma tarafına da okumayla aynı zaman aşımı konur.
+    let _ = stream.set_write_timeout(Some(REQUEST_TIMEOUT));
     let mut line = String::new();
     let Ok(mut writer) = stream.try_clone() else { return };
-    if BufReader::new(stream).read_line(&mut line).is_err() {
+    let mut reader = BufReader::new(stream).take(MAX_REQUEST_BYTES);
+    if reader.read_line(&mut line).is_err() {
         return;
     }
     let reply = match serde_json::from_str::<Value>(&line) {

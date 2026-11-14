@@ -92,8 +92,9 @@ fn read_process_member(pid: i32) -> Option<ProcessMember> {
     let stime = fields[12].parse::<u64>().unwrap_or(0);
     let num_threads = fields[17].parse::<usize>().unwrap_or(1);
     let rss_pages = fields[21].parse::<i64>().unwrap_or(0).max(0) as u64;
-    let page_size_kb = 4.0;
-    let rss_mb = ((rss_pages as f64) * page_size_kb / 1024.0 * 100.0).round() / 100.0;
+    // Sabit 4 KB sayfa varsayımı 64 KB sayfalı çekirdeklerde RSS'i 1/16'ya düşürüyordu.
+    let page_size_bytes = unsafe { libc::sysconf(libc::_SC_PAGESIZE) }.max(1) as u64;
+    let rss_mb = rss_pages_to_mb(rss_pages, page_size_bytes);
 
     let cmdline = fs::read(format!("/proc/{}/cmdline", pid))
         .ok()
@@ -130,6 +131,11 @@ fn read_process_member(pid: i32) -> Option<ProcessMember> {
         io_read_bytes,
         io_write_bytes,
     })
+}
+
+/// `/proc/<pid>/stat` alan 24'teki RSS sayfa sayısını gerçek sayfa boyutuyla MiB'a çevirir.
+fn rss_pages_to_mb(rss_pages: u64, page_size_bytes: u64) -> f64 {
+    ((rss_pages as f64) * (page_size_bytes as f64) / 1024.0 / 1024.0 * 100.0).round() / 100.0
 }
 
 fn read_proc_io(pid: i32) -> (u64, u64) {
@@ -443,7 +449,7 @@ fn read_psi_avg10(path: &str) -> f64 {
     0.0
 }
 
-/// Sistemde belirli bir TCP portunun açık (LISTEN veya ESTABLISHED) olup olmadığını kontrol eder.
+/// Sistemde belirli bir TCP portunun dinlenip dinlenmediğini (LISTEN) kontrol eder.
 pub fn is_tcp_port_open(port: u16) -> Option<String> {
     let port_hex = format!(":{:04X}", port);
     for (path, proto, is_v6) in [
@@ -453,9 +459,8 @@ pub fn is_tcp_port_open(port: u16) -> Option<String> {
         if let Ok(content) = fs::read_to_string(path) {
             for line in content.lines().skip(1) {
                 let cols: Vec<&str> = line.split_whitespace().collect();
-                if cols.len() >= 4
-                    && (cols[1].ends_with(&port_hex) || cols[2].ends_with(&port_hex))
-                {
+                // Yalnız yerel sütun ve LISTEN (0A): TIME_WAIT/uzak eşleşme "port açık" sanılıyordu.
+                if cols.len() >= 4 && cols[1].ends_with(&port_hex) && cols[3] == "0A" {
                     let local = decode_hex_endpoint(cols[1], is_v6);
                     let remote = decode_hex_endpoint(cols[2], is_v6);
                     let state = decode_tcp_state(cols[3]);
@@ -593,5 +598,11 @@ mod tests {
         assert_eq!(decode_hex_endpoint("0100007F:1F90", false), "127.0.0.1:8080");
         assert_eq!(decode_tcp_state("0A"), "LISTEN");
         assert_eq!(decode_tcp_state("01"), "ESTABLISHED");
+    }
+
+    #[test]
+    fn test_rss_pages_to_mb_uses_real_page_size() {
+        assert_eq!(rss_pages_to_mb(256, 4096), 1.0);
+        assert_eq!(rss_pages_to_mb(16, 65536), 1.0);
     }
 }

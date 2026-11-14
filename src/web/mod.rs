@@ -7,6 +7,10 @@ use anyhow::Result;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread;
+use std::time::Duration;
+
+/// İstek başlıklarını okurken aşılmayacak üst sınır (istek satırı dâhil).
+const MAX_REQUEST_BYTES: usize = 16 * 1024;
 
 /// `http://127.0.0.1:<port>` üzerinde çalışan canlı PC-Eye Gözlem Sunucusu ve Web Dashboard.
 pub fn run_web_dashboard(port: u16) -> Result<()> {
@@ -17,21 +21,42 @@ pub fn run_web_dashboard(port: u16) -> Result<()> {
 
     for stream in listener.incoming().flatten() {
         thread::spawn(move || {
-            let _ = handle_http_client(stream);
+            let _ = handle_http_client(stream, port);
         });
     }
     Ok(())
 }
 
-fn handle_http_client(mut stream: TcpStream) -> Result<()> {
-    let mut buf = [0u8; 4096];
-    let n = stream.read(&mut buf)?;
-    if n == 0 {
+fn handle_http_client(mut stream: TcpStream, port: u16) -> Result<()> {
+    // Okuma zaman aşımı ve sınırlı boyut: veri göndermeyen ya da parçalı yazan bağlantı
+    // dinleyiciyi kilitlemesin; başlıklar \r\n\r\n görülene dek okunur.
+    stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+    let mut buf: Vec<u8> = Vec::new();
+    let mut chunk = [0u8; 4096];
+    while buf.len() < MAX_REQUEST_BYTES && !buf.windows(4).any(|w| w == b"\r\n\r\n") {
+        let n = stream.read(&mut chunk)?;
+        if n == 0 {
+            break;
+        }
+        buf.extend_from_slice(&chunk[..n]);
+    }
+    if buf.is_empty() {
         return Ok(());
     }
-    let req_str = String::from_utf8_lossy(&buf[..n]);
+    let req_str = String::from_utf8_lossy(&buf);
     let first_line = req_str.lines().next().unwrap_or("");
     let path = first_line.split_whitespace().nth(1).unwrap_or("/");
+
+    // Tarayıcı içindeki uzak sayfanın DNS rebinding ile panele erişmesini engellemek için
+    // yalnız beklenen yerel Host başlığı kabul edilir.
+    let host = req_str.lines().skip(1).find_map(|l| {
+        let (k, v) = l.split_once(':')?;
+        k.trim().eq_ignore_ascii_case("host").then(|| v.trim())
+    });
+    if !host_allowed(host, port) {
+        write_http_response(&mut stream, "403 Forbidden", "text/plain", b"Forbidden")?;
+        return Ok(());
+    }
 
     if path == "/" || path.starts_with("/index.html") {
         let html = DASHBOARD_HTML.as_bytes();
@@ -69,6 +94,17 @@ fn handle_http_client(mut stream: TcpStream) -> Result<()> {
     Ok(())
 }
 
+/// Yalnız yerel panelin beklediği Host başlığı geçerlidir (`127.0.0.1:<port>` / `localhost:<port>`).
+fn host_allowed(host: Option<&str>, port: u16) -> bool {
+    match host {
+        Some(h) => {
+            h.eq_ignore_ascii_case(&format!("127.0.0.1:{}", port))
+                || h.eq_ignore_ascii_case(&format!("localhost:{}", port))
+        }
+        None => false,
+    }
+}
+
 fn write_http_response(
     stream: &mut TcpStream,
     status: &str,
@@ -76,7 +112,7 @@ fn write_http_response(
     body: &[u8],
 ) -> Result<()> {
     let header = format!(
-        "HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
         status,
         content_type,
         body.len()
@@ -180,3 +216,17 @@ poll();
 </body>
 </html>
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn host_header_is_restricted_to_loopback() {
+        assert!(host_allowed(Some("127.0.0.1:7777"), 7777));
+        assert!(host_allowed(Some("localhost:7777"), 7777));
+        assert!(!host_allowed(Some("evil.example"), 7777));
+        assert!(!host_allowed(Some("127.0.0.1:80"), 7777));
+        assert!(!host_allowed(None, 7777));
+    }
+}

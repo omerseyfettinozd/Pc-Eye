@@ -189,17 +189,34 @@ impl X11Keyboard {
                 .or_else(|_| self.modifier_keycode(KS_MODE_SWITCH))?;
             mods.push(kc);
         }
+        // Basılan modifier'lar hata yolunda da bırakılır: XTest kuyruğunda basılı kalırsa
+        // sonraki tüm klavye girdisi modifier'lı üretilir. İlk hata korunup döndürülür.
+        let mut pressed: Vec<u8> = Vec::new();
+        let mut result: Result<()> = Ok(());
         for &m in &mods {
-            self.fake(true, m)?;
+            match self.fake(true, m) {
+                Ok(()) => pressed.push(m),
+                Err(e) => {
+                    result = Err(e);
+                    break;
+                }
+            }
         }
-        self.fake(true, plan.keycode)?;
-        self.fake(false, plan.keycode)?;
-        for &m in mods.iter().rev() {
-            self.fake(false, m)?;
+        if result.is_ok() {
+            result = self.fake(true, plan.keycode).and_then(|_| self.fake(false, plan.keycode));
         }
-        self.sync()?;
+        for &m in pressed.iter().rev() {
+            if let Err(e) = self.fake(false, m) {
+                if result.is_ok() {
+                    result = Err(e);
+                }
+            }
+        }
+        if result.is_ok() {
+            result = self.sync();
+        }
         thread::sleep(Duration::from_millis(8));
-        Ok(())
+        result
     }
 
     /// Eşlemede olmayan keysym'i boş bir tuş koduna geçici olarak atayıp basar.
@@ -214,10 +231,13 @@ impl X11Keyboard {
         if per > 1 {
             syms[1] = keysym;
         }
+        // Kurulumdan sonraki hata (sync/tap) da eşlemeyi geri almalı: sonuç bekletilir,
+        // temizlik aşağıda her durumda çalışır.
         self.conn.change_keyboard_mapping(1, kc, per, &syms)?;
-        self.sync()?;
-        thread::sleep(Duration::from_millis(25));
-        let res = self.tap(KeyPlan { keycode: kc, shift: false, level3: false }, extra_mods);
+        let res = self.sync().and_then(|_| {
+            thread::sleep(Duration::from_millis(25));
+            self.tap(KeyPlan { keycode: kc, shift: false, level3: false }, extra_mods)
+        });
         thread::sleep(Duration::from_millis(15));
         self.conn.change_keyboard_mapping(1, kc, per, &vec![0u32; per as usize])?;
         self.sync()?;

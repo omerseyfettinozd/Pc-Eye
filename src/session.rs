@@ -149,7 +149,32 @@ fn wait_new_instance(before: &HashSet<String>, tag: &str) -> Result<(String, i64
         }
         thread::sleep(Duration::from_millis(100));
     }
+    // Zaman aşımında yarım kalan örnek canlı kalır: etiketinden PID'i bulunup sonlandırılır, yoksa
+    // `session list`te görünmeyen ve hiçbir oturuma bağlı olmayan bir Hyprland öksüz kalır.
+    for sig in instance_dirs().difference(before) {
+        let dir = runtime_base().join("hypr").join(sig);
+        let pid = std::fs::read_to_string(dir.join("hyprland.lock"))
+            .ok()
+            .and_then(|lock| lock.lines().next().and_then(|p| p.trim().parse::<i64>().ok()));
+        if let Some(pid) = pid {
+            if has_tag(pid, tag) {
+                terminate(pid as i32);
+            }
+        }
+    }
     Err(anyhow!("iç Hyprland {} sn içinde açılmadı", START_TIMEOUT.as_secs()))
+}
+
+/// `pactl list short modules` çıktısından verilen `sink_name` ile yüklü null-sink modül kimlikleri.
+fn null_sink_module_ids(listing: &str, sink_name: &str) -> Vec<String> {
+    let needle = format!("sink_name={}", sink_name);
+    listing
+        .lines()
+        .filter(|l| l.split_whitespace().any(|t| t == needle))
+        .filter_map(|l| l.split_whitespace().next())
+        .filter(|id| id.chars().all(|c| c.is_ascii_digit()))
+        .map(|id| id.to_string())
+        .collect()
 }
 
 fn config_lua(mode: &str) -> String {
@@ -249,6 +274,18 @@ fn start_unchecked(name: &str, mode: &str) -> Result<Value> {
     };
 
     let audio_sink = format!("pceye_{}", name.replace('-', "_"));
+    // Ölmüş eski oturumun null-sink modülü ses sunucusunda kalmış olabilir; yeni modülü yüklemeden
+    // önce kayıtlı modül ve aynı sink_name'i taşıyan artıklar boşaltılır, yoksa kalıcı olarak birikir.
+    if let Some(old) = load(name).and_then(|i| i["audio_module"].as_u64()) {
+        let old_id = old.to_string();
+        let _ = std::process::Command::new("pactl").args(["unload-module", old_id.as_str()]).output();
+    }
+    if let Ok(out) = std::process::Command::new("pactl").args(["list", "short", "modules"]).output() {
+        let listing = String::from_utf8_lossy(&out.stdout);
+        for id in null_sink_module_ids(&listing, &audio_sink) {
+            let _ = std::process::Command::new("pactl").args(["unload-module", id.as_str()]).output();
+        }
+    }
     let audio_module = std::process::Command::new("pactl")
         .args([
             "load-module",
@@ -400,6 +437,13 @@ mod tests {
         assert!(!valid_name("../x"));
         assert!(!valid_name(""));
         assert!(!valid_name("a b"));
+    }
+
+    #[test]
+    fn null_sink_module_ids_match_exactly() {
+        let listing = "1\tmodule-null-sink\tsink_name=pceye_agent sink_properties=device.description=PC-Eye-agent\n2\tmodule-null-sink\tsink_name=pceye_agent2\n3\tmodule-echo-cancel\tsource_name=pc_eye\n";
+        assert_eq!(null_sink_module_ids(listing, "pceye_agent"), vec!["1".to_string()]);
+        assert!(null_sink_module_ids(listing, "pceye_yok").is_empty());
     }
 
     #[test]

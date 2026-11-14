@@ -30,12 +30,13 @@ pub fn wait_for_condition(
             let desktop = capture_desktop_state()?;
             let geom = if let Some(addr) = window_addr {
                 let norm = crate::eyes::compositor::normalize_window_address(addr);
+                // Pencere bulunamazsa sabit bir bölgeye düşmek yanlış yeri "duruldu" sayardı.
                 desktop
                     .windows
                     .iter()
                     .find(|w| w.address == norm)
                     .map(|w| [w.x.max(0), w.y.max(0), w.width.max(10), w.height.max(10)])
-                    .unwrap_or([0, 0, 1280, 800])
+                    .ok_or_else(|| anyhow!("pencere bulunamadı: {}", addr))?
             } else {
                 let mon = desktop.monitors.first();
                 [

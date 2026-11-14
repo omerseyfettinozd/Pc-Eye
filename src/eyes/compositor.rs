@@ -485,7 +485,9 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
         .filter(|&p| p > 0)
         .map(|p| p as i32);
 
-    let monitors_val = hypr_query_json("monitors").unwrap_or(Value::Array(vec![]));
+    // Kompozitör sorgusu başarısız olursa hatayı yutma: guard boş liste görüp masaüstünü
+    // "boş" sanarak girdi enjeksiyonuna izin veriyordu (kapalı-başarısız olmalı).
+    let monitors_val = hypr_query_json("monitors")?;
     let mut monitors = Vec::new();
     if let Some(arr) = monitors_val.as_array() {
         for m in arr {
@@ -549,7 +551,8 @@ pub fn capture_desktop_state() -> Result<DesktopState> {
     }
     workspaces.sort_by_key(|w| w.id);
 
-    let clients_val = hypr_query_json("clients").unwrap_or(Value::Array(vec![]));
+    // Pencere listesi alınamazsa hatayı yay; boş liste guard'ı yanlış karara itiyordu.
+    let clients_val = hypr_query_json("clients")?;
     let mut windows = Vec::new();
     let mut auth_guard_tripped = false;
     let mut auth_guard_reason = None;

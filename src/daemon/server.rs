@@ -63,6 +63,15 @@ impl PersistedTelemetryState {
             }
         }
     }
+
+    /// Yalnız PID RSS geçmişine örnek ekler; CPU/bellek serilerine dokunmaz. X-Ray her
+    /// çağrıldığında sistem geçmişine sahte 0 yazıp istatistikleri bozuyordu.
+    pub fn record_pid_rss(&mut self, pid: i32, rss_mb: f64) {
+        if pid > 0 {
+            let entry = self.pid_rss_history.entry(pid).or_default();
+            push_bounded(entry, rss_mb, 120);
+        }
+    }
 }
 
 fn push_bounded(vec: &mut Vec<f64>, val: f64, cap: usize) {
@@ -119,10 +128,17 @@ pub fn ensure_background_daemon() -> bool {
             .ok()
             .and_then(|p| p.trim().parse::<i32>().ok())
         {
-            unsafe {
-                libc::kill(pid, libc::SIGTERM);
+            // PID yeniden kullanımı yarışına karşı: sinyalden hemen önce aynı pid'in hâlâ
+            // pc-eye olduğunu doğrula, başka bir süreci öldürmeyelim.
+            if fs::read_to_string(format!("/proc/{}/comm", pid))
+                .map(|c| c.contains("pc-eye"))
+                .unwrap_or(false)
+            {
+                unsafe {
+                    libc::kill(pid, libc::SIGTERM);
+                }
+                thread::sleep(Duration::from_millis(50));
             }
-            thread::sleep(Duration::from_millis(50));
         }
     }
     if let Ok(exe) = std::env::current_exe() {
@@ -284,10 +300,23 @@ pub fn build_context_report(seq_since: Option<u64>) -> Result<SystemContextRepor
     for l in logs_raw {
         log_ring.push_at(l.clone(), l.timestamp_ms);
     }
-    let (recent_logs, dropped_events) = log_ring.since_seq(0, 15);
+    let (recent_logs, _) = log_ring.since_seq(0, 15);
+    // Olay kaybı gerçek olay geçmişinden hesaplanır: günlük halkasından türetilince daima 0
+    // kalıyor ve ajan kaçırdığı olayları öğrenemiyordu.
+    let dropped_events = telemetry
+        .recent_events
+        .first()
+        .map(|e| if since > 0 && e.seq > since + 1 { e.seq - (since + 1) } else { 0 })
+        .unwrap_or(0);
 
     Ok(SystemContextReport {
-        seq: telemetry.next_seq,
+        // Döndürülen seq olay uzayından gelir; `seq_since` filtresi `recent_events` seq'iyle
+        // aynı uzayda olmazsa ajan hiç yeni olay göremez.
+        seq: telemetry
+            .recent_events
+            .last()
+            .map(|e| e.seq)
+            .unwrap_or(0),
         timestamp_ms: ts,
         daemon_running,
         desktop,
@@ -342,12 +371,8 @@ pub fn build_xray_for_target(
         rss_hist.as_deref(),
     )?;
 
-    // Yeni RSS örneğini halka belleğe kaydet
-    telemetry.record_sample(
-        0.0,
-        0,
-        &[(target_pid, report.total_rss_mb)],
-    );
+    // Yeni RSS örneğini yalnız bu PID'in geçmişine kaydet; CPU/bellek serilerine sahte 0 yazma.
+    telemetry.record_pid_rss(target_pid, report.total_rss_mb);
     telemetry.save();
     if let Some(updated_hist) = telemetry.pid_rss_history.get(&target_pid) {
         report.cluster_rss_mb_stats =

@@ -546,7 +546,7 @@ fn main() -> Result<()> {
             allow_protected,
         } => {
             let rec = match op.as_str() {
-                "click" => director::input::click_at(x, y, &button, clicks, allow_protected)?,
+                "click" => director::input::click_at(x, y, &button, clicks.clamp(1, 3), allow_protected)?,
                 "move" => director::input::move_cursor(
                     x.ok_or_else(|| anyhow::anyhow!("--x gerekli"))?,
                     y.ok_or_else(|| anyhow::anyhow!("--y gerekli"))?,

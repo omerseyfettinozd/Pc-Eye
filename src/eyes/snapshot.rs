@@ -212,7 +212,13 @@ pub fn build_snapshot(
         snap["media"] = m;
     }
     snap["snap"] = json!(current.id);
-    snap["seq"] = json!(telemetry.next_seq);
+    // Sıra numarası olay halkasının uzayından gelir; `seq_since` filtresi `recent_events` seq'iyle
+    // aynı uzayda olmazsa ajan hiç yeni olay göremez (iki ayrı sayaç karışıyordu).
+    snap["seq"] = json!(telemetry
+        .recent_events
+        .last()
+        .map(|e| e.seq)
+        .unwrap_or(0));
     snap["daemon_running"] = json!(daemon_running);
     if since.is_some() && previous.is_none() {
         // Bu süreçte o kimlik yok (ör. daemon yeniden başladı): tam görüntü döndü.

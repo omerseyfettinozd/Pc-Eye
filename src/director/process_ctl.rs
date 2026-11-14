@@ -190,10 +190,15 @@ pub fn launch_application(
         .stdout(Stdio::from(stdout_file))
         .stderr(Stdio::from(stderr_file));
 
-    let child = command
+    let mut child = command
         .spawn()
         .with_context(|| format!("Uygulama başlatılamadı: {:?}", cmd_args))?;
     let spawned_pid = child.id() as i32;
+    // Çocuk hiç beklenmezse uygulama çıkınca zombi kalır (daemon/MCP uzun yaşar): ayrık iş parçacığı
+    // çıkış durumunu toplar, başlatma akışını bloklamaz.
+    thread::spawn(move || {
+        let _ = child.wait();
+    });
 
     if wait_window_ms > 0 {
         let _ = wait_for_compositor_event("openwindow", None, wait_window_ms);
@@ -248,7 +253,7 @@ pub fn freeze_process_safe(pid: i32, max_freeze_ms: u64) -> Result<ActionReceipt
     }
 
     // K5 Kuralı: Masaüstünün asla kilitli kalmaması için arka planda bağımsız bir Watchdog başlat
-    let _ = Command::new("sh")
+    let watchdog = Command::new("sh")
         .arg("-c")
         .arg(format!(
             "sleep {:.3} && kill -CONT {} 2>/dev/null || true",
@@ -259,6 +264,11 @@ pub fn freeze_process_safe(pid: i32, max_freeze_ms: u64) -> Result<ActionReceipt
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn();
+    // Watchdog başlamazsa hedef SIGSTOP'ta kalırdı: beklemeden SIGCONT gönderip hata dön.
+    if let Err(e) = watchdog {
+        unsafe { libc::kill(pid, libc::SIGCONT) };
+        return Err(anyhow!("Watchdog başlatılamadı ({}): PID {} hemen çözüldü", e, pid));
+    }
 
     Ok(ActionReceipt {
         ok: true,
@@ -361,6 +371,20 @@ pub fn inspect_clipboard_rich() -> Result<crate::protocol::types::ClipboardRepor
     })
 }
 
+/// `wl-copy` varsayılan olarak arka plana çatallanır: ebeveyn süreç kurulum hatasında sıfırdan farklı
+/// kodla çıkar. Çıkışı en çok 2 sn bekle; süre dolarsa pano sahipliği sürüyordur, hata sayılmaz.
+fn wait_clipboard_writer(child: &mut std::process::Child) -> Result<()> {
+    let start = std::time::Instant::now();
+    while start.elapsed() < Duration::from_secs(2) {
+        match child.try_wait()? {
+            Some(status) if status.success() => return Ok(()),
+            Some(status) => return Err(anyhow!("wl-copy panoya yazamadı: {}", status)),
+            None => thread::sleep(Duration::from_millis(20)),
+        }
+    }
+    Ok(())
+}
+
 /// Zengin pano kontrolü: metin yazma, görsel/dosya (`image/png` veya `text/uri-list`) kopyalama, `cliphist` ID geri yükleme veya zengin okuma.
 pub fn clipboard_action_ext(
     write_text: Option<&str>,
@@ -383,7 +407,7 @@ pub fn clipboard_action_ext(
         if let Some(mut stdin) = child.stdin.take() {
             stdin.write_all(&dec.stdout)?;
         }
-        thread::sleep(Duration::from_millis(20));
+        wait_clipboard_writer(&mut child)?;
         return Ok(serde_json::to_value(ActionReceipt {
             ok: true,
             action: "clipboard_restore".to_string(),
@@ -424,7 +448,7 @@ pub fn clipboard_action_ext(
             if let Some(mut stdin) = child.stdin.take() {
                 stdin.write_all(&bytes)?;
             }
-            thread::sleep(Duration::from_millis(25));
+            wait_clipboard_writer(&mut child)?;
             return Ok(serde_json::to_value(ActionReceipt {
                 ok: true,
                 action: "clipboard_copy_image".to_string(),
@@ -444,7 +468,7 @@ pub fn clipboard_action_ext(
             if let Some(mut stdin) = child.stdin.take() {
                 stdin.write_all(uri.as_bytes())?;
             }
-            thread::sleep(Duration::from_millis(20));
+            wait_clipboard_writer(&mut child)?;
             return Ok(serde_json::to_value(ActionReceipt {
                 ok: true,
                 action: "clipboard_copy_file_uri".to_string(),
@@ -477,7 +501,7 @@ pub fn clipboard_action(write_text: Option<&str>) -> Result<ActionReceipt> {
         if let Some(mut stdin) = child.stdin.take() {
             stdin.write_all(txt.as_bytes())?;
         }
-        thread::sleep(Duration::from_millis(20));
+        wait_clipboard_writer(&mut child)?;
         Ok(ActionReceipt {
             ok: true,
             action: "clipboard_write".to_string(),

@@ -37,6 +37,32 @@ fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
+/// `recipes.json.lock` üzerinde flock tutan kilit; bırakılınca (Drop) kilidi çözer.
+struct StoreLock {
+    file: std::fs::File,
+}
+
+impl Drop for StoreLock {
+    fn drop(&mut self) {
+        let fd = std::os::unix::io::AsRawFd::as_raw_fd(&self.file);
+        unsafe { libc::flock(fd, libc::LOCK_UN) };
+    }
+}
+
+/// Oku-değiştir-yaz bölgesini süreçler arası kilitler (daemon ile ayrı CLI süreçleri yarışmasın).
+fn lock_store() -> Result<StoreLock> {
+    let path = store_path().with_extension("json.lock");
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let file = std::fs::OpenOptions::new().create(true).write(true).open(&path)?;
+    let fd = std::os::unix::io::AsRawFd::as_raw_fd(&file);
+    if unsafe { libc::flock(fd, libc::LOCK_EX) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok(StoreLock { file })
+}
+
 pub fn load() -> Vec<Value> {
     std::fs::read_to_string(store_path())
         .ok()
@@ -144,11 +170,35 @@ pub fn parametrize(steps: &[Value]) -> (Vec<Value>, Vec<String>) {
 fn bind_values(text: &str, values: &[(String, String)]) -> String {
     let mut t = text.to_string();
     for (p, v) in values {
-        if v.chars().count() >= 2 && t.contains(v.as_str()) {
-            t = t.replace(v.as_str(), &format!("{{{}}}", p));
+        if v.chars().count() >= 2 {
+            t = replace_word(&t, v, &format!("{{{}}}", p));
         }
     }
     t
+}
+
+/// `needle`'ı yalnız alfasayısal olmayan sınırlarla çevrili olduğu yerlerde değiştirir; böylece
+/// iki karakterlik bir değer başka bir kelimenin ortasında (`el` → `elemanı`) eşleşmez.
+fn replace_word(haystack: &str, needle: &str, with: &str) -> String {
+    if needle.is_empty() {
+        return haystack.to_string();
+    }
+    let mut out = String::with_capacity(haystack.len());
+    let mut rest = haystack;
+    while let Some(pos) = rest.find(needle) {
+        let end = pos + needle.len();
+        let bounded = rest[..pos].chars().next_back().map_or(true, |c| !c.is_alphanumeric())
+            && rest[end..].chars().next().map_or(true, |c| !c.is_alphanumeric());
+        if bounded {
+            out.push_str(&rest[..pos]);
+            out.push_str(with);
+        } else {
+            out.push_str(&rest[..end]);
+        }
+        rest = &rest[end..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Parametreleri yerine koyar; eksik parametre hata verir.
@@ -166,16 +216,37 @@ pub fn instantiate(recipe: &Value, args: &Map<String, Value>) -> Result<Vec<Valu
             params
         ));
     }
+    // Tek geçişli yer tutucu değiştirme: konan değer yeniden taranmaz, böylece bir parametrenin
+    // değeri başka bir yer tutucu içerse bile zincirleme genişleme (yer tutucu enjeksiyonu) olmaz.
     let subst = |s: &str| {
-        let mut t = s.to_string();
-        for p in &params {
-            let v = match &args[p.as_str()] {
-                Value::String(s) => s.clone(),
-                other => other.to_string(),
-            };
-            t = t.replace(&format!("{{{}}}", p), &v);
+        let mut out = String::with_capacity(s.len());
+        let mut rest = s;
+        while let Some(start) = rest.find('{') {
+            out.push_str(&rest[..start]);
+            match rest[start + 1..].find('}') {
+                Some(end) => {
+                    let name = &rest[start + 1..start + 1 + end];
+                    if let Some(i) = params.iter().position(|p| p.as_str() == name) {
+                        let v = match &args[params[i].as_str()] {
+                            Value::String(s) => s.clone(),
+                            other => other.to_string(),
+                        };
+                        out.push_str(&v);
+                    } else {
+                        out.push('{');
+                        out.push_str(name);
+                        out.push('}');
+                    }
+                    rest = &rest[start + 1 + end + 1..];
+                }
+                None => {
+                    out.push_str(&rest[start..]);
+                    rest = "";
+                }
+            }
         }
-        t
+        out.push_str(rest);
+        out
     };
     fn walk(v: &Value, f: &dyn Fn(&str) -> String) -> Value {
         match v {
@@ -248,6 +319,7 @@ fn required_names(steps: &[Value], after_names: &[String]) -> Vec<String> {
 
 /// Tarifi saklar ya da aynısı varsa görülme sayısını artırır. Dönüş: kimlik.
 fn upsert(class: &str, concrete: &[Value], after_names: &[String]) -> Result<String> {
+    let _lock = lock_store()?;
     let (steps, params) = parametrize(concrete);
     let id = format!("r{:07x}", fnv1a(&skeleton(class, &steps)) & 0x0fff_ffff);
     let mut all = load();
@@ -274,6 +346,7 @@ fn upsert(class: &str, concrete: &[Value], after_names: &[String]) -> Result<Str
 }
 
 fn remove_if_unused(id: &str) {
+    let _lock = lock_store().ok();
     let mut all = load();
     let before = all.len();
     all.retain(|r| !(r["id"] == id && r["runs"].as_u64().unwrap_or(0) == 0 && r["seen"].as_u64().unwrap_or(1) <= 1));
@@ -347,6 +420,7 @@ pub fn note_replay(address: &str, class: &str, id: &str, concrete: Vec<Value>) {
             from_recipe: true,
         });
     }
+    let _lock = lock_store().ok();
     let mut all = load();
     if let Some(r) = all.iter_mut().find(|r| r["id"] == id) {
         r["runs"] = json!(r["runs"].as_u64().unwrap_or(0) + 1);
@@ -385,6 +459,7 @@ pub fn find(key: &str) -> Result<Value> {
 }
 
 pub fn rename(id: &str, name: &str) -> Result<()> {
+    let _lock = lock_store()?;
     let mut all = load();
     let r = all.iter_mut().find(|r| r["id"] == id).ok_or_else(|| anyhow!("tarif bulunamadı: {}", id))?;
     r["name"] = json!(name);
@@ -392,6 +467,7 @@ pub fn rename(id: &str, name: &str) -> Result<()> {
 }
 
 pub fn remove(id: &str) -> Result<()> {
+    let _lock = lock_store()?;
     let mut all = load();
     let before = all.len();
     all.retain(|r| r["id"] != id);
@@ -536,5 +612,27 @@ mod tests {
         assert_eq!(all[0]["seen"], 2);
         std::env::remove_var("PC_EYE_RECIPES");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn value_binds_only_on_word_boundary() {
+        let values = vec![("Ad".to_string(), "el".to_string())];
+        assert_eq!(bind_values("Bülten elemanı kaydedildi", &values), "Bülten elemanı kaydedildi");
+        assert_eq!(bind_values("Kaydedildi: el", &values), "Kaydedildi: {Ad}");
+    }
+
+    #[test]
+    fn instantiate_does_not_rescan_values() {
+        let recipe = json!({
+            "id": "r1",
+            "steps": [{"set": "A", "text": "{Ad Soyad}"}, {"set": "B", "text": "{Şehir}"}],
+            "params": ["Ad Soyad", "Şehir"],
+        });
+        let mut args = Map::new();
+        args.insert("Ad Soyad".into(), json!("Ali"));
+        args.insert("Şehir".into(), json!("{Ad Soyad}"));
+        let out = instantiate(&recipe, &args).unwrap();
+        assert_eq!(out[0]["text"], "Ali");
+        assert_eq!(out[1]["text"], "{Ad Soyad}");
     }
 }

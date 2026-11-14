@@ -4,7 +4,45 @@ use crate::protocol::types::LogEntry;
 use anyhow::Result;
 use serde_json::Value;
 use std::fs;
-use std::process::Command;
+use std::io::{Read, Seek, SeekFrom};
+use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant};
+
+/// Harici komutu çalıştırır; `output()` gibi süresiz beklemez, süre dolunca süreci `kill` eder ve
+/// boru dolup kilitlenmesin diye stdout'u ayrı iş parçacığında okur.
+fn run_command_with_timeout(cmd: &mut Command, timeout: Duration) -> Result<Output> {
+    let mut child = cmd
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    let mut pipe = child.stdout.take();
+    let reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(p) = pipe.as_mut() {
+            let _ = p.read_to_end(&mut buf);
+        }
+        buf
+    });
+
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        if let Some(st) = child.try_wait()? {
+            break st;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            break child.wait()?;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+
+    Ok(Output {
+        status,
+        stdout: reader.join().unwrap_or_default(),
+        stderr: Vec::new(),
+    })
+}
 
 /// Göz 4: `journalctl`, PC-Eye `app_logs/*.log` (`stdout/stderr`) ve `dunstctl history` masaüstü bildirimlerini
 /// tek bir kronolojik akışta birleştirir.
@@ -51,9 +89,10 @@ pub fn query_recent_journal_logs(
 pub fn read_coredump_entries(filter_pids: Option<&[i32]>, limit: usize) -> Result<Vec<LogEntry>> {
     // `-n` tek başına journal'ın EN ESKİ kayıtlarını verir (systemd 262); `-r` ile en yeniler önce gelir.
     // Aksi halde yeni bir çökme hiç görünmez, eski çökmeler "son çökme" gibi raporlanır.
-    let out = Command::new("coredumpctl")
-        .args(["list", "--json=short", "-r", "-n", "15", "--no-pager"])
-        .output()?;
+    let out = run_command_with_timeout(
+        Command::new("coredumpctl").args(["list", "--json=short", "-r", "-n", "15", "--no-pager"]),
+        Duration::from_secs(5),
+    )?;
     if !out.status.success() || out.stdout.is_empty() {
         return Ok(Vec::new());
     }
@@ -122,6 +161,8 @@ pub fn read_coredump_entries(filter_pids: Option<&[i32]>, limit: usize) -> Resul
 }
 
 fn read_journald_entries(filter_pids: Option<&[i32]>, limit: usize) -> Result<Vec<LogEntry>> {
+    // Ajan `-n 1000000` gibi değer verebilir; journalctl tüm journal'ı üretip belleği şişirmesin.
+    let limit = limit.min(500);
     let mut cmd = Command::new("journalctl");
     cmd.arg("--no-pager")
         .arg("-o")
@@ -142,7 +183,7 @@ fn read_journald_entries(filter_pids: Option<&[i32]>, limit: usize) -> Result<Ve
         cmd.arg("-p").arg("0..4");
     }
 
-    let output = cmd.output()?;
+    let output = run_command_with_timeout(&mut cmd, Duration::from_secs(5))?;
     if !output.status.success() {
         return Ok(Vec::new());
     }
@@ -162,6 +203,25 @@ fn read_journald_entries(filter_pids: Option<&[i32]>, limit: usize) -> Result<Ve
         }
     }
     Ok(entries)
+}
+
+/// Dosyanın son `max_bytes` baytını kayıplı UTF-8 ile çözer; büyük `app_logs` dosyalarının tamamını
+/// belleğe almaz ve tek geçersiz bayt yüzünden dosyayı atlamaz.
+fn read_file_tail_lossy(path: &std::path::Path, max_bytes: u64) -> Option<String> {
+    let mut file = fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    let mut buf = Vec::new();
+    if len > max_bytes {
+        file.seek(SeekFrom::Start(len - max_bytes)).ok()?;
+    }
+    file.read_to_end(&mut buf).ok()?;
+    if len > max_bytes {
+        // Pencere bir satırın ortasından başlayabilir; ilk yarım satırı at.
+        if let Some(pos) = buf.iter().position(|&b| b == b'\n') {
+            buf.drain(..=pos);
+        }
+    }
+    Some(String::from_utf8_lossy(&buf).into_owned())
 }
 
 /// `/run/user/1000/pc-eye/app_logs/*.log` içindeki uygulama `stdout/stderr` satırlarını okur.
@@ -191,7 +251,8 @@ fn read_managed_app_logs(max_lines_per_app: usize) -> Result<Vec<LogEntry>> {
             .map(|d| d.as_millis() as u64)
             .unwrap_or(ts);
 
-        let Ok(content) = fs::read_to_string(&path) else {
+        // Tek geçersiz bayt dosyanın tamamını atlatıyordu; kayıplı çöz, son 256 KiB'ı oku.
+        let Some(content) = read_file_tail_lossy(&path, 256 * 1024) else {
             continue;
         };
         let lines: Vec<&str> = content
@@ -229,7 +290,8 @@ fn read_managed_app_logs(max_lines_per_app: usize) -> Result<Vec<LogEntry>> {
 
 /// `dunstctl history` üzerinden masaüstü bildirim geçmişini okur.
 pub fn read_dunst_notifications(limit: usize) -> Result<Vec<LogEntry>> {
-    let out = Command::new("dunstctl").arg("history").output()?;
+    let out =
+        run_command_with_timeout(Command::new("dunstctl").arg("history"), Duration::from_secs(5))?;
     if !out.status.success() {
         return Ok(Vec::new());
     }

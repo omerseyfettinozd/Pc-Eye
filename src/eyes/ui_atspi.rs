@@ -8,6 +8,7 @@ use serde_json::Value;
 use futures_util::future::join_all;
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::os::fd::AsRawFd;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
@@ -155,7 +156,7 @@ pub fn inspect_window_ui(
                 let generations_before = a11y_events::generations_snapshot();
                 let (found, saw_document, services) =
                     atspi_bus::block_on(collect_atspi_elements_for_window(
-                        conn,
+                        &conn,
                         &win,
                         query_filter,
                         max_elements.max(10),
@@ -341,10 +342,11 @@ fn read_kitty_socket_lines(term_pid: i32) -> Vec<String> {
     ];
     for sock in &candidates {
         if std::path::Path::new(sock).exists() {
-            if let Ok(out) = Command::new("kitty")
-                .args(["@", "--to", &format!("unix:{}", sock), "get-text"])
-                .output()
-            {
+            // Askıya alınmış kitty yanıt vermezse araç çağrısı kilitlenmesin: çağrıya 2 sn sınır.
+            if let Some(out) = run_with_timeout(
+                Command::new("kitty").args(["@", "--to", &format!("unix:{}", sock), "get-text"]),
+                KITTY_REMOTE_TIMEOUT,
+            ) {
                 if out.status.success() {
                     let text = String::from_utf8_lossy(&out.stdout);
                     let lines: Vec<String> = text
@@ -359,6 +361,43 @@ fn read_kitty_socket_lines(term_pid: i32) -> Vec<String> {
         }
     }
     Vec::new()
+}
+
+/// Kitty uzaktan kontrolü yanıt vermezse (SIGSTOP, asılı istek) terminal okuması kilitlenmesin.
+const KITTY_REMOTE_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Çocuk süreci en fazla `limit` boyunca bekler; süre dolarsa süreci öldürür. `output()` yanıt
+/// gelmediğinde süresiz beklediği için araç çağrısı hiç dönmüyordu.
+fn run_with_timeout(cmd: &mut Command, limit: Duration) -> Option<std::process::Output> {
+    use std::io::Read;
+    let mut child = cmd
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .ok()?;
+    let deadline = Instant::now() + limit;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let mut stdout = Vec::new();
+                let mut stderr = Vec::new();
+                if let Some(mut pipe) = child.stdout.take() {
+                    let _ = pipe.read_to_end(&mut stdout);
+                }
+                if let Some(mut pipe) = child.stderr.take() {
+                    let _ = pipe.read_to_end(&mut stderr);
+                }
+                return Some(std::process::Output { status, stdout, stderr });
+            }
+            Ok(None) if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+            Err(_) => return None,
+        }
+    }
 }
 
 /// Okuma bütçesi: bu sınırlar içinde ağaç tam okunur, çıktı sınırı (`max_elements`) ayrıca uygulanır.
@@ -696,7 +735,7 @@ async fn collect_atspi_elements_for_window(
 /// Fareyi hareket ettirmeden doğrudan D-Bus `org.a11y.atspi.Action.DoAction(0)` ile kontrolü tetikler.
 pub fn atspi_invoke_do_action(service: &str, path: &str, action_index: i32) -> Result<bool> {
     let conn = atspi_bus::connection()?;
-    atspi_bus::block_on(atspi_bus::do_action(conn, service, path, action_index))
+    atspi_bus::block_on(atspi_bus::do_action(&conn, service, path, action_index))
         .ok_or_else(|| anyhow!("AT-SPI DoAction başarısız: {} {}", service, path))
 }
 
@@ -794,10 +833,31 @@ struct WindowMarks {
 const MARK_REGISTRY_WINDOWS: usize = 24;
 const MARK_REGISTRY_KEYS: usize = 4000;
 
+/// `marks_registry.json` daemon, MCP ve CLI arasında paylaşılır: oku-değiştir-yaz yarışında ikinci
+/// yazan birincinin kayıtlarını siliyordu. Kilit, sahibi düşünce fd kapanarak bırakılır.
+struct MarkRegistryLock(std::fs::File);
+
+impl MarkRegistryLock {
+    fn acquire(lock_path: &std::path::Path) -> Option<Self> {
+        let file = fs::OpenOptions::new().create(true).write(true).open(lock_path).ok()?;
+        let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+        (rc == 0).then_some(Self(file))
+    }
+}
+
+impl Drop for MarkRegistryLock {
+    fn drop(&mut self) {
+        unsafe {
+            libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
+}
+
 fn stabilize_marks(window: &str, elements: &mut [UiElement]) {
     static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _guard = LOCK.lock();
     let path = crate::eyes::vision::runtime_dir().join("marks_registry.json");
+    let _file_lock = MarkRegistryLock::acquire(&path.with_file_name("marks_registry.json.lock"));
     let mut registry: std::collections::HashMap<String, WindowMarks> = fs::read_to_string(&path)
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
@@ -853,13 +913,13 @@ fn is_browser_window(class: &str) -> bool {
 /// Bir metin kutusunun güncel içeriği (yazma sonrası doğrulama için).
 pub fn atspi_read_text(service: &str, path: &str) -> Option<String> {
     let conn = atspi_bus::connection().ok()?;
-    atspi_bus::block_on(atspi_bus::text_or_value(conn, service, path))
+    atspi_bus::block_on(atspi_bus::text_or_value(&conn, service, path))
 }
 
 /// Alana `text` imleçte (seçim varsa onun yerine) yazılınca oluşması gereken içerik.
 pub fn atspi_expected_after_insert(service: &str, path: &str, text: &str) -> Option<String> {
     let conn = atspi_bus::connection().ok()?;
-    let (current, caret, selection) = atspi_bus::block_on(atspi_bus::text_state(conn, service, path))?;
+    let (current, caret, selection) = atspi_bus::block_on(atspi_bus::text_state(&conn, service, path))?;
     let chars: Vec<char> = current.chars().collect();
     let len = chars.len() as i32;
     let (start, end) = selection.unwrap_or((caret, caret));
@@ -874,12 +934,12 @@ pub fn atspi_expected_after_insert(service: &str, path: &str, text: &str) -> Opt
 pub fn atspi_replace_text(service: &str, path: &str, content: &str) -> bool {
     let Ok(conn) = atspi_bus::connection() else { return false };
     atspi_bus::block_on(async {
-        if atspi_bus::set_text_contents(conn, service, path, content).await != Some(true) {
+        if atspi_bus::set_text_contents(&conn, service, path, content).await != Some(true) {
             return false;
         }
-        let ok = atspi_bus::text_or_value(conn, service, path).await.unwrap_or_default() == content;
+        let ok = atspi_bus::text_or_value(&conn, service, path).await.unwrap_or_default() == content;
         if ok {
-            let _ = atspi_bus::set_caret(conn, service, path, content.chars().count() as i32).await;
+            let _ = atspi_bus::set_caret(&conn, service, path, content.chars().count() as i32).await;
         }
         ok
     })
@@ -888,7 +948,7 @@ pub fn atspi_replace_text(service: &str, path: &str, content: &str) -> bool {
 /// Görünür alanın dışındaki elemanı kaydırarak görünür yapar.
 pub fn atspi_scroll_into_view(service: &str, path: &str) -> bool {
     let Ok(conn) = atspi_bus::connection() else { return false };
-    atspi_bus::block_on(atspi_bus::scroll_to(conn, service, path))
+    atspi_bus::block_on(atspi_bus::scroll_to(&conn, service, path))
 }
 
 /// Sayısal kontrolün (spin button, kaydırıcı) değerini `Value.CurrentValue` ile yazar ve geri okur.
@@ -896,8 +956,8 @@ pub fn atspi_scroll_into_view(service: &str, path: &str) -> bool {
 pub fn atspi_set_value(service: &str, path: &str, value: f64) -> bool {
     let Ok(conn) = atspi_bus::connection() else { return false };
     atspi_bus::block_on(async {
-        atspi_bus::set_current_value(conn, service, path, value).await
-            && atspi_bus::current_value(conn, service, path)
+        atspi_bus::set_current_value(&conn, service, path, value).await
+            && atspi_bus::current_value(&conn, service, path)
                 .await
                 .map_or(false, |v| (v - value).abs() < 1e-6)
     })
@@ -906,7 +966,7 @@ pub fn atspi_set_value(service: &str, path: &str, value: f64) -> bool {
 /// Düzenlenebilir bir AT-SPI metin kutusunun içeriğini doğrudan D-Bus (`EditableText.SetTextContents`) üzerinden değiştirir.
 pub fn atspi_set_editable_text(service: &str, path: &str, new_text: &str) -> Result<bool> {
     let conn = atspi_bus::connection()?;
-    atspi_bus::block_on(atspi_bus::set_text_contents(conn, service, path, new_text))
+    atspi_bus::block_on(atspi_bus::set_text_contents(&conn, service, path, new_text))
         .ok_or_else(|| anyhow!("AT-SPI SetTextContents başarısız: {} {}", service, path))
 }
 
@@ -934,6 +994,8 @@ pub fn resolve_screen_coordinates(
 /// 64-bit AT-SPI `StateSet` (`[low_u32, high_u32]`) bit maskesini okunabilir durum etiketlerine çevirir.
 pub fn decode_atspi_states(low: u32, high: u32) -> Vec<String> {
     let bits = ((high as u64) << 32) | (low as u64);
+    // Bit numaraları upstream `AtspiStateType` sırasıyla birebir eşleşmeli; kaymış etiketler
+    // ajana yanlış durum bildiriyordu (ör. invalid_entry "read_only" görünüyordu).
     let table: &[(u32, &str)] = &[
         (1, "active"),
         (2, "armed"),
@@ -944,14 +1006,17 @@ pub fn decode_atspi_states(low: u32, high: u32) -> Vec<String> {
         (9, "expandable"),
         (10, "expanded"),
         (12, "focused"),
-        (15, "indeterminate"),
+        (15, "iconified"),
         (16, "modal"),
         (20, "pressed"),
         (23, "selected"),
         (24, "sensitive"),
         (25, "showing"),
-        (28, "visible"),
-        (36, "read_only"),
+        (28, "transient"),
+        (30, "visible"),
+        (32, "indeterminate"),
+        (36, "invalid_entry"),
+        (43, "read_only"),
     ];
 
     let mut out = Vec::new();
@@ -1063,6 +1128,17 @@ mod tests {
         assert!(states.contains(&"editable".to_string()));
         assert!(states.contains(&"enabled".to_string()));
         assert!(states.contains(&"focused".to_string()));
+    }
+
+    #[test]
+    fn test_decode_atspi_states_matches_atspi_state_type() {
+        // Bit 15 iconified, 28 transient, 30 visible, 32 indeterminate, 36 invalid_entry, 43 read_only.
+        let bits: u64 = (1u64 << 15) | (1 << 28) | (1 << 30) | (1 << 32) | (1 << 36) | (1u64 << 43);
+        let states = decode_atspi_states(bits as u32, (bits >> 32) as u32);
+        for label in ["iconified", "transient", "visible", "indeterminate", "invalid_entry", "read_only"] {
+            assert!(states.contains(&label.to_string()), "{}", label);
+        }
+        assert!(!states.contains(&"modal".to_string()));
     }
 
     fn el(mark: usize, name: &str, value: Option<&str>) -> UiElement {

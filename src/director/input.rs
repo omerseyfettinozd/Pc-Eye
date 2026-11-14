@@ -213,14 +213,23 @@ fn pick_named_element_in(elements: &[UiElement], query: &str, window_title: &str
 /// Ada göre en uygun elemanı seçer: tam eşleşme > içerme, aynı adlılar arasında eylem alabilen rol
 /// (düğme, onay kutusu…) kapsayıcıdan (`grid cell`, `label`, `filler`) önce gelir.
 fn pick_named_element(elements: &[UiElement], query: &str) -> Option<UiElement> {
-    let q = query.to_lowercase();
+    // Türkçe büyük/küçük harf: `İ` küçültülünce `i` + U+0307 olur, `I` ise `ı` olmalıydı. Ajan
+    // "iptal" yazınca "İptal" düğmesi bulunsun diye iki taraf da noktasız/noktalı ayrımsız katlanır.
+    let fold = |s: &str| s.to_lowercase().replace('\u{307}', "").replace('ı', "i");
+    let q = fold(query);
     let rank = |e: &UiElement| {
-        let name = e.name.to_lowercase();
-        let name_rank = if name == q { 0 } else if name.contains(&q) { 1 } else { 2 };
+        let name = fold(&e.name);
+        let name_rank = if name == q { 0 } else { 1 };
         let role_rank = if ACTIONABLE_ROLES.contains(&e.role.as_str()) { 0 } else { 1 };
         (name_rank, role_rank, e.mark)
     };
-    elements.iter().min_by_key(|e| rank(e)).cloned()
+    // Adı sorguyla hiç örtüşmeyen aday (eski `name_rank = 2` yedeği) seçilmez: yanlış elemanın
+    // (ör. ilgisiz açılır listenin) tıklanmasındansa "bulunamadı" dönmeli.
+    elements
+        .iter()
+        .filter(|e| fold(&e.name).contains(&q))
+        .min_by_key(|e| rank(*e))
+        .cloned()
 }
 
 fn verification_region(window_geometry: Option<[i64; 4]>, cx: i64, cy: i64) -> [i64; 4] {
@@ -253,11 +262,13 @@ fn verification_region(window_geometry: Option<[i64; 4]>, cx: i64, cy: i64) -> [
 }
 
 /// Fare düğmesi adını Linux evdev koduna çevirir.
-pub fn parse_mouse_button(btn: &str) -> u32 {
-    match btn.to_ascii_lowercase().as_str() {
-        "right" | "r" | "2" => BTN_RIGHT,
-        "middle" | "mid" | "m" | "3" => BTN_MIDDLE,
-        _ => BTN_LEFT,
+pub fn parse_mouse_button(btn: &str) -> Result<u32> {
+    // Sondaki boşluk (`"right "`) sessizce sol tıka düşüyordu; bilinmeyen ad da sol tık değil hatadır.
+    match btn.trim().to_ascii_lowercase().as_str() {
+        "left" | "l" | "1" => Ok(BTN_LEFT),
+        "right" | "r" | "2" => Ok(BTN_RIGHT),
+        "middle" | "mid" | "m" | "3" => Ok(BTN_MIDDLE),
+        _ => Err(anyhow!("bilinmeyen fare düğmesi: `{}`", btn)),
     }
 }
 
@@ -333,9 +344,14 @@ pub fn click_at(
         thread::sleep(Duration::from_millis(15));
         hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
         thread::sleep(Duration::from_millis(30));
+    } else {
+        // Koordinat verilmezse düğme olayı imlecin durduğu pencereye gider: odak korumasız olsa da
+        // imlecin altındaki pencere korumalı olabilir, nokta da denetlenir.
+        let desk = capture_desktop_state()?;
+        enforce_point_guard(desk.cursor_x, desk.cursor_y, allow_protected)?;
     }
 
-    let btn_code = parse_mouse_button(button);
+    let btn_code = parse_mouse_button(button)?;
     let mut wl = WaylandVirtualInput::connect()?;
     for i in 0..clicks.max(1) {
         if i > 0 {
@@ -374,7 +390,7 @@ pub fn drag_mouse(
     // Sürüklemenin iki ucu da korumalı pencereye düşmemeli (bırakma hedefi dahil).
     enforce_point_guard(x1, y1, allow_protected)?;
     enforce_point_guard(x2, y2, allow_protected)?;
-    let btn_code = parse_mouse_button(button);
+    let btn_code = parse_mouse_button(button)?;
     hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: x1, y: y1 })?;
     thread::sleep(Duration::from_millis(25));
 
@@ -415,6 +431,10 @@ pub fn scroll_wheel(
         enforce_point_guard(cx, cy, allow_protected)?;
         hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
         thread::sleep(Duration::from_millis(15));
+    } else {
+        // Koordinat verilmezse tekerlek olayı imlecin altındaki pencereye gider: o nokta da denetlenmeli.
+        let desk = capture_desktop_state()?;
+        enforce_point_guard(desk.cursor_x, desk.cursor_y, allow_protected)?;
     }
 
     let mut wl = WaylandVirtualInput::connect()?;
@@ -1094,10 +1114,19 @@ impl WaylandVirtualInput {
                             name = c.to_ascii_lowercase().to_string();
                         }
                     }
-                    let code = evdev_for_keysym_name(&name).unwrap_or_else(|| {
-                        fallback += 1;
-                        fallback
-                    });
+                    // Tanınmayan çok karakterli ad ham keysym olarak keymap'e yazılıyordu: keymap derlenmez,
+                    // kompozitör onu atar ve tuş hiç gitmez; sessiz "gönderildi" yerine açık hata dönülür.
+                    let code = match evdev_for_keysym_name(&name) {
+                        Some(code) => code,
+                        // Tek karakterli (noktalama, Türkçe harf) adlar `U+XXXX` keysym'ine çevrilir.
+                        None if name.chars().count() == 1
+                            && !name.chars().next().unwrap().is_ascii_alphanumeric() =>
+                        {
+                            fallback += 1;
+                            fallback
+                        }
+                        None => return Err(anyhow!("bilinmeyen tuş: `{}`", part)),
+                    };
                     keys.push((name, code));
                 }
             }
@@ -1161,10 +1190,12 @@ impl WaylandVirtualInput {
         // zwp_virtual_keyboard_v1.keymap (opcode 0): format=1 (XKB_V1), fd (ancillary), size
         let mut msg = Vec::new();
         write_wl_msg(&mut msg, self.kbd_id, 0, &[1, size]);
-        send_msg_with_fd(self.stream.as_raw_fd(), &msg, fd)?;
+        // Gönderim hata verse de fd kapanmalı: erken dönüşte sızan fd, uzun ömürlü sunucuda tükenir.
+        let sent = send_msg_with_fd(self.stream.as_raw_fd(), &msg, fd);
         unsafe {
             libc::close(fd);
         }
+        sent?;
         self.flush_sync()
     }
 }
@@ -1286,6 +1317,7 @@ fn build_evdev_xkb_keymap(entries: &[(String, u32)]) -> String {
 }
 
 fn normalize_keysym_name(raw: &str) -> String {
+    // Ajandan gelen yaygın eş adlar (ArrowUp, Page_Up, Ins...) XKB'de keysym adı değildir; XKB adına çevrilir.
     match raw.to_ascii_lowercase().as_str() {
         "enter" | "return" => "Return".to_string(),
         "esc" | "escape" => "Escape".to_string(),
@@ -1293,14 +1325,15 @@ fn normalize_keysym_name(raw: &str) -> String {
         "space" => "space".to_string(),
         "backspace" | "bs" => "BackSpace".to_string(),
         "delete" | "del" => "Delete".to_string(),
-        "up" => "Up".to_string(),
-        "down" => "Down".to_string(),
-        "left" => "Left".to_string(),
-        "right" => "Right".to_string(),
+        "insert" | "ins" => "Insert".to_string(),
+        "up" | "arrowup" | "arrow_up" => "Up".to_string(),
+        "down" | "arrowdown" | "arrow_down" => "Down".to_string(),
+        "left" | "arrowleft" | "arrow_left" => "Left".to_string(),
+        "right" | "arrowright" | "arrow_right" => "Right".to_string(),
         "home" => "Home".to_string(),
         "end" => "End".to_string(),
-        "pageup" | "pgup" => "Prior".to_string(),
-        "pagedown" | "pgdn" => "Next".to_string(),
+        "pageup" | "pgup" | "page_up" => "Prior".to_string(),
+        "pagedown" | "pgdn" | "page_down" => "Next".to_string(),
         s if s.starts_with('f') && s[1..].parse::<u8>().is_ok() => s.to_ascii_uppercase(),
         _ => raw.to_string(),
     }
@@ -1532,6 +1565,23 @@ mod evdev_tests {
     }
 
     #[test]
+    fn common_key_aliases_resolve_to_evdev_codes() {
+        for (alias, code) in [
+            ("ArrowUp", 103),
+            ("ArrowDown", 108),
+            ("ArrowLeft", 105),
+            ("ArrowRight", 106),
+            ("PageUp", 104),
+            ("Page_Down", 109),
+            ("Ins", 110),
+            ("Esc", 1),
+            ("Del", 111),
+        ] {
+            assert_eq!(evdev_for_keysym_name(&normalize_keysym_name(alias)), Some(code), "{}", alias);
+        }
+    }
+
+    #[test]
     fn keymap_binds_real_codes_and_modifier_map() {
         let km = build_evdev_xkb_keymap(&[("Control_L".into(), 29), ("s".into(), 31)]);
         assert!(km.contains("<K0> = 37;") && km.contains("<K1> = 39;"));
@@ -1570,9 +1620,28 @@ mod click_ui_tests {
     #[test]
     fn exact_name_beats_substring_and_turkish_case_folds() {
         let els = vec![el(1, "button", "İptal et"), el(2, "label", "İPTAL")];
-        assert_eq!(pick_named_element(&els, "iptal").map(|e| e.mark), Some(1));
+        assert_eq!(pick_named_element(&els, "iptal").map(|e| e.mark), Some(2));
+        assert_eq!(pick_named_element(&els, "İptal").map(|e| e.mark), Some(2));
+        assert_eq!(pick_named_element(&els, "IPTAL").map(|e| e.mark), Some(2));
         assert_eq!(pick_named_element(&els, "İPTAL").unwrap().mark, 2);
         assert!(pick_named_element(&[], "x").is_none());
+    }
+
+    #[test]
+    fn unmatched_name_is_not_silently_picked() {
+        // Yanlış yazılmış ad (Tema ≠ Theme) rastgele bir seçiciye düşmemeli; `select` adımı hata vermeli.
+        let els = vec![el(1, "combo box", "Tema"), el(2, "button", "Tamam")];
+        assert!(pick_named_element(&els, "Theme").is_none());
+    }
+
+    #[test]
+    fn mouse_button_name_is_trimmed_and_unknown_is_rejected() {
+        assert_eq!(parse_mouse_button("right").unwrap(), BTN_RIGHT);
+        assert_eq!(parse_mouse_button(" Right\n").unwrap(), BTN_RIGHT);
+        assert_eq!(parse_mouse_button("middle").unwrap(), BTN_MIDDLE);
+        assert_eq!(parse_mouse_button("left").unwrap(), BTN_LEFT);
+        assert!(parse_mouse_button("secondary").is_err());
+        assert!(parse_mouse_button("4").is_err());
     }
 
     #[test]

@@ -7,7 +7,7 @@
 
 use crate::eyes::ui_atspi::{decode_atspi_states, resolve_atspi_bus_address};
 use anyhow::{anyhow, Result};
-use std::sync::OnceLock;
+use std::time::Duration;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 use zbus::Connection;
 
@@ -18,19 +18,31 @@ const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
 pub const COORD_SCREEN: u32 = 0;
 pub const COORD_WINDOW: u32 = 1;
 
-static CONNECTION: OnceLock<Option<Connection>> = OnceLock::new();
+static CONNECTION: std::sync::Mutex<Option<Connection>> = std::sync::Mutex::new(None);
 
 /// Süreç ömrü boyunca paylaşılan AT-SPI veri yolu bağlantısı (MCP sunucusunda her çağrıda yeniden açılmaz).
-pub fn connection() -> Result<&'static Connection> {
-    CONNECTION
-        .get_or_init(|| {
-            let addr = resolve_atspi_bus_address()?;
-            async_io::block_on(async {
-                zbus::connection::Builder::address(addr.as_str()).ok()?.build().await.ok()
-            })
-        })
-        .as_ref()
-        .ok_or_else(|| anyhow!("AT-SPI veri yoluna bağlanılamadı"))
+/// Kurulamayan ya da kapanmış bağlantı önbellekte tutulmaz: sonraki çağrı yeniden bağlanmayı dener.
+pub fn connection() -> Result<Connection> {
+    let mut slot = CONNECTION.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(conn) = slot.as_ref() {
+        if !conn.is_closed() {
+            return Ok(conn.clone());
+        }
+    }
+    *slot = None;
+    let addr = resolve_atspi_bus_address().ok_or_else(|| anyhow!("AT-SPI veri yoluna bağlanılamadı"))?;
+    // Yanıt vermeyen uygulamada method çağrısı süresiz beklemesin: her çağrıya 2 sn üst sınır.
+    let conn = async_io::block_on(async {
+        zbus::connection::Builder::address(addr.as_str())
+            .ok()?
+            .method_timeout(Duration::from_secs(2))
+            .build()
+            .await
+            .ok()
+    })
+    .ok_or_else(|| anyhow!("AT-SPI veri yoluna bağlanılamadı"))?;
+    *slot = Some(conn.clone());
+    Ok(conn)
 }
 
 pub fn block_on<F: std::future::Future>(future: F) -> F::Output {

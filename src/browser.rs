@@ -771,6 +771,7 @@ pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json:
         "attach" => cmd_attach(args),
         "status" => cmd_status(),
         "stop" => cmd_stop(),
+        "run" => cmd_run(args),
         other => {
             // `name` verilip `ref` verilmediyse eleman adla bulunur: ajan snapshot + eylem için
             // iki tur harcamaz, ölçüm probe'ları da sabit argümanla çalışabilir.
@@ -806,6 +807,56 @@ pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json:
             request(other, args.clone(), timeout)
         }
     }
+}
+
+/// Çok adımlı program: `steps` dizisindeki her adım (`{"op":"type","name":"Ad","text":".."}`) sırayla
+/// yürütülür, ilk hatada durulur; sonunda isteğe bağlı `wait` ve sayfanın son özeti döner. Ajan formu
+/// adım adım ayrı çağrılarla doldurunca tur ve token harcıyordu (masaüstündeki `pc_eye_run` karşılığı).
+fn cmd_run(args: &Value) -> Result<Value> {
+    let steps = args
+        .get("steps")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| anyhow!("run: `steps` dizisi gerekli"))?;
+    let tab = args.get("tab").filter(|v| !v.is_null()).cloned();
+    let mut done = Vec::new();
+    for (i, step) in steps.iter().enumerate() {
+        let op = step.get("op").and_then(|v| v.as_str()).unwrap_or_default();
+        if matches!(op, "run" | "launch" | "stop" | "install" | "attach" | "pack" | "") {
+            bail!("run: {}. adımda geçersiz op `{}`", i + 1, op);
+        }
+        let mut a = step.clone();
+        if let (Some(obj), Some(t)) = (a.as_object_mut(), tab.as_ref()) {
+            obj.entry("tab").or_insert_with(|| t.clone());
+        }
+        match command(op, &a) {
+            Ok(r) => done.push(json!({ "op": op, "ok": true, "result": compact_step_result(&r) })),
+            Err(e) => {
+                done.push(json!({ "op": op, "ok": false, "error": e.to_string() }));
+                return Ok(json!({ "ok": false, "completed": i, "failed_step": i + 1, "steps": done,
+                                  "after": run_after_snapshot(tab.as_ref()) }));
+            }
+        }
+    }
+    Ok(json!({ "ok": true, "completed": steps.len(), "steps": done, "after": run_after_snapshot(tab.as_ref()) }))
+}
+
+/// Adım sonucunun ajana gereken kısmı (tam özet yalnız en sonda bir kez döner).
+fn compact_step_result(r: &Value) -> Value {
+    let mut out = serde_json::Map::new();
+    for k in ["changed", "navigated", "value", "matched", "url", "real"] {
+        if let Some(v) = r.get(k) {
+            out.insert(k.to_string(), v.clone());
+        }
+    }
+    Value::Object(out)
+}
+
+fn run_after_snapshot(tab: Option<&Value>) -> Value {
+    let mut a = json!({ "max": 60 });
+    if let Some(t) = tab {
+        a["tab"] = t.clone();
+    }
+    request("snapshot", a, Duration::from_secs(12)).unwrap_or(Value::Null)
 }
 
 /// Ref ile çalışan sayfa op'ları (`name` ile de çağrılabilir).

@@ -1,0 +1,70 @@
+{
+ "tier": "probe",
+ "started": "20261115-003427-evb-bridge",
+ "seed": 784566308,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "9d63a62",
+ "summary": {
+  "tasks": [
+   {
+    "task": "web-table-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 14.4
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "evb",
+ "toolset": "full",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Pergel",
+    "price": "354,14 TL",
+    "title": "Eval Fiyatlar 97UE",
+    "pid": 26268
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 14.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Pergel"
+     ],
+     "rc": 0,
+     "ms": 14.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1280,
+      "y": 800
+     },
+     {
+      "x": 1110,
+      "y": 1021
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  }
+ ],
+ "user_disturbed_runs": 1,
+ "agent_leak_runs": 0
+}

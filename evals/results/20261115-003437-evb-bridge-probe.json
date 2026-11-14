@@ -1,0 +1,877 @@
+{
+ "tier": "probe",
+ "started": "20261115-003437-evb-bridge",
+ "seed": 840723535,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "9d63a62",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-web-long",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 29.8
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 1014.7
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 824.3
+   },
+   {
+    "task": "web-table-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 14.5
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "evb",
+ "toolset": "full",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok DEP4",
+    "pid": 27390,
+    "code": "P3-6824",
+    "stock": "788"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 29.8,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "P3-6824"
+     ],
+     "rc": 0,
+     "ms": 29.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 328,
+      "y": 543
+     },
+     {
+      "x": 843,
+      "y": 1315
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Stok L3KF",
+    "pid": 28264,
+    "code": "9A-8718",
+    "stock": "437"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 38.2,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "9A-8718"
+     ],
+     "rc": 0,
+     "ms": 38.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Stok JJ6U",
+    "pid": 29213,
+    "code": "DV-6172",
+    "stock": "636"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 26.9,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "DV-6172"
+     ],
+     "rc": 0,
+     "ms": 26.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim FLMX",
+    "pid": 30078,
+    "phone_pretty": "0558 127 20 47",
+    "phone": "5581272047",
+    "email": "naz79@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 964.2,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "0558 127 20 47"
+     ],
+     "rc": 0,
+     "ms": 202.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "E-posta",
+      "--text",
+      "naz79@ornek.com"
+     ],
+     "rc": 0,
+     "ms": 173.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 173.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hata:",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 48.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "5581272047"
+     ],
+     "rc": 0,
+     "ms": 192.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 166.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval İletişim FAYD",
+    "pid": 31055,
+    "phone_pretty": "0543 995 54 79",
+    "phone": "5439955479",
+    "email": "ece94@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1059.1,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "0543 995 54 79"
+     ],
+     "rc": 0,
+     "ms": 243.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "E-posta",
+      "--text",
+      "ece94@ornek.com"
+     ],
+     "rc": 0,
+     "ms": 169.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 170.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hata:",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "5439955479"
+     ],
+     "rc": 0,
+     "ms": 226.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 233.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 10.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval İletişim URX8",
+    "pid": 31989,
+    "phone_pretty": "0515 585 56 71",
+    "phone": "5155855671",
+    "email": "can70@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1014.7,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "0515 585 56 71"
+     ],
+     "rc": 0,
+     "ms": 237.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "E-posta",
+      "--text",
+      "can70@ornek.com"
+     ],
+     "rc": 0,
+     "ms": 163.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 164.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hata:",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "5155855671"
+     ],
+     "rc": 0,
+     "ms": 183.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 232.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 26.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 845,
+      "y": 1316
+     },
+     {
+      "x": 845,
+      "y": 1316
+     }
+    ],
+    "active_class": "hyprpolkitagent",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Öykü Ağaoğlu",
+    "city": "Ankara",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form UF33",
+    "pid": 32934
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 835.2,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 14.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Ad Soyad",
+      "--text",
+      "Öykü Ağaoğlu"
+     ],
+     "rc": 0,
+     "ms": 209.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "check",
+      "--name",
+      "Bültene abone ol",
+      "--args",
+      "{\"on\": true}"
+     ],
+     "rc": 0,
+     "ms": 165.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Şehir",
+      "--option",
+      "Ankara"
+     ],
+     "rc": 0,
+     "ms": 218.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 214.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 12.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 845,
+      "y": 1316
+     },
+     {
+      "x": 845,
+      "y": 1316
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Ilgın Işık",
+    "city": "Ankara",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form 324T",
+    "pid": 33853
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 824.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 20.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Ad Soyad",
+      "--text",
+      "Ilgın Işık"
+     ],
+     "rc": 0,
+     "ms": 208.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "check",
+      "--name",
+      "Bültene abone ol",
+      "--args",
+      "{\"on\": true}"
+     ],
+     "rc": 0,
+     "ms": 170.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Şehir",
+      "--option",
+      "Ankara"
+     ],
+     "rc": 0,
+     "ms": 188.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 227.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 8.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "Öykü Şahin",
+    "city": "Şanlıurfa",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form LCRE",
+    "pid": 34788
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 732.6,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 14.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Ad Soyad",
+      "--text",
+      "Öykü Şahin"
+     ],
+     "rc": 0,
+     "ms": 208.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "check",
+      "--name",
+      "Bültene abone ol",
+      "--args",
+      "{\"on\": true}"
+     ],
+     "rc": 0,
+     "ms": 163.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Şehir",
+      "--option",
+      "Şanlıurfa"
+     ],
+     "rc": 0,
+     "ms": 163.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 173.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 9.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Kalem",
+    "price": "388,65 TL",
+    "title": "Eval Fiyatlar RNWK",
+    "pid": 35700
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13.9,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Kalem"
+     ],
+     "rc": 0,
+     "ms": 13.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 1,
+   "vars": {
+    "item": "Pergel",
+    "price": "316,51 TL",
+    "title": "Eval Fiyatlar K2PF",
+    "pid": 36616
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 38.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Pergel"
+     ],
+     "rc": 0,
+     "ms": 38.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 2,
+   "vars": {
+    "item": "Boya",
+    "price": "145,20 TL",
+    "title": "Eval Fiyatlar XAVF",
+    "pid": 37473
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 14.5,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Boya"
+     ],
+     "rc": 0,
+     "ms": 14.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 3,
+ "agent_leak_runs": 0
+}

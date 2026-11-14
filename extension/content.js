@@ -589,8 +589,18 @@
     return finishAction(v0);
   }
 
+  // ref verilmezse odaktaki alana yazılır (ör. arama kutusuna tıkladıktan sonra `type`).
+  function focusedEditable() {
+    let el = document.activeElement;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
+    const ok = el && (el.isContentEditable || el.tagName === "TEXTAREA" ||
+      (el.tagName === "INPUT" && !/^(button|submit|reset|checkbox|radio|file|image|hidden)$/i.test(el.type)));
+    if (!ok) throw new Error("ref verilmedi ve odakta yazılabilir alan yok (ref ya da name verin)");
+    return el;
+  }
+
   async function opType(args) {
-    const el = resolveRef(args.ref);
+    const el = args.ref ? resolveRef(args.ref) : focusedEditable();
     if (el.disabled) throw new Error("eleman devre dışı");
     const text = args.text === undefined || args.text === null ? "" : String(args.text);
     const clear = args.clear !== false;

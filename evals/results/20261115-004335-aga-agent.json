@@ -1,0 +1,143 @@
+{
+ "tier": "agent",
+ "started": "20261115-004335-aga",
+ "seed": 716327968,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "3e3e69b",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-cross-app",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 10240.8,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 32571,
+    "median_output_tokens": 617,
+    "cost_usd": 0.0076
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0076
+ },
+ "session": "aga",
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "hard-cross-app",
+   "attempt": 0,
+   "vars": {
+    "src": "Eval Siparişler M9PH",
+    "dst": "Eval İade PT7H",
+    "customer": "Aslı Demir",
+    "order": "S-70728",
+    "amount": "6523,78 TL",
+    "pid": 99062,
+    "title": "Eval İade PT7H"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 9417.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0022451700000000003,
+   "input_tokens": 32519,
+   "output_tokens": 580,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1280,
+      "y": 800
+     },
+     {
+      "x": 858,
+      "y": 1532
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 1,
+   "vars": {
+    "src": "Eval Siparişler EYL3",
+    "dst": "Eval İade M97T",
+    "customer": "Burak Yıldız",
+    "order": "S-38449",
+    "amount": "5545,26 TL",
+    "pid": 101453,
+    "title": "Eval İade M97T"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13381.1,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00305565,
+   "input_tokens": 57574,
+   "output_tokens": 919,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1,
+    "pc_eye_click_ui": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 858,
+      "y": 1532
+     },
+     {
+      "x": 847,
+      "y": 1344
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 2,
+   "vars": {
+    "src": "Eval Siparişler PWHA",
+    "dst": "Eval İade KXK9",
+    "customer": "Aslı Demir",
+    "order": "S-77718",
+    "amount": "7155,61 TL",
+    "pid": 104357,
+    "title": "Eval İade KXK9"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10240.8,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0022697,
+   "input_tokens": 32571,
+   "output_tokens": 617,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 2,
+ "agent_leak_runs": 0
+}

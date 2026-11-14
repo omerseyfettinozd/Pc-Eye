@@ -1,0 +1,707 @@
+{
+ "tier": "agent",
+ "started": "20261115-003640-agb-bridge",
+ "seed": 197623213,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "3e3e69b",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-cross-app",
+    "runs": 3,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 13197.2,
+    "median_turns": 8,
+    "median_tool_calls": 7,
+    "median_input_tokens": 65108,
+    "median_output_tokens": 837,
+    "cost_usd": 0.0093
+   },
+   {
+    "task": "hard-web-long",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 6395.2,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 30418,
+    "median_output_tokens": 305,
+    "cost_usd": 0.0052
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 13804.2,
+    "median_turns": 11,
+    "median_tool_calls": 10,
+    "median_input_tokens": 82796,
+    "median_output_tokens": 1179,
+    "cost_usd": 0.0077
+   },
+   {
+    "task": "live-youtube-play",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 21352.5,
+    "median_turns": 13,
+    "median_tool_calls": 12,
+    "median_input_tokens": 139867,
+    "median_output_tokens": 1565,
+    "cost_usd": 0.0168
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 10468.5,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 47251,
+    "median_output_tokens": 607,
+    "cost_usd": 0.0065
+   },
+   {
+    "task": "web-table-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 6490.9,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 18723,
+    "median_output_tokens": 351,
+    "cost_usd": 0.0035
+   }
+  ],
+  "pass_rate": 0.889,
+  "total_cost_usd": 0.049
+ },
+ "session": "agb",
+ "toolset": "full",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "hard-cross-app",
+   "attempt": 0,
+   "vars": {
+    "src": "Eval Siparişler JXNH",
+    "dst": "Eval İade EYGE",
+    "customer": "Emre Şahin",
+    "order": "S-75375",
+    "amount": "1195,63 TL",
+    "pid": 50336,
+    "title": "Eval İade EYGE"
+   },
+   "ok": false,
+   "detail": "beklenmeyen alanlar: {'amount': '1195,63'}",
+   "ms": 14962.8,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0036302400000000003,
+   "input_tokens": 46916,
+   "output_tokens": 813,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_browser": 1,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1280,
+      "y": 800
+     },
+     {
+      "x": 1279,
+      "y": 1332
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 1,
+   "vars": {
+    "src": "Eval Siparişler R28D",
+    "dst": "Eval İade 3VPJ",
+    "customer": "Deniz Kara",
+    "order": "S-20962",
+    "amount": "3113,60 TL",
+    "pid": 52799,
+    "title": "Eval İade 3VPJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10920.4,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.00229141,
+   "input_tokens": 65108,
+   "output_tokens": 837,
+   "tool_calls": 7,
+   "tools": {
+    "pc_eye_snapshot": 1,
+    "pc_eye_browser": 6
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-cross-app",
+   "attempt": 2,
+   "vars": {
+    "src": "Eval Siparişler HEHE",
+    "dst": "Eval İade 4RV7",
+    "customer": "Aslı Demir",
+    "order": "S-40443",
+    "amount": "9990,31 TL",
+    "pid": 55135,
+    "title": "Eval İade 4RV7"
+   },
+   "ok": false,
+   "detail": "beklenmeyen alanlar: {'amount': '9990,31'}",
+   "ms": 13197.2,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.00337202,
+   "input_tokens": 75703,
+   "output_tokens": 1147,
+   "tool_calls": 7,
+   "tools": {
+    "pc_eye_snapshot": 2,
+    "pc_eye_browser": 1,
+    "pc_eye_click_ui": 3,
+    "pc_eye_vision": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1279,
+      "y": 1332
+     },
+     {
+      "x": 1310,
+      "y": 1412
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok 944E",
+    "pid": 58220,
+    "code": "K2-3310",
+    "stock": "274"
+   },
+   "ok": true,
+   "detail": "cevap='274'",
+   "ms": 7415.3,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00181003,
+   "input_tokens": 32658,
+   "output_tokens": 424,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_browser": 3
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1310,
+      "y": 1412
+     },
+     {
+      "x": 1118,
+      "y": 1511
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Stok H6E7",
+    "pid": 60134,
+    "code": "C9-5075",
+    "stock": "814"
+   },
+   "ok": true,
+   "detail": "cevap='814'",
+   "ms": 6265.9,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0016961600000000002,
+   "input_tokens": 30413,
+   "output_tokens": 305,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_browser": 3
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1118,
+      "y": 1511
+     },
+     {
+      "x": 626,
+      "y": 887
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Stok D2L7",
+    "pid": 61582,
+    "code": "VD-3930",
+    "stock": "28"
+   },
+   "ok": true,
+   "detail": "cevap='28'",
+   "ms": 6395.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0016975400000000002,
+   "input_tokens": 30418,
+   "output_tokens": 305,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_browser": 3
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 610,
+      "y": 890
+     },
+     {
+      "x": 659,
+      "y": 1330
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim XTFY",
+    "pid": 63636,
+    "phone_pretty": "0521 266 92 18",
+    "phone": "5212669218",
+    "email": "ece57@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 14219.6,
+   "is_error": false,
+   "turns": 11,
+   "cost_usd": 0.00264669,
+   "input_tokens": 82796,
+   "output_tokens": 1282,
+   "tool_calls": 10,
+   "tools": {
+    "pc_eye_browser": 10
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 659,
+      "y": 1330
+     },
+     {
+      "x": 632,
+      "y": 1283
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval İletişim 9MFW",
+    "pid": 66013,
+    "phone_pretty": "0536 302 36 66",
+    "phone": "5363023666",
+    "email": "ali20@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13804.2,
+   "is_error": false,
+   "turns": 12,
+   "cost_usd": 0.0026552100000000003,
+   "input_tokens": 83554,
+   "output_tokens": 1179,
+   "tool_calls": 11,
+   "tools": {
+    "pc_eye_browser": 11
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 632,
+      "y": 1283
+     },
+     {
+      "x": 649,
+      "y": 1285
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval İletişim CU6W",
+    "pid": 68334,
+    "phone_pretty": "0514 615 83 61",
+    "phone": "5146158361",
+    "email": "ece48@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 12960.5,
+   "is_error": false,
+   "turns": 10,
+   "cost_usd": 0.0024245200000000003,
+   "input_tokens": 71655,
+   "output_tokens": 1111,
+   "tool_calls": 9,
+   "tools": {
+    "pc_eye_browser": 9
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "live-youtube-play",
+   "attempt": 0,
+   "vars": {
+    "query": "yağmur sesi",
+    "pid": 70632,
+    "title": "YouTube"
+   },
+   "ok": true,
+   "detail": "durum=Playing başlık='Evinin ihtiyaçları biriktiyse yüzlerce market ve mağaza Yeme' url=https://www.youtube.com/watch?v=LyLhGlLXEos",
+   "ms": 17868.4,
+   "is_error": false,
+   "turns": 11,
+   "cost_usd": 0.0036323999999999996,
+   "input_tokens": 110710,
+   "output_tokens": 1334,
+   "tool_calls": 10,
+   "tools": {
+    "pc_eye_browser": 6,
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 1,
+    "pc_eye_input": 1,
+    "pc_eye_vision": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "live-youtube-play",
+   "attempt": 1,
+   "vars": {
+    "query": "caz müzik",
+    "pid": 73681,
+    "title": "YouTube"
+   },
+   "ok": true,
+   "detail": "durum=Playing başlık='Google AI Pro: İş-Özel Hayat Karmaşası Nasıl Bitecek?' url=https://www.youtube.com/watch?v=DhPNPbz8P9o&list=RDDhPNPbz8P9o&start_radio=1",
+   "ms": 21352.5,
+   "is_error": false,
+   "turns": 13,
+   "cost_usd": 0.00415193,
+   "input_tokens": 139867,
+   "output_tokens": 1565,
+   "tool_calls": 12,
+   "tools": {
+    "pc_eye_browser": 9,
+    "pc_eye_snapshot": 1,
+    "pc_eye_click_ui": 1,
+    "pc_eye_input": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 649,
+      "y": 1285
+     },
+     {
+      "x": 1154,
+      "y": 1346
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "live-youtube-play",
+   "attempt": 2,
+   "vars": {
+    "query": "kedi videoları",
+    "pid": 77067,
+    "title": "YouTube"
+   },
+   "ok": true,
+   "detail": "durum=Playing başlık='EN KOMİK KEDİLER | KEDİ VİDEOLARI İZLE' url=https://www.youtube.com/watch?v=adB9BjBMV8I",
+   "ms": 63820.0,
+   "is_error": false,
+   "turns": 25,
+   "cost_usd": 0.00906038,
+   "input_tokens": 346645,
+   "output_tokens": 4205,
+   "tool_calls": 24,
+   "tools": {
+    "pc_eye_browser": 21,
+    "pc_eye_snapshot": 1,
+    "pc_eye_vision": 1,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1154,
+      "y": 1346
+     },
+     {
+      "x": 1399,
+      "y": 1152
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Şükrü Doğru",
+    "city": "İzmir",
+    "default_city": "Ankara",
+    "title": "Eval Web Form 4U9H",
+    "pid": 83961
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10157.8,
+   "is_error": false,
+   "turns": 9,
+   "cost_usd": 0.0020632700000000003,
+   "input_tokens": 50969,
+   "output_tokens": 893,
+   "tool_calls": 8,
+   "tools": {
+    "pc_eye_browser": 8
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1390,
+      "y": 1150
+     },
+     {
+      "x": 1753,
+      "y": 967
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Ümit Ağaoğlu",
+    "city": "Şanlıurfa",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form TGHK",
+    "pid": 86216
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 11983.7,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00242042,
+   "input_tokens": 47251,
+   "output_tokens": 607,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 1,
+    "pc_eye_snapshot": 1,
+    "pc_eye_run": 1,
+    "pc_eye_click_ui": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "İlkay Doğru",
+    "city": "Muğla",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form 9J88",
+    "pid": 88543
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10468.5,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0019999500000000003,
+   "input_tokens": 42636,
+   "output_tokens": 515,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 4,
+    "pc_eye_run": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1753,
+      "y": 967
+     },
+     {
+      "x": 1151,
+      "y": 1248
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Defter",
+    "price": "114,46 TL",
+    "title": "Eval Fiyatlar ERN6",
+    "pid": 91351
+   },
+   "ok": true,
+   "detail": "cevap='114,46 TL'",
+   "ms": 6748.6,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00119493,
+   "input_tokens": 18725,
+   "output_tokens": 351,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_browser": 2
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1151,
+      "y": 1248
+     },
+     {
+      "x": 1280,
+      "y": 800
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 1,
+   "vars": {
+    "item": "Makas",
+    "price": "138,22 TL",
+    "title": "Eval Fiyatlar KP98",
+    "pid": 92804
+   },
+   "ok": true,
+   "detail": "cevap='138,22 TL'",
+   "ms": 5765.8,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00107663,
+   "input_tokens": 18561,
+   "output_tokens": 180,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_browser": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 2,
+   "vars": {
+    "item": "Defter",
+    "price": "372,32 TL",
+    "title": "Eval Fiyatlar 73WH",
+    "pid": 93892
+   },
+   "ok": true,
+   "detail": "cevap='372,32 TL'",
+   "ms": 6490.9,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00119891,
+   "input_tokens": 18723,
+   "output_tokens": 359,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_browser": 2
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 12,
+ "agent_leak_runs": 0
+}

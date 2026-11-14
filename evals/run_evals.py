@@ -68,7 +68,7 @@ PIXEL_SYSTEM = (
 # Tarayıcı algısı: "atspi" masaüstü erişilebilirlik ağacı (önceki ölçümlerle kıyaslanabilir taban),
 # "bridge" Firefox'a Pc-Eye Bridge eklentisi bağlanır ve ajan pc_eye_browser aracını da kullanabilir.
 BROWSER = "atspi"
-BRIDGE_SYSTEM = " Firefox sayfaları için pc_eye_browser köprüsü bağlı (launch gerekmez)."
+BRIDGE_SYSTEM = " Firefox sayfaları için pc_eye_browser köprüsü bağlı (launch/status gerekmez)."
 
 AGENT_SYSTEM = (
     "Bir PC-Eye ölçüm görevindesin. Bilgisayarı yalnız pc_eye_* araçlarıyla kullan. "

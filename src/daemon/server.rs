@@ -91,10 +91,25 @@ pub struct LiveDaemonState {
 impl LiveDaemonState {
     pub fn new() -> Self {
         Self {
-            event_ring: SeqRingBuffer::new(512),
+            event_ring: SeqRingBuffer::new(8192),
             log_ring: SeqRingBuffer::new(512),
             telemetry: PersistedTelemetryState::load(),
         }
+    }
+
+    pub fn push_event(&mut self, ev: CompositorEvent) -> u64 {
+        let ts = now_ms();
+        let seq = self.event_ring.push_at(ev.clone(), ts);
+        self.telemetry.next_seq = self.telemetry.next_seq.max(seq);
+        self.telemetry.recent_events.push(SeqItem {
+            seq,
+            timestamp_ms: ts,
+            data: ev,
+        });
+        if self.telemetry.recent_events.len() > 128 {
+            self.telemetry.recent_events.remove(0);
+        }
+        seq
     }
 }
 
@@ -185,7 +200,9 @@ pub fn run_daemon_forever() -> Result<()> {
     let pid_file = runtime_dir().join("daemon.pid");
     let _ = fs::write(&pid_file, std::process::id().to_string());
     let _ = fs::write(runtime_dir().join("daemon.build"), crate::daemon::rpc::build_id());
-    let _state = spawn_background_collectors();
+    let state = spawn_background_collectors();
+    crate::daemon::rpc::set_state(state.clone());
+    crate::daemon::streams::start(state);
     crate::eyes::a11y_events::start();
     crate::daemon::rpc::serve();
     loop {
@@ -197,7 +214,7 @@ pub fn run_daemon_forever() -> Result<()> {
 pub fn spawn_background_collectors() -> Arc<Mutex<LiveDaemonState>> {
     let state = Arc::new(Mutex::new(LiveDaemonState::new()));
 
-    // 1. Hyprland .socket2.sock gerçek zamanlı olay dinleyicisi (her olayı anında diske de yazar)
+    // 1. Hyprland .socket2.sock gerçek zamanlı olay dinleyicisi
     let state_ev = Arc::clone(&state);
     thread::spawn(move || loop {
         if let Ok(sock_path) = resolve_hyprland_socket(".socket2.sock") {
@@ -211,18 +228,7 @@ pub fn spawn_background_collectors() -> Arc<Mutex<LiveDaemonState>> {
                             payload: payload.to_string(),
                         };
                         if let Ok(mut guard) = state_ev.lock() {
-                            let seq = guard.event_ring.push(ev.clone());
-                            let ts = now_ms();
-                            guard.telemetry.next_seq = guard.telemetry.next_seq.max(seq);
-                            guard.telemetry.recent_events.push(SeqItem {
-                                seq,
-                                timestamp_ms: ts,
-                                data: ev,
-                            });
-                            if guard.telemetry.recent_events.len() > 128 {
-                                guard.telemetry.recent_events.remove(0);
-                            }
-                            guard.telemetry.save();
+                            guard.push_event(ev);
                         }
                     }
                 }

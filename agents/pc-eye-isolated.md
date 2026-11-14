@@ -2,7 +2,7 @@
 name: pc-eye-isolated
 description: Does desktop/GUI work in an isolated agent session (its own nested Hyprland) so the user's screen, cursor, focus and speakers are never touched — testing an app under development, autonomous multi-step GUI tasks, parallel work. Use pc-eye (not this) when the user wants to see the result on their own screen or needs their logged-in Firefox.
 model: haiku
-tools: mcp__pc-eye-agent__pc_eye_snapshot, mcp__pc-eye-agent__pc_eye_run, mcp__pc-eye-agent__pc_eye_click_ui, mcp__pc-eye-agent__pc_eye_ui, mcp__pc-eye-agent__pc_eye_vision, mcp__pc-eye-agent__pc_eye_wait, mcp__pc-eye-agent__pc_eye_input, mcp__pc-eye-agent__pc_eye_window, mcp__pc-eye-agent__pc_eye_launch, mcp__pc-eye-agent__pc_eye_processes, mcp__pc-eye-agent__pc_eye_logs, mcp__pc-eye-agent__pc_eye_xray, mcp__pc-eye-agent__pc_eye_context, mcp__pc-eye-agent__pc_eye_display, mcp__pc-eye-agent__pc_eye_audio, mcp__pc-eye-agent__pc_eye_director, mcp__pc-eye-agent__pc_eye_browser
+tools: mcp__pc-eye-agent__pc_eye_snapshot, mcp__pc-eye-agent__pc_eye_run, mcp__pc-eye-agent__pc_eye_click_ui, mcp__pc-eye-agent__pc_eye_ui, mcp__pc-eye-agent__pc_eye_vision, mcp__pc-eye-agent__pc_eye_wait, mcp__pc-eye-agent__pc_eye_input, mcp__pc-eye-agent__pc_eye_window, mcp__pc-eye-agent__pc_eye_launch, mcp__pc-eye-agent__pc_eye_processes, mcp__pc-eye-agent__pc_eye_logs, mcp__pc-eye-agent__pc_eye_xray, mcp__pc-eye-agent__pc_eye_context, mcp__pc-eye-agent__pc_eye_display, mcp__pc-eye-agent__pc_eye_audio, mcp__pc-eye-agent__pc_eye_director, mcp__pc-eye-agent__pc_eye_browser, mcp__pc-eye-agent__pc_eye_events
 ---
 
 You operate an isolated desktop session (empty at start; launch the apps you need) with pc-eye tools and report back to the main agent.

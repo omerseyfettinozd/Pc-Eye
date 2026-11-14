@@ -15,6 +15,9 @@ use std::time::{Duration, Instant};
 /// - `ui_match`: Hedef pencerede `match_str` adında/rolünde bir AT-SPI kontrolü belirene kadar bekler.
 /// - `port_open`: Belirtilen TCP portunun (`match_str` içinde port numarası) açılmasını bekler.
 /// - `openwindow` / `closewindow` / `activewindow` / `workspace`: Hyprland `.socket2.sock` olayını bekler.
+/// Daemon olay akışındaki türler (`event` beklemesinde "tür:metin" kısaltması için).
+const EVENT_KINDS: &[&str] = &["file", "journal", "coredump", "unit", "network"];
+
 pub fn wait_for_condition(
     mode: &str,
     match_str: Option<&str>,
@@ -23,7 +26,18 @@ pub fn wait_for_condition(
 ) -> Result<WaitReport> {
     let start = Instant::now();
     let deadline = start + Duration::from_millis(timeout_ms.max(100));
-    let mode_lower = mode.to_ascii_lowercase();
+    let mut mode_lower = mode.to_ascii_lowercase();
+    // Ajanlar olay beklemesini sık sık `{"event": "file:rapor.pdf"}` diye yazıyor (match yerine event'e):
+    // bilinen bir akış türüyle başlayan event, olay beklemesi sayılır (ölçüm: Haiku 2/3 koşuda).
+    let shorthand;
+    let match_str = match mode.split_once(':') {
+        Some((k, _)) if EVENT_KINDS.contains(&k.to_ascii_lowercase().as_str()) && match_str.is_none() => {
+            shorthand = mode.to_string();
+            mode_lower = "event".to_string();
+            Some(shorthand.as_str())
+        }
+        _ => match_str,
+    };
 
     match mode_lower.as_str() {
         "visual_settle" | "settle" | "stable" => {
@@ -139,6 +153,50 @@ pub fn wait_for_condition(
                 timeout_ms,
                 needle
             ))
+        }
+        // Daemon olay akışında (dosya, günlük, servis, ağ, pencere) `match_str` geçen yeni bir olay.
+        // `match_str` "tür:metin" biçiminde türle daraltılabilir: "file:rapor.pdf", "unit:failed".
+        "event" | "event_match" => {
+            crate::daemon::server::ensure_background_daemon();
+            let raw = match_str.ok_or_else(|| anyhow!("event beklemesi için match gerekli (ör. file:rapor.pdf)"))?;
+            let (kinds, needle) = match raw.split_once(':') {
+                Some((k, n)) if !k.contains(' ') && !k.is_empty() => (Some(vec![k.to_string()]), n.to_string()),
+                _ => (None, raw.to_string()),
+            };
+            let needle = crate::eyes::fold(&needle);
+            let ask = |since: u64| {
+                crate::daemon::rpc::request("events", serde_json::json!({ "since": since, "kinds": kinds, "limit": 2000 }))
+                    .ok_or_else(|| anyhow!("daemon olay akışına ulaşılamadı"))?
+                    .map_err(|e| anyhow!(e))
+            };
+            // Yalnız bundan SONRA gelen olaylar: önceki eşleşmeler beklemeyi yanlışlıkla bitirmesin.
+            let mut since = crate::daemon::rpc::request("events", serde_json::json!({ "since": 0, "kinds": ["-"], "limit": 1 }))
+                .and_then(|r| r.ok())
+                .and_then(|r| r["last_seq"].as_u64())
+                .unwrap_or(0);
+            while Instant::now() < deadline {
+                let rep = ask(since)?;
+                for e in rep["events"].as_array().into_iter().flatten() {
+                    let payload = e["payload"].as_str().unwrap_or_default();
+                    if crate::eyes::fold(payload).contains(&needle) {
+                        return Ok(WaitReport {
+                            condition: format!("event({})", raw),
+                            matched: true,
+                            elapsed_ms: start.elapsed().as_millis() as u64,
+                            details: format!("{} {}", e["kind"].as_str().unwrap_or("?"), payload),
+                        });
+                    }
+                    since = since.max(e["seq"].as_u64().unwrap_or(since));
+                }
+                since = since.max(rep["last_seq"].as_u64().unwrap_or(since));
+                thread::sleep(Duration::from_millis(100));
+            }
+            Ok(WaitReport {
+                condition: format!("event({})", raw),
+                matched: false,
+                elapsed_ms: start.elapsed().as_millis() as u64,
+                details: "zaman aşımı".to_string(),
+            })
         }
         "port_open" | "port" => {
             let port_str =

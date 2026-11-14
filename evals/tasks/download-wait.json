@@ -1,0 +1,31 @@
+{
+  "id": "download-wait",
+  "scene": "download_wait",
+  "tags": [
+    "background",
+    "f8",
+    "wait"
+  ],
+  "prompt": "\"{dir}\" klasörüne birazdan bir fatura PDF'i inecek. İnmesini bekle (dosya yöneticisi açma) ve inen dosyanın tam adını yaz.",
+  "probe": [
+    {
+      "args": [
+        "wait",
+        "event",
+        "--match",
+        "file:fatura-",
+        "--timeout-ms",
+        "15000"
+      ],
+      "timeout": 30,
+      "expect_contains": [
+        "{file}",
+        "\"matched\": true"
+      ]
+    }
+  ],
+  "check": {
+    "type": "answer",
+    "expect": "{file}"
+  }
+}

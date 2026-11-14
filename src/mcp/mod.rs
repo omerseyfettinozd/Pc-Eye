@@ -501,6 +501,23 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
             let rep = wait_for_condition(event, match_str, win, timeout)?;
             vec![json!({ "type": "text", "text": serde_json::to_string_pretty(&rep)? })]
         }
+        "pc_eye_events" => {
+            crate::daemon::server::ensure_background_daemon();
+            let a = json!({
+                "since": args.get("since").and_then(|v| v.as_u64()).unwrap_or(0),
+                "kinds": args.get("kinds").cloned().unwrap_or(Value::Null),
+                "limit": args.get("limit").and_then(|v| v.as_u64()).unwrap_or(100),
+            });
+            let rep = crate::daemon::rpc::request("events", a)
+                .ok_or_else(|| anyhow::anyhow!("daemon olay akışına ulaşılamadı"))?
+                .map_err(|e| anyhow::anyhow!(e))?;
+            // Satır başına bir olay: JSON dizisinden belirgin daha az token.
+            let mut text = format!("last_seq: {}  dropped: {}\n", rep["last_seq"], rep["dropped"]);
+            for e in rep["events"].as_array().into_iter().flatten() {
+                text.push_str(&format!("{} {} {}\n", e["seq"], e["kind"].as_str().unwrap_or("?"), e["payload"].as_str().unwrap_or("")));
+            }
+            vec![json!({ "type": "text", "text": text })]
+        }
         "pc_eye_browser" => {
             let op = args
                 .get("op")
@@ -832,7 +849,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_wait",
-            "description": "Wait without sleeping: visual_settle | ui_match (UI/OCR text appears) | log_match | port_open | openwindow | closewindow | activewindow | workspace.",
+            "description": "Wait without sleeping: visual_settle | ui_match (UI/OCR text appears) | log_match | port_open | openwindow | closewindow | activewindow | workspace | event: {event:\"event\", match:\"kind:text\"} waits for the background stream, e.g. match \"file:rapor.pdf\" = download finished, \"unit:failed\", \"journal:error text\". Keep timeout_ms ≤ 60000 and re-check with pc_eye_events.",
             "annotations": { "readOnlyHint": true },
             "inputSchema": { "type": "object", "properties": {
                 "event": { "type": "string" },
@@ -912,6 +929,16 @@ fn mcp_tools_schema() -> Value {
                 "submit": { "type": "boolean" },
                 "timeout_ms": { "type": "integer" },
                 "steps": { "type": "array", "items": { "type": "object" } }
+            } }
+        },
+        {
+            "name": "pc_eye_events",
+            "description": "Background event stream since `since` (seq; pass the previous last_seq — nothing is lost between calls): file (Downloads/Desktop written|deleted|moved), journal (warnings+), coredump, unit (systemd service result), network, plus window events. kinds filters, e.g. [\"file\",\"unit\"].",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": { "type": "object", "properties": {
+                "since": { "type": "integer" },
+                "kinds": { "type": "array", "items": { "type": "string" } },
+                "limit": { "type": "integer" }
             } }
         },
         {

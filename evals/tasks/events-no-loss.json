@@ -1,0 +1,33 @@
+{
+  "id": "events-no-loss",
+  "scene": "events",
+  "tags": [
+    "background",
+    "f8"
+  ],
+  "probe": [
+    {
+      "args": [
+        "events",
+        "--since",
+        "{since}",
+        "--kind",
+        "file,journal",
+        "--limit",
+        "500"
+      ],
+      "expect_contains": [
+        "{first}",
+        "{mid}",
+        "{last}",
+        "{log_last}",
+        "\"dropped\": 0"
+      ],
+      "max_ms": 300
+    }
+  ],
+  "check": {
+    "type": "answer",
+    "expect": "tamam"
+  }
+}

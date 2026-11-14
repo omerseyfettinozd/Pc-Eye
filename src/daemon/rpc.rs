@@ -4,15 +4,24 @@
 //! olay güdümlü önbelleği ve snapshot geçmişi yaşayan daemon'a iletir. Daemon farklı bir build'den
 //! geliyorsa (binary yeniden kurulduysa) yanıt reddedilir, istemci yerelde çalışır ve daemon yenilenir.
 
+use crate::daemon::ring_buffer::SeqRingBuffer;
+use crate::daemon::server::LiveDaemonState;
 use crate::eyes::vision::runtime_dir;
+use crate::protocol::types::CompositorEvent;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, UNIX_EPOCH};
+
+static DAEMON_STATE: OnceLock<Arc<Mutex<LiveDaemonState>>> = OnceLock::new();
+
+pub fn set_state(s: Arc<Mutex<LiveDaemonState>>) {
+    let _ = DAEMON_STATE.set(s);
+}
 
 /// Uzun OCR'lı sorgular (Electron penceresi) birkaç saniye sürebilir.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
@@ -97,6 +106,7 @@ fn dispatch(req: &Value) -> Value {
             u("max_elements").unwrap_or(60) as usize,
         )
         .and_then(|r| Ok(serde_json::to_value(r)?)),
+        Some("events") => query_events(a),
         other => Err(anyhow::anyhow!("bilinmeyen komut: {:?}", other)),
     };
     match result {
@@ -121,5 +131,101 @@ pub fn request(cmd: &str, args: Value) -> Option<Result<Value, String>> {
     match reply["error"].as_str() {
         Some("build-mismatch") | None => None,
         Some(e) => Some(Err(e.to_string())),
+    }
+}
+
+fn query_events(args: &Value) -> anyhow::Result<Value> {
+    let state_arc = DAEMON_STATE
+        .get()
+        .ok_or_else(|| anyhow::anyhow!("olay akışı yalnız daemon'da"))?;
+    let since = args["since"].as_u64().unwrap_or(0);
+    let limit = args["limit"].as_u64().unwrap_or(200).min(2000) as usize;
+    let kinds: Option<Vec<String>> = args["kinds"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        })
+        .filter(|v| !v.is_empty());
+
+    let guard = state_arc
+        .lock()
+        .map_err(|_| anyhow::anyhow!("daemon durumu kilitlenemedi"))?;
+    Ok(filter_events_from_ring(
+        &guard.event_ring,
+        since,
+        kinds.as_deref(),
+        limit,
+    ))
+}
+
+fn filter_events_from_ring(
+    ring: &SeqRingBuffer<CompositorEvent>,
+    since: u64,
+    kinds: Option<&[String]>,
+    limit: usize,
+) -> Value {
+    let last_seq = ring.latest_seq();
+    // Daemon yeniden başladıysa (güncelleme) sayaç sıfırlanmıştır: istemcinin eski seq'i halkanın
+    // ilerisindedir. Hiçbir şey dönmemek yerine baştan verilir ve `restarted` ile bildirilir.
+    let restarted = since > last_seq;
+    let since = if restarted { 0 } else { since };
+    let (items, dropped) = match kinds {
+        Some(allowed) => {
+            // Tür süzgeci limitten önce uygulanır ve since'ten sonraki EN ESKİ `limit` öğe döner: en
+            // yenileri seçmek, istemci sonraki çağrıda son seq'ten devam edince aradakileri kaybettirirdi.
+            let (all, dropped) = ring.since_seq(since, ring.capacity());
+            let filtered: Vec<_> = all
+                .into_iter()
+                .filter(|item| allowed.iter().any(|k| k == &item.data.kind))
+                .take(limit)
+                .collect();
+            (filtered, dropped)
+        }
+        None => ring.since_seq(since, limit),
+    };
+    let events: Vec<Value> = items
+        .into_iter()
+        .map(|item| {
+            json!({
+                "seq": item.seq,
+                "t": item.timestamp_ms,
+                "kind": item.data.kind,
+                "payload": item.data.payload,
+            })
+        })
+        .collect();
+    json!({
+        "events": events,
+        "last_seq": last_seq,
+        "dropped": dropped,
+        "restarted": restarted,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_filter_events_kinds_before_limit_and_dropped() {
+        let mut ring = SeqRingBuffer::new(4);
+        ring.push_at(CompositorEvent { kind: "journal".into(), payload: "j1".into() }, 10);
+        ring.push_at(CompositorEvent { kind: "file".into(), payload: "f1".into() }, 20);
+        ring.push_at(CompositorEvent { kind: "journal".into(), payload: "j2".into() }, 30);
+        ring.push_at(CompositorEvent { kind: "file".into(), payload: "f2".into() }, 40);
+        ring.push_at(CompositorEvent { kind: "journal".into(), payload: "j3".into() }, 50);
+
+        let kinds = vec!["journal".to_string()];
+        let out = filter_events_from_ring(&ring, 1, Some(&kinds), 2);
+        assert_eq!(out["last_seq"], 5);
+        assert_eq!(out["dropped"], 0);
+        let arr = out["events"].as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0]["seq"], 3);
+        assert_eq!(arr[0]["t"], 30);
+        assert_eq!(arr[1]["seq"], 5);
+        assert_eq!(arr[1]["payload"], "j3");
     }
 }

@@ -351,6 +351,21 @@ enum Commands {
         args: Option<String>,
     },
 
+    /// Arka plan olay akışı (daemon): Hyprland, sistem günlüğü (uyarı+), dosya (indirilenler/masaüstü),
+    /// systemd birimleri, ağ. `--since` son görülen seq: aradaki hiçbir olay kaybolmaz (`dropped` > 0 ise
+    /// halka taştı). `--follow` yeni olayları akıtır.
+    Events {
+        #[arg(long, default_value_t = 0)]
+        since: u64,
+        /// Virgülle türler: compositor olayları (openwindow, activewindow…), journal, coredump, file, unit, network
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(long, default_value_t = 200)]
+        limit: u64,
+        #[arg(long)]
+        follow: bool,
+    },
+
     /// OCR ölçümü (geliştirme): PPM dosyasında soğuk/sıcak/önbellekli süreler
     #[command(hide = true)]
     OcrBench {
@@ -788,6 +803,39 @@ fn run() -> Result<()> {
             put("submit", submit.then(|| json!(true)));
             let out = browser::command(&op, &a)?;
             println!("{}", serde_json::to_string_pretty(&out)?);
+        }
+        Commands::Events { since, kind, limit, follow } => {
+            daemon::server::ensure_background_daemon();
+            let kinds: Option<Vec<String>> =
+                kind.map(|k| k.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect());
+            let mut since = since;
+            loop {
+                let args = json!({ "since": since, "kinds": kinds, "limit": limit });
+                let reply = daemon::rpc::request("events", args)
+                    .ok_or_else(|| anyhow::anyhow!("daemon'a ulaşılamadı (pc-eye daemon çalışıyor mu?)"))?
+                    .map_err(|e| anyhow::anyhow!(e))?;
+                if follow {
+                    for e in reply["events"].as_array().into_iter().flatten() {
+                        println!("{}", serde_json::to_string(e)?);
+                    }
+                    if reply["dropped"].as_u64().unwrap_or(0) > 0 {
+                        eprintln!("uyarı: {} olay halkadan düştü", reply["dropped"]);
+                    }
+                } else {
+                    println!("{}", serde_json::to_string_pretty(&reply)?);
+                    break;
+                }
+                // Limit dolduysa halkada daha olay vardır: son dönen seq'ten devam et (last_seq'e atlamak
+                // aradakileri kaybettirirdi); dolmadıysa süzgece uymayanlar dahil son seq'e geç.
+                let evs = reply["events"].as_array().cloned().unwrap_or_default();
+                let next = if evs.len() as u64 >= limit {
+                    evs.last().and_then(|e| e["seq"].as_u64())
+                } else {
+                    reply["last_seq"].as_u64()
+                };
+                since = next.unwrap_or(since).max(since);
+                std::thread::sleep(std::time::Duration::from_millis(300));
+            }
         }
         Commands::OcrBench { file } => {
             eyes::ocr_neural::set_long_lived();

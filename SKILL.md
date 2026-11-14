@@ -34,6 +34,13 @@ For anything inside a web page prefer `pc_eye_browser` (CLI: `pc-eye browser <op
 - Clicks are synthetic by default; if a site ignores one, repeat with `real: true` (moves the real pointer onto the element in the agent's Firefox window). Background tabs work at full speed. `file://` pages cannot be opened or read by an extension: serve them over http (`python3 -m http.server`).
 - Your daily Firefox: `pc-eye browser pack` builds `~/.local/share/pc-eye/pc-eye-bridge.xpi`; once signed on addons.mozilla.org (unlisted, needs the user's AMO API key) it installs permanently. Until then it can be loaded for one session via about:debugging. The user's own daily Firefox only has the bridge after the extension is loaded there (`pc-eye browser install` prints how); otherwise use AT-SPI tools on it as before.
 
+## Background events: `pc_eye_events` and `pc_eye_wait` event (F8)
+
+The daemon keeps one sequenced stream of everything that happens in the background: window events, system journal (warnings and worse), coredumps, files written/deleted/moved in Downloads and Desktop (more dirs: `~/.config/pc-eye/streams.json` `{"watch": [...]}`), systemd services (finished, failed) and network state.
+- `pc_eye_events {since: <last_seq from the previous call>, kinds: ["file","unit"]}` returns everything after that point — nothing is lost between calls (`dropped` > 0 only if 8192 events overflowed; `restarted: true` if the daemon was updated).
+- Wait for something instead of polling: `pc_eye_wait {event:"event", match:"file:rapor.pdf"}` (download finished), `"unit:failed"` (a service crashed), `"journal:<text>"`. Keep `timeout_ms` ≤ 60000.
+- CLI: `pc-eye events --since N --kind file,journal [--follow]`, `pc-eye wait event --match file:rapor.pdf`.
+
 ## Core White-Box Workflow for AI Agents
 
 Always prefer **semantic & telemetry inspection first**, and use **Vision (`pc-eye vision`) only when visual verification or pixel-art inspection is needed**:

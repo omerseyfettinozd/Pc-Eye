@@ -58,7 +58,7 @@ CRASH_SIGNALS = ["SEGV", "ABRT", "BUS", "FPE", "ILL"]
 # Rakip kıyası: Anthropic computer use / OpenAI CUA mimarisi — model yalnız ekran görüntüsü görür,
 # fare ve klavyeyle koordinata göre çalışır. Aynı model, aynı görevler; yalnız araç katmanı farklı.
 PIXEL_TOOLS = ["mcp__pc-eye__pc_eye_vision", "mcp__pc-eye__pc_eye_input"]
-ALL_TOOLS = ["audio", "browser", "click_ui", "context", "director", "display", "input", "launch", "logs", "processes",
+ALL_TOOLS = ["audio", "browser", "click_ui", "context", "director", "display", "events", "input", "launch", "logs", "processes",
              "run", "snapshot", "ui", "vision", "wait", "window", "xray"]
 PIXEL_SYSTEM = (
     " Yalnız ekran görüntüsü (pc_eye_vision, pencere vermeden: tüm ekran) ve fare/klavye (pc_eye_input) "
@@ -632,7 +632,48 @@ def scene_youtube(sb, rng, work):
     return Scene({"query": query, "window": window, "pid": pid, "title": "YouTube"})
 
 
+# F8 olay akışı: daemon PCEYE_WATCH dizinini izler (koşucu ortamı daemon'a geçer).
+WATCH_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "pc-eye-eval" / "watch"
+
+
+def scene_events(sb, rng, work):
+    """İki çağrı arasında 30 dosya + 10 günlük olayı: hepsi kayıpsız gelmeli."""
+    WATCH_DIR.mkdir(parents=True, exist_ok=True)
+    pceye("events", "--limit", "1")  # daemon'u başlat (izlemeyi kurar)
+    time.sleep(0.5)
+    since = (pceye("events", "--kind", "-", "--limit", "1").json() or {}).get("last_seq", 0)
+    tag = token(rng, 6)
+    names = [f"ev-{tag}-{i:02d}.txt" for i in range(30)]
+    for n in names:
+        (WATCH_DIR / n).write_text(n)
+    for i in range(10):
+        subprocess.run(["logger", "-p", "user.warning", f"pceye-ev-{tag}-{i}"], check=False)
+    time.sleep(1.5)
+    for n in names:
+        (WATCH_DIR / n).unlink(missing_ok=True)
+    return Scene({"since": since, "tag": tag, "first": names[0], "mid": names[15], "last": names[-1],
+                  "log_last": f"pceye-ev-{tag}-9"})
+
+
+def scene_download_wait(sb, rng, work):
+    """Ajan başladıktan birkaç saniye sonra izlenen klasöre bir 'indirme' düşer."""
+    WATCH_DIR.mkdir(parents=True, exist_ok=True)
+    pceye("events", "--limit", "1")
+    name = f"fatura-{token(rng, 5).lower()}.pdf"
+
+    def drop():
+        time.sleep(rng.uniform(6, 9))
+        (WATCH_DIR / (name + ".part")).write_text("...")
+        (WATCH_DIR / (name + ".part")).rename(WATCH_DIR / name)
+
+    threading.Thread(target=drop, daemon=True).start()
+    sb.cleanups.append(lambda: (WATCH_DIR / name).unlink(missing_ok=True))
+    return Scene({"file": name, "dir": str(WATCH_DIR)})
+
+
 SCENES = {
+    "events": scene_events,
+    "download_wait": scene_download_wait,
     "youtube": scene_youtube,
     "cross_app": scene_cross_app,
     "process_form": scene_process_form,
@@ -1043,6 +1084,7 @@ def main():
     args = ap.parse_args()
     global BROWSER
     BROWSER = args.browser
+    os.environ.setdefault("PCEYE_WATCH", str(WATCH_DIR))
 
     tasks = select_tasks(load_tasks(), args)
     if args.tier == "list":

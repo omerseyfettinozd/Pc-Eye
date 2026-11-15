@@ -106,6 +106,11 @@ pc-eye browser wait --text "Kaydedildi" --timeout-ms 3000
 pc-eye browser click --name "Gönder"                # ref yerine görünen ad; --args '{"real":true}' gerçek imleç
 pc-eye browser run --args '{"steps":[{"op":"type","name":"Ad Soyad","text":"Ali"},{"op":"click","name":"Gönder"}]}'
 pc-eye browser pack                                  # imzalanmaya hazır XPI (günlük Firefox için)
+# Günlük Firefox'a kalıcı kurulum (bir kez): AMO API anahtarıyla imzala, xpi'yi Firefox'ta aç → "Ekle"
+#   npx web-ext sign --channel unlisted --source-dir ~/.local/share/pc-eye/extension \
+#     --artifacts-dir ~/.local/share/pc-eye/signed --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET"
+#   firefox ~/.local/share/pc-eye/signed/*.xpi       # yeni imza için manifest sürümünü artır
+pc-eye browser status                                # connected:true → köprü günlük Firefox'ta hazır
 pc-eye browser stop
 
 # Canlı Web Gözlem Paneli (http://127.0.0.1:7777)

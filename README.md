@@ -60,7 +60,7 @@ uygulamaların tamponlarını doğrudan okur (yakalama ~4 ms), girdiyi hedef yü
 
 ```bash
 (cd wm && cargo build --release) && install -m 755 wm/target/release/pc-eye-wm ~/.local/bin/
-pc-eye session start agent --backend wm        # ya da PC_EYE_BACKEND=wm (MCP otomatik açılışı dahil)
+pc-eye session start agent                     # varsayılan arka uç wm; eskisi: --backend hyprland / PC_EYE_BACKEND=hyprland
 PC_EYE_SESSION=agent pc-eye launch -- kate
 ```
 

@@ -56,8 +56,25 @@ fn is_wm(info: &Value) -> bool {
 }
 
 /// Oturum kompozitörü: `PC_EYE_BACKEND=wm` ile pc-eye-wm (F7), yoksa iç içe Hyprland (F4).
-fn default_backend() -> String {
-    std::env::var("PC_EYE_BACKEND").ok().filter(|b| b == "wm").unwrap_or_else(|| "hyprland".into())
+/// Varsayılan oturum kompozitörü (2026-11-15'ten beri pc-eye-wm). `PC_EYE_BACKEND=hyprland`
+/// eski iç içe Hyprland'e döner; pc-eye-wm ikilisi kurulu değilse de Hyprland kullanılır.
+pub fn default_backend() -> String {
+    match std::env::var("PC_EYE_BACKEND").ok().as_deref() {
+        Some("hyprland") => "hyprland".into(),
+        _ if wm_available() => "wm".into(),
+        _ => "hyprland".into(),
+    }
+}
+
+/// pc-eye-wm ikilisi bulunabiliyor mu (pc-eye'in yanında ya da PATH'te).
+pub fn wm_available() -> bool {
+    let b = wm_binary();
+    if b.is_absolute() {
+        return b.exists();
+    }
+    std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).any(|d| d.join("pc-eye-wm").is_file()))
+        .unwrap_or(false)
 }
 
 fn alive(info: &Value) -> bool {

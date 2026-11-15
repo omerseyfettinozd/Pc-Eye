@@ -390,9 +390,9 @@ enum SessionOp {
         name: String,
         #[arg(long, default_value = "1600x900")]
         mode: String,
-        /// Kompozitör: hyprland (iç içe Hyprland) | wm (pc-eye-wm, F7)
-        #[arg(long, env = "PC_EYE_BACKEND", default_value = "hyprland")]
-        backend: String,
+        /// Kompozitör: wm (pc-eye-wm, varsayılan) | hyprland (iç içe Hyprland)
+        #[arg(long)]
+        backend: Option<String>,
     },
     /// Oturumu kapat (iç Hyprland + headless çıkış)
     Stop {
@@ -480,6 +480,12 @@ fn run() -> Result<()> {
                 "atspi_bus_address": a11y_bus,
                 "ocr_available": ocr_ok,
                 "neural_ocr": eyes::ocr_neural::installed(),
+                "session_backend": {
+                    "default": session::default_backend(),
+                    "pc_eye_wm_installed": session::wm_available(),
+                    "override": std::env::var("PC_EYE_BACKEND").ok(),
+                    "active_wm_session": crate::wm_backend::active(),
+                },
                 "tessdata_dir": tess_dir,
                 "grim_available": grim_ok,
                 "pipewire_available": pw_ok,
@@ -583,7 +589,10 @@ fn run() -> Result<()> {
         }
         Commands::Session { op } => {
             let out = match op {
-                SessionOp::Start { name, mode, backend } => session::start(&name, &mode, &backend)?,
+                SessionOp::Start { name, mode, backend } => {
+                    let backend = backend.unwrap_or_else(session::default_backend);
+                    session::start(&name, &mode, &backend)?
+                }
                 SessionOp::Stop { name } => session::stop(&name)?,
                 SessionOp::List => serde_json::json!(session::list()),
             };

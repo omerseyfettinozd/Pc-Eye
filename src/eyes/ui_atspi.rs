@@ -269,7 +269,7 @@ pub fn inspect_window_ui(
 
     if !elements.is_empty() {
         stabilize_marks(&win.address, &mut elements);
-        crate::eyes::vision::save_persisted_marks(&elements);
+        crate::eyes::vision::save_persisted_marks(Some(&win.address), &elements);
     }
 
     Ok(UiTreeReport {

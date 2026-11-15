@@ -39,17 +39,50 @@ pub fn atomic_write_str(target: &std::path::Path, content: &str) {
     }
 }
 
-pub fn load_persisted_marks() -> Vec<UiElement> {
-    let p = runtime_dir().join("last_marks.json");
-    fs::read_to_string(p)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+/// Kaydedilen mark listesi hangi pencerenin ağacından geldiğini de taşır: başka pencerede
+/// alınmış bir `#N` aynı numaralı ama alakasız bir elemana tıklatmasın.
+#[derive(Serialize, Deserialize)]
+struct PersistedMarks {
+    /// Sahip pencere adresi; `None` = ekran/monitör yakalamasındaki görsel kutular.
+    window: Option<String>,
+    marks: Vec<UiElement>,
 }
 
-pub fn save_persisted_marks(marks: &[UiElement]) {
+fn norm_addr(a: &str) -> String {
+    a.trim().trim_start_matches("0x").to_ascii_lowercase()
+}
+
+/// `window` hedeflenen pencere (`None` = odaklı pencere). Kayıt başka bir pencereye aitse ya da
+/// eski biçimdeyse (sahibi bilinmiyor) boş döner; çağıran ağacı yeniden okur.
+pub fn load_persisted_marks_for(window: Option<&str>) -> Vec<UiElement> {
     let p = runtime_dir().join("last_marks.json");
-    if let Ok(json) = serde_json::to_string_pretty(marks) {
+    let Some(rec) = fs::read_to_string(p)
+        .ok()
+        .and_then(|s| serde_json::from_str::<PersistedMarks>(&s).ok())
+    else {
+        return Vec::new();
+    };
+    let target = match window {
+        Some(w) => Some(norm_addr(w)),
+        None => capture_desktop_state()
+            .ok()
+            .and_then(|d| d.active_window_address)
+            .map(|a| norm_addr(&a)),
+    };
+    let owner = rec.window.as_deref().map(norm_addr);
+    let ok = match (&owner, &target) {
+        (Some(o), Some(t)) => o == t,
+        // Ekran yakalamasının görsel kutuları yalnız pencere belirtilmeyen tıklamada geçerli.
+        (None, _) => window.is_none(),
+        (Some(_), None) => false,
+    };
+    if ok { rec.marks } else { Vec::new() }
+}
+
+pub fn save_persisted_marks(window: Option<&str>, marks: &[UiElement]) {
+    let p = runtime_dir().join("last_marks.json");
+    let rec = PersistedMarks { window: window.map(str::to_string), marks: marks.to_vec() };
+    if let Ok(json) = serde_json::to_string_pretty(&rec) {
         atomic_write_str(&p, &json);
     }
 }
@@ -271,17 +304,25 @@ pub fn capture_vision(
     let mut marks_legend = Vec::new();
     if draw_marks {
         // 1. Önce AT-SPI semantik elemanlarını dene
+        let mut owner: Option<String> = None;
         if let Ok(ui_rep) = inspect_window_ui(target_window.as_deref(), None, 60) {
             marks_legend = ui_rep.elements;
+            owner = Some(ui_rep.window_address);
         }
         // 2. Eğer AT-SPI boşsa (veya <2 eleman döndüyse) görüntü üzerindeki yüksek kontrastlı kontrol kutularını tespit et
         if marks_legend.len() < 2 {
             let visual_marks = detect_visual_control_boxes(&img, geom, marks_legend.len() + 1, 32);
             marks_legend.extend(visual_marks);
+            // Görsel kutular ekran koordinatlıdır; pencere yakalamasında o pencereye aittir.
+            if target_window.is_none() {
+                owner = None;
+            } else {
+                owner = target_window.clone();
+            }
         }
 
         draw_marks_overlay(&mut img, geom, &marks_legend);
-        save_persisted_marks(&marks_legend);
+        save_persisted_marks(owner.as_deref(), &marks_legend);
     }
 
     let out_dir = runtime_dir().join("captures");

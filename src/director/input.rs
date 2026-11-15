@@ -4,7 +4,7 @@ use crate::eyes::compositor::{
 };
 use crate::director::x11_input::X11Keyboard;
 use crate::eyes::ui_atspi::inspect_window_ui;
-use crate::eyes::vision::load_persisted_marks;
+use crate::eyes::vision::load_persisted_marks_for;
 use crate::protocol::types::UiElement;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -515,7 +515,7 @@ pub fn click_ui_element_n(
         });
 
     let (matched, window_geometry): (UiElement, Option<[i64; 4]>) = if let Some(m_id) = mark_id {
-        let marks = if recalibrated { Vec::new() } else { load_persisted_marks() };
+        let marks = if recalibrated { Vec::new() } else { load_persisted_marks_for(window_addr) };
         if let Some(found) = marks.into_iter().find(|e| e.mark == m_id) {
             (found, None)
         } else {

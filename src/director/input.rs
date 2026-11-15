@@ -368,11 +368,17 @@ pub fn click_at(
         // Yeni açılmış (özellikle XWayland) pencerede ilk tık odak tıkı olarak yutulur:
         // önce hedef pencereyi odakla, odak oturana kadar bekle, sonra imleci gerçek konuma götür.
         focus_window_at(cx, cy);
-        // Ön hareket: imleç girişini (enter) istemciye kaydettir, sonra asıl noktaya otur.
-        hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx + 1, y: cy })?;
-        thread::sleep(Duration::from_millis(15));
-        hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
-        thread::sleep(Duration::from_millis(30));
+        if crate::wm_backend::active() {
+            // pc-eye-wm hareketi (enter + motion) doğrudan hedef yüzeye verir: ön hareket ve
+            // istemcinin olayı işlemesi için uyku gerekmez.
+            hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
+        } else {
+            // Ön hareket: imleç girişini (enter) istemciye kaydettir, sonra asıl noktaya otur.
+            hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx + 1, y: cy })?;
+            thread::sleep(Duration::from_millis(15));
+            hypr_dispatch_cmd(&HyprDispatch::CursorMove { x: cx, y: cy })?;
+            thread::sleep(Duration::from_millis(30));
+        }
     } else {
         // Koordinat verilmezse düğme olayı imlecin durduğu pencereye gider: odak korumasız olsa da
         // imlecin altındaki pencere korumalı olabilir, nokta da denetlenir.

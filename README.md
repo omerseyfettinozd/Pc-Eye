@@ -39,6 +39,31 @@ O=~/.local/share/pc-eye/onnxruntime; mkdir -p $O
 curl -sSL --fail https://github.com/microsoft/onnxruntime/releases/download/v1.30.1/onnxruntime-linux-x64-1.30.1.tgz | tar xz -C $O
 ```
 
+GPU (NVIDIA, isteğe bağlı): CUDA 13 + cuDNN 9 kütüphaneleri `~/.local/share/pc-eye/cuda/lib`'de ve
+ONNX Runtime'ın CUDA derlemesi varsa sinir ağı OCR'ı GPU'da çalışır (yoksa CPU). `PCEYE_OCR_GPU=0` kapatır.
+
+```bash
+curl -sSL --fail https://github.com/microsoft/onnxruntime/releases/download/v1.30.1/onnxruntime-linux-x64-gpu_cuda13-1.30.1.tgz | tar xz -C $O
+W=$(mktemp -d); pip download --no-deps --only-binary :all: -d $W nvidia-cuda-runtime nvidia-cublas nvidia-curand nvidia-cudnn-cu13 nvidia-cuda-nvrtc
+L=~/.local/share/pc-eye/cuda/lib; mkdir -p $L
+for w in $W/*.whl; do python3 -c "import zipfile,sys,os
+z=zipfile.ZipFile(sys.argv[1])
+for n in z.namelist():
+    if '/lib/' in n and '.so' in n: open(os.path.join(sys.argv[2],os.path.basename(n)),'wb').write(z.read(n))" $w $L; done
+```
+
+### pc-eye-wm: ajana özel kompozitör (F7)
+
+`wm/` krateindeki Smithay kompozitörü ajan oturumunu Hyprland yerine çalıştırır: ekrana hiç çizmez,
+uygulamaların tamponlarını doğrudan okur (yakalama ~4 ms), girdiyi hedef yüzeye kaynağında verir,
+"durdu" kararını kare sessizliğinden verir. Kullanıcının Hyprland'ine hiç dokunmaz.
+
+```bash
+(cd wm && cargo build --release) && install -m 755 wm/target/release/pc-eye-wm ~/.local/bin/
+pc-eye session start agent --backend wm        # ya da PC_EYE_BACKEND=wm (MCP otomatik açılışı dahil)
+PC_EYE_SESSION=agent pc-eye launch -- kate
+```
+
 ### Temel CLI Komutları
 
 ```bash

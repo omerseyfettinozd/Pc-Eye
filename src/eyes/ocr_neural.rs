@@ -34,6 +34,60 @@ fn parse_dict(raw: &str) -> Vec<String> {
     lines
 }
 
+/// GPU OCR (CUDA): `~/.local/share/pc-eye/cuda/lib` (pip tekerleklerinden çıkarılmış CUDA 13 +
+/// cuDNN 9) ve ONNX Runtime'ın CUDA derlemesi varsa. `PCEYE_OCR_GPU=0` kapatır.
+fn cuda_lib_dir() -> Option<PathBuf> {
+    if std::env::var("PCEYE_OCR_GPU").map_or(false, |v| v == "0") {
+        return None;
+    }
+    let dir = PathBuf::from(std::env::var_os("HOME")?).join(".local/share/pc-eye/cuda/lib");
+    ["libcudart.so.13", "libcublas.so.13", "libcublasLt.so.13", "libcurand.so.10", "libcudnn.so.9"]
+        .iter()
+        .all(|l| dir.join(l).is_file())
+        .then_some(dir)
+}
+
+fn gpu_ort_lib() -> Option<PathBuf> {
+    let p = PathBuf::from(std::env::var_os("HOME")?).join(
+        ".local/share/pc-eye/onnxruntime/onnxruntime-linux-x64-gpu_cuda13-1.30.1/lib/libonnxruntime.so.1.30.1",
+    );
+    p.is_file().then_some(p)
+}
+
+/// CUDA sağlayıcısının bağımlılıkları tam yollarıyla, bağımlılık sırasıyla RTLD_GLOBAL yüklenir:
+/// `LD_LIBRARY_PATH` süreç başında okunduğu için sonradan ayarlamak işe yaramaz.
+fn preload_cuda(dir: &Path) -> bool {
+    let mut libs: Vec<PathBuf> = ["libcudart.so.13", "libcublasLt.so.13", "libcublas.so.13", "libcurand.so.10", "libnvrtc.so.13"]
+        .iter()
+        .map(|l| dir.join(l))
+        .filter(|p| p.is_file())
+        .collect();
+    // cuDNN 9 alt kütüphanelerini kendisi dlopen eder; önce bağımsızlar, en son ana kütüphane.
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        let mut cudnn: Vec<PathBuf> = rd
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.file_name().map_or(false, |n| {
+                let n = n.to_string_lossy();
+                n.starts_with("libcudnn") && n.ends_with(".so.9")
+            }))
+            .collect();
+        cudnn.sort_by_key(|p| (p.file_name().map_or(false, |n| n == "libcudnn.so.9"), p.clone()));
+        libs.extend(cudnn);
+    }
+    for lib in libs {
+        let c = match std::ffi::CString::new(lib.as_os_str().as_encoded_bytes()) {
+            Ok(c) => c,
+            Err(_) => return false,
+        };
+        let h = unsafe { libc::dlopen(c.as_ptr(), libc::RTLD_NOW | libc::RTLD_GLOBAL) };
+        if h.is_null() && lib.file_name().map_or(false, |n| !n.to_string_lossy().starts_with("libcudnn_")) {
+            return false;
+        }
+    }
+    true
+}
+
 fn resolve_ort_lib_path() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("PCEYE_ORT_LIB").filter(|v| !v.is_empty()) {
         let path = PathBuf::from(p);
@@ -56,17 +110,43 @@ fn resolve_models_dir() -> Option<PathBuf> {
     path.is_dir().then_some(path)
 }
 
-fn build_session(env: &Environment, path: &Path, threads: usize) -> Result<Session> {
-    Session::builder(env)
-        .map_err(|e| anyhow!("{e}"))?
-        .with_intra_threads(threads)
+fn build_session(env: &Environment, path: &Path, threads: usize, gpu: bool) -> Result<Session> {
+    let mut b = Session::builder(env).map_err(|e| anyhow!("{e}"))?;
+    if gpu {
+        b = b
+            .with_execution_providers([ort::ep::CUDA::default()
+                // Tanıma girdisinin genişliği her çağrıda değişir: kapsamlı cuDNN algoritma araması her
+                // yeni şekilde yüzlerce ms harcar; sezgisel seçim yeter.
+                .with_conv_algorithm_search(ort::ep::cuda::ConvAlgorithmSearch::Heuristic)
+                .build()
+                .error_on_failure()])
+            .map_err(|e| anyhow!("{e}"))?;
+    }
+    b.with_intra_threads(threads)
         .map_err(|e| anyhow!("{e}"))?
         .commit_from_file(path)
         .map_err(|e| anyhow!("{e}"))
 }
 
 fn load_engine_inner() -> Result<Engine> {
+    // Önce GPU; CUDA kütüphaneleri ya da sağlayıcı yüklenemezse CPU derlemesine düşülür.
+    if let (Some(dir), Some(lib)) = (cuda_lib_dir(), gpu_ort_lib()) {
+        if preload_cuda(&dir) {
+            match load_engine_with(&lib, true) {
+                Ok(e) => return Ok(e),
+                Err(e) => {
+                    if std::env::var_os("PCEYE_OCR_TRACE").is_some() {
+                        eprintln!("[ocr] GPU açılamadı, CPU: {e}");
+                    }
+                }
+            }
+        }
+    }
     let lib_path = resolve_ort_lib_path().ok_or_else(|| anyhow!("libonnxruntime bulunamadı"))?;
+    load_engine_with(&lib_path, false)
+}
+
+fn load_engine_with(lib_path: &Path, gpu: bool) -> Result<Engine> {
     let models_dir = resolve_models_dir().ok_or_else(|| anyhow!("ppocrv5 model dizini bulunamadı"))?;
 
     let det_path = models_dir.join("pp-ocrv5_mobile_det.onnx");
@@ -89,17 +169,17 @@ fn load_engine_inner() -> Result<Engine> {
         .unwrap_or(1)
         .clamp(1, 8);
 
-    let env = ort::init_from(&lib_path)
+    let env = ort::init_from(lib_path)
         .map_err(|e| anyhow!("{e}"))?
         .build()
         .map_err(|e| anyhow!("{e}"))?;
 
-    let det = build_session(&env, &det_path, threads)?;
+    let det = build_session(&env, &det_path, threads, gpu)?;
     let env_n = |k: &str, d: usize| std::env::var(k).ok().and_then(|v| v.parse::<usize>().ok()).filter(|&n| n > 0).unwrap_or(d);
     let rec_sessions = env_n("PCEYE_OCR_REC_SESSIONS", 2);
     let rec_threads = env_n("PCEYE_OCR_REC_THREADS", (threads / 2).max(1));
     let rec = (0..rec_sessions)
-        .map(|_| build_session(&env, &rec_path, rec_threads).map(Mutex::new))
+        .map(|_| build_session(&env, &rec_path, rec_threads, gpu).map(Mutex::new))
         .collect::<Result<Vec<_>>>()?;
 
     Ok(Engine {

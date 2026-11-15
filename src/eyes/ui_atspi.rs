@@ -100,6 +100,13 @@ fn needs_ocr_fallback(elements: &[UiElement], is_terminal: bool, has_query: bool
     if is_terminal && !has_query {
         return false;
     }
+    // Arama süzülmüş listede eşleşme bulduysa ağaç işini görmüştür: tek eşleşme "ağaç boş" demek
+    // değildir. Önceden her `--name` tıklaması tüm pencereye OCR yaptırıyordu (+120–3000 ms).
+    if has_query {
+        return !elements
+            .iter()
+            .any(|e| !e.name.trim().is_empty() && e.role != "window" && e.role != "frame");
+    }
     elements.len() <= 1 || count_contentful_elements(elements) <= 2
 }
 

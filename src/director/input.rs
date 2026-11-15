@@ -519,6 +519,34 @@ pub fn click_ui_element_ext(
 /// `clicks: 2` çift tıklama: dosya yöneticisinde klasör açmak tek tıkla seçmekten ayrı bir eylem
 /// (ajan önce tıklayıp sonra koordinatla çift tıklıyordu: fazladan tur).
 #[allow(clippy::too_many_arguments)]
+/// `PCEYE_SPANS=1`: aşama süreleri stderr'e (hız darboğazı ölçümü).
+struct Spans {
+    t0: std::time::Instant,
+    last: std::cell::Cell<std::time::Instant>,
+    on: bool,
+}
+
+impl Spans {
+    fn new() -> Self {
+        let now = std::time::Instant::now();
+        Self { t0: now, last: std::cell::Cell::new(now), on: std::env::var_os("PCEYE_SPANS").is_some() }
+    }
+    fn mark(&self, label: &str) {
+        if self.on {
+            let now = std::time::Instant::now();
+            eprintln!("[span] {:<14} +{:>6.1} ms (toplam {:>6.1})", label,
+                (now - self.last.get()).as_secs_f64() * 1e3, (now - self.t0).as_secs_f64() * 1e3);
+            self.last.set(now);
+        }
+    }
+}
+
+impl Drop for Spans {
+    fn drop(&mut self) {
+        self.mark("bitis");
+    }
+}
+
 pub fn click_ui_element_n(
     window_addr: Option<&str>,
     name_query: Option<&str>,
@@ -529,7 +557,9 @@ pub fn click_ui_element_n(
     allow_protected: bool,
     clicks: u32,
 ) -> Result<ActionReceipt> {
+    let spans = Spans::new();
     enforce_action_guard(window_addr, allow_protected)?;
+    spans.mark("guard");
 
     // Pencerenin AT-SPI koordinatları ilk tıklamadan önce bir kez OCR ile doğrulanır (bkz.
     // `calibrate`): kayık bir araç takımında "görünür değişiklik" (üzerine gelme vurgusu) olsa
@@ -542,6 +572,7 @@ pub fn click_ui_element_n(
                 .map_or(false, |o| o != (0, 0));
             changed
         });
+    spans.mark("kalibrasyon");
 
     let (matched, window_geometry): (UiElement, Option<[i64; 4]>) = if let Some(m_id) = mark_id {
         let marks = if recalibrated { Vec::new() } else { load_persisted_marks_for(window_addr) };
@@ -590,6 +621,7 @@ pub fn click_ui_element_n(
             }
         }
     }
+    spans.mark("eleman_bulma");
     let [cx, cy] = matched.click_point;
     let target = format!("[{}] {} ({})", matched.mark, matched.name, matched.role);
     let region = verification_region(window_geometry, cx, cy);
@@ -692,6 +724,7 @@ pub fn click_ui_element_n(
     } else {
         stable_frame(region, 400)
     };
+    spans.mark("once_kare");
 
     let (receipt, verification) = with_verification_from(region, before, || {
         if use_dbus {

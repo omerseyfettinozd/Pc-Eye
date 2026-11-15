@@ -818,7 +818,14 @@ fn cmd_run(args: &Value) -> Result<Value> {
         .and_then(|v| v.as_array())
         .ok_or_else(|| anyhow!("run: `steps` dizisi gerekli"))?;
     let tab = args.get("tab").filter(|v| !v.is_null()).cloned();
+    let mode = args.get("after").and_then(|v| v.as_str()).unwrap_or("diff");
+    if !matches!(mode, "diff" | "full" | "none") {
+        bail!("run: `after` diff|full|none olmalı");
+    }
+    // Fark modu için adımlardan önceki özet (DOM'dan ~20 ms).
+    let before = if mode == "diff" { Some(run_after_snapshot(tab.as_ref())) } else { None };
     let mut done = Vec::new();
+    let mut failed: Option<usize> = None;
     for (i, step) in steps.iter().enumerate() {
         let op = step.get("op").and_then(|v| v.as_str()).unwrap_or_default();
         if matches!(op, "run" | "launch" | "stop" | "install" | "attach" | "pack" | "") {
@@ -832,12 +839,56 @@ fn cmd_run(args: &Value) -> Result<Value> {
             Ok(r) => done.push(json!({ "op": op, "ok": true, "result": compact_step_result(&r) })),
             Err(e) => {
                 done.push(json!({ "op": op, "ok": false, "error": e.to_string() }));
-                return Ok(json!({ "ok": false, "completed": i, "failed_step": i + 1, "steps": done,
-                                  "after": run_after_snapshot(tab.as_ref()) }));
+                failed = Some(i);
+                break;
             }
         }
     }
-    Ok(json!({ "ok": true, "completed": steps.len(), "steps": done, "after": run_after_snapshot(tab.as_ref()) }))
+    let mut out = match failed {
+        Some(i) => json!({ "ok": false, "completed": i, "failed_step": i + 1, "steps": done }),
+        None => json!({ "ok": true, "completed": steps.len(), "steps": done }),
+    };
+    // Hata olunca sayfanın tamamı gerekir (ajan neyin yanlış gittiğini görmeli).
+    let mode = if failed.is_some() && mode == "none" { "full" } else { mode };
+    if mode != "none" {
+        let after = run_after_snapshot(tab.as_ref());
+        out["after"] = match before {
+            Some(b) if failed.is_none() => diff_snapshot(&b, after),
+            _ => after,
+        };
+    }
+    Ok(out)
+}
+
+/// Aynı sayfada kalındıysa yalnız yeni/değişen satırlar (`changed_lines`) ve kaybolan satır sayısı
+/// döner: form dolduran bir `run` her seferinde 60 satırlık özeti tekrar göndermesin. Sayfa
+/// değiştiyse (URL) ya da fark özetin yarısından büyükse tam özet döner.
+fn diff_snapshot(before: &Value, after: Value) -> Value {
+    let lines = |v: &Value| -> Vec<String> {
+        v.get("lines")
+            .and_then(|l| l.as_array())
+            .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+            .unwrap_or_default()
+    };
+    let (b, a) = (lines(before), lines(&after));
+    if a.is_empty() || before.get("url") != after.get("url") {
+        return after;
+    }
+    let bset: std::collections::HashSet<&String> = b.iter().collect();
+    let aset: std::collections::HashSet<&String> = a.iter().collect();
+    let added: Vec<&String> = a.iter().filter(|l| !bset.contains(l)).collect();
+    let removed = b.iter().filter(|l| !aset.contains(l)).count();
+    if added.len() * 2 > a.len() {
+        return after;
+    }
+    let mut out = after.clone();
+    if let Some(o) = out.as_object_mut() {
+        o.remove("lines");
+        o.insert("changed_lines".to_string(), json!(added));
+        o.insert("removed_lines".to_string(), json!(removed));
+        o.insert("unchanged_lines".to_string(), json!(a.len() - added.len()));
+    }
+    out
 }
 
 /// Adım sonucunun ajana gereken kısmı (tam özet yalnız en sonda bir kez döner).
@@ -1682,6 +1733,20 @@ fn cmd_real_click(args: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn run_diff_returns_only_changed_lines_on_same_page() {
+        let before = json!({"url": "http://x/", "lines": ["[e1] textbox \"Ad\"", "[e2] button \"Gönder\"", "[e3] text \"a\"", "[e4] text \"b\""]});
+        let after = json!({"url": "http://x/", "lines": ["[e1] textbox \"Ad\" = \"Ali\"", "[e2] button \"Gönder\"", "[e3] text \"a\"", "[e4] text \"b\""]});
+        let d = diff_snapshot(&before, after);
+        assert!(d.get("lines").is_none());
+        assert_eq!(d["changed_lines"], json!(["[e1] textbox \"Ad\" = \"Ali\""]));
+        assert_eq!(d["removed_lines"], json!(1));
+        assert_eq!(d["unchanged_lines"], json!(3));
+        // Sayfa değişince tam özet.
+        let nav = json!({"url": "http://x/ok", "lines": ["[e9] text \"Kaydedildi\""]});
+        assert!(diff_snapshot(&before, nav).get("lines").is_some());
+    }
 
     #[test]
     fn name_resolves_to_ref_by_role_and_turkish_case() {

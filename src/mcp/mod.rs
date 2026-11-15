@@ -645,6 +645,24 @@ fn dispatch_tool_call(name: &str, args: &Value) -> Result<Vec<Value>> {
 /// dizi sözdizimi büyük sayfalarda yükün belirgin kısmını oluşturuyordu.
 fn browser_result_text(out: &Value) -> String {
     // `run` sonucu: adım özeti JSON, son sayfa özeti düz satırlar.
+    if let Some(after) = out.get("after").filter(|a| a.get("changed_lines").is_some()) {
+        let mut head = out.clone();
+        if let Some(o) = head.as_object_mut() {
+            o.remove("after");
+        }
+        let n = |k: &str| after.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
+        let mut text = format!(
+            "{}\nsame page; changed lines ({} unchanged, {} removed):\n",
+            serde_json::to_string(&head).unwrap_or_default(),
+            n("unchanged_lines"),
+            n("removed_lines")
+        );
+        for l in after["changed_lines"].as_array().into_iter().flatten().filter_map(|l| l.as_str()) {
+            text.push_str(l);
+            text.push('\n');
+        }
+        return text;
+    }
     if let Some(after) = out.get("after").filter(|a| a.get("lines").is_some()) {
         let mut head = out.clone();
         if let Some(o) = head.as_object_mut() {
@@ -904,7 +922,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_browser",
-            "description": "Web pages through the Firefox bridge (reads the DOM in ~20 ms; PREFER this over snapshot/click_ui for anything inside a browser). First `launch` (opens the agent's own Firefox, optional url) unless `status` says connected. `snapshot` lists `[eN] role \"name\" = \"value\" [states]`; act by ref. op: launch | status | stop | tabs | snapshot (query, max, all=also plain text, viewport) | click | type (text, submit) | select (option) | check (on) | key | hover | scroll (ref | dy | to: top/bottom) | text (page or ref text) | wait (text | gone | url, timeout_ms) | navigate (url, new_tab) | back | forward | reload | activate | close | eval (code). Actions take `ref` or `name` (e.g. {op:\"click\",name:\"Gönder\"} in one call). Forms/multi-step: op run with steps:[{op:\"type\",name:\"Ad\",text:\"..\"},{op:\"select\",name:\"Şehir\",option:\"..\"},{op:\"click\",name:\"Gönder\"},{op:\"wait\",text:\"Kaydedildi\"}] — one call, stops at the first failure, returns the final page. Actions return url/title/changed/navigated. Password and card fields show as [secret]; banking and password-manager sites are refused.",
+            "description": "Web pages through the Firefox bridge (reads the DOM in ~20 ms; PREFER this over snapshot/click_ui for anything inside a browser). First `launch` (opens the agent's own Firefox, optional url) unless `status` says connected. `snapshot` lists `[eN] role \"name\" = \"value\" [states]`; act by ref. op: launch | status | stop | tabs | snapshot (query, max, all=also plain text, viewport) | click | type (text, submit) | select (option) | check (on) | key | hover | scroll (ref | dy | to: top/bottom) | text (page or ref text) | wait (text | gone | url, timeout_ms) | navigate (url, new_tab) | back | forward | reload | activate | close | eval (code). Actions take `ref` or `name` (e.g. {op:\"click\",name:\"Gönder\"} in one call). Forms/multi-step: op run with steps:[{op:\"type\",name:\"Ad\",text:\"..\"},{op:\"select\",name:\"Şehir\",option:\"..\"},{op:\"click\",name:\"Gönder\"},{op:\"wait\",text:\"Kaydedildi\"}] — one call, stops at the first failure; on the same page it returns only the lines that changed (after:\"full\" for the whole page, \"none\" for nothing). Actions return url/title/changed/navigated. Password and card fields show as [secret]; banking and password-manager sites are refused.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": { "type": "object", "required": ["op"], "properties": {
                 "op": { "type": "string" },
@@ -928,7 +946,8 @@ fn mcp_tools_schema() -> Value {
                 "new_tab": { "type": "boolean" },
                 "submit": { "type": "boolean" },
                 "timeout_ms": { "type": "integer" },
-                "steps": { "type": "array", "items": { "type": "object" } }
+                "steps": { "type": "array", "items": { "type": "object" } },
+                "after": { "type": "string", "enum": ["diff", "full", "none"] }
             } }
         },
         {

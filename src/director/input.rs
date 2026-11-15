@@ -143,8 +143,26 @@ where
 /// Bölge durulana kadar (iki ardışık kare aynı) kare alır, en çok `max_ms`; son kareyi döner.
 fn stable_frame(region: [i64; 4], max_ms: u64) -> Option<image::RgbImage> {
     if crate::wm_backend::active() {
-        let _ = crate::wm_backend::wait_idle(30, max_ms, 0);
-        return crate::eyes::vision::grab_region_ppm(region).ok();
+        // Yalnız bölge durgun olmalı: pencerenin başka yerindeki animasyon (az önce işaretlenen
+        // kutu) beklenmez. Her yeni karede bölgeye bakılır; iki ardışık karede aynıysa durgundur.
+        let start = std::time::Instant::now();
+        let mut prev = crate::eyes::vision::grab_region_ppm(region).ok()?;
+        loop {
+            let left = max_ms.saturating_sub(start.elapsed().as_millis() as u64);
+            if left == 0 {
+                return Some(prev);
+            }
+            // Yeni kare yoksa (35 ms) pencere durgundur.
+            let r = crate::wm_backend::wait_idle(0, left.min(35), 35).ok()?;
+            if r["idle"].as_bool() != Some(true) {
+                return Some(prev);
+            }
+            let cur = crate::eyes::vision::grab_region_ppm(region).ok()?;
+            if !compare_frames(region, &prev, &cur).visible_change {
+                return Some(cur);
+            }
+            prev = cur;
+        }
     }
     let start = std::time::Instant::now();
     let mut prev = crate::eyes::vision::grab_region_ppm(region).ok()?;
@@ -525,6 +543,17 @@ pub fn click_ui_element_ext(
 /// `clicks: 2` çift tıklama: dosya yöneticisinde klasör açmak tek tıkla seçmekten ayrı bir eylem
 /// (ajan önce tıklayıp sonra koordinatla çift tıklıyordu: fazladan tur).
 #[allow(clippy::too_many_arguments)]
+/// Hedef pencerenin (yoksa odaktakinin) adresi ve `[x, y, w, h]` geometrisi.
+fn window_addr_geometry(window_addr: Option<&str>) -> Option<(String, [i64; 4])> {
+    let desk = capture_desktop_state().ok()?;
+    let addr = match window_addr {
+        Some(a) => crate::eyes::compositor::resolve_window_ref(a, &desk.windows).ok()?,
+        None => desk.active_window_address.clone()?,
+    };
+    let w = desk.windows.iter().find(|w| w.address == addr)?;
+    Some((addr, [w.x, w.y, w.width, w.height]))
+}
+
 /// `PCEYE_SPANS=1`: aşama süreleri stderr'e (hız darboğazı ölçümü).
 struct Spans {
     t0: std::time::Instant,
@@ -571,11 +600,12 @@ pub fn click_ui_element_n(
     // `calibrate`): kayık bir araç takımında "görünür değişiklik" (üzerine gelme vurgusu) olsa
     // bile tıklama yanlış satıra düşebiliyordu ve bu ıskalama algılanamıyordu.
     let mut window_shifted = false;
+    // Pencerenin adresi ve konumu kompozitörün listesinden alınır (erişilebilirlik ağacını
+    // okumak ~50 ms'ydi, yalnız bu iki bilgi için).
     let recalibrated = !prefer_dbus
-        && inspect_window_ui(window_addr, None, 10).map_or(false, |ui| {
-            let changed = crate::eyes::calibrate::ensure_calibrated(&ui.window_address, ui.window_geometry);
-            window_shifted = crate::eyes::calibrate::current_offset(&ui.window_address, ui.window_geometry)
-                .map_or(false, |o| o != (0, 0));
+        && window_addr_geometry(window_addr).map_or(false, |(addr, geom)| {
+            let changed = crate::eyes::calibrate::ensure_calibrated(&addr, geom);
+            window_shifted = crate::eyes::calibrate::current_offset(&addr, geom).map_or(false, |o| o != (0, 0));
             changed
         });
     spans.mark("kalibrasyon");

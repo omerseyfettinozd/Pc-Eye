@@ -1,0 +1,119 @@
+{
+ "tier": "agent",
+ "started": "20261115-024121-f8ag",
+ "seed": 612390019,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "b7fe72e",
+ "summary": {
+  "tasks": [
+   {
+    "task": "download-wait",
+    "runs": 4,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 120039.9,
+    "median_tool_calls": 4.0,
+    "median_input_tokens": 0.0,
+    "median_output_tokens": 0.0
+   }
+  ],
+  "pass_rate": 0.0,
+  "total_cost_usd": 0
+ },
+ "session": "f8ag",
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "download-wait",
+   "attempt": 0,
+   "vars": {
+    "file": "fatura-yff4c.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": false,
+   "detail": "zaman aşımı (120 sn)",
+   "ms": 120040.3,
+   "is_error": true,
+   "turns": null,
+   "cost_usd": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 1,
+   "vars": {
+    "file": "fatura-mn6vy.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": false,
+   "detail": "zaman aşımı (120 sn)",
+   "ms": 120039.4,
+   "is_error": true,
+   "turns": null,
+   "cost_usd": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_events": 3,
+    "pc_eye_wait": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 2,
+   "vars": {
+    "file": "fatura-433k2.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": false,
+   "detail": "zaman aşımı (120 sn)",
+   "ms": 120019.1,
+   "is_error": true,
+   "turns": null,
+   "cost_usd": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 3,
+   "vars": {
+    "file": "fatura-6wkdf.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": false,
+   "detail": "zaman aşımı (120 sn)",
+   "ms": 120044.2,
+   "is_error": true,
+   "turns": null,
+   "cost_usd": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 2
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

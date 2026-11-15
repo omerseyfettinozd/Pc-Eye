@@ -1,0 +1,1110 @@
+{
+ "tier": "probe",
+ "started": "20261115-153750",
+ "seed": 1031585828,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "61afabc",
+ "summary": {
+  "tasks": [
+   {
+    "task": "terminal-read",
+    "runs": 30,
+    "passed": 28,
+    "setup_errors": 0,
+    "median_ms": 268.0
+   }
+  ],
+  "pass_rate": 0.933,
+  "total_cost_usd": 0
+ },
+ "session": null,
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "terminal-read",
+   "attempt": 0,
+   "vars": {
+    "token": "W7TUAWDW",
+    "pid": 140472,
+    "title": "Eval Terminal TVY7"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 264.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal TVY7"
+     ],
+     "rc": 0,
+     "ms": 185.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 79.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 1,
+   "vars": {
+    "token": "2N34DXJH",
+    "pid": 140558,
+    "title": "Eval Terminal H2NN"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 274.8,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal H2NN"
+     ],
+     "rc": 0,
+     "ms": 180.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 94.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 2,
+   "vars": {
+    "token": "99YWJLGN",
+    "pid": 140677,
+    "title": "Eval Terminal 8T99"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 268.2,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 8T99"
+     ],
+     "rc": 0,
+     "ms": 185.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 82.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 3,
+   "vars": {
+    "token": "9H2DXHCK",
+    "pid": 140785,
+    "title": "Eval Terminal C6V7"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 267.5,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal C6V7"
+     ],
+     "rc": 0,
+     "ms": 185.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 82.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 4,
+   "vars": {
+    "token": "WEEREXHE",
+    "pid": 140910,
+    "title": "Eval Terminal TYWT"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 269.1,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal TYWT"
+     ],
+     "rc": 0,
+     "ms": 185.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 83.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 5,
+   "vars": {
+    "token": "ND82CTCV",
+    "pid": 141017,
+    "title": "Eval Terminal TYCN"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 263.6,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal TYCN"
+     ],
+     "rc": 0,
+     "ms": 182.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 81.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 6,
+   "vars": {
+    "token": "MWPVDP64",
+    "pid": 141139,
+    "title": "Eval Terminal 942N"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 287.4,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 942N"
+     ],
+     "rc": 0,
+     "ms": 206.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 80.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 7,
+   "vars": {
+    "token": "2D7T2A3J",
+    "pid": 141249,
+    "title": "Eval Terminal P8D3"
+   },
+   "ok": false,
+   "detail": "snapshot:eksik: ['2D7T2A3J']; ui:eksik: ['2D7T2A3J']",
+   "ms": 275.2,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal P8D3"
+     ],
+     "rc": 0,
+     "ms": 192.8,
+     "ok": false,
+     "note": "eksik: ['2D7T2A3J']",
+     "stdout": "{\n  \"daemon_running\": true,\n  \"hint\": \"Click with click_ui mark/name (offscreen ones are scrolled into view). Long pages: ui with query finds content outside this list. Repeated snapshots return only changes. Background state: processes/logs/xray.\",\n  \"monitors\": [\n    {\n      \"focused\": true,\n      \"name\": \"eDP-1\",\n      \"size\": [\n        2560,\n        1600\n      ],\n      \"workspace\": 2\n    },\n    {\n      \"focused\": false,\n      \"name\": \"PCEYE-EVAL\",\n      \"size\": [\n        1600,\n        900\n      ],\n      \"workspace\": -214569610\n    }\n  ],\n  \"seq\": 1772,\n  \"snap\": 38,\n  \"target\": {\n    \"address\": \"0x55f5905b40e0\",\n    \"class\": \"kitty\",\n    \"elements\": [],\n    \"perception\": \"terminal-pty\",\n    \"terminal\": {\n      \"cwd\": \"/home/chaple/Belgeler/Pc-Eye\",\n      \"foreground_cmd\": \"/usr/bin/kitten __watch_conf__ 141249 100 /etc/xdg/kitty/kitty.conf /home/chaple/.config/kitty/kitty.conf\",\n      \"visible_lines\": [\n        \"Dağıtım anahtarı: 207T2A3J\",\n        \"a\"\n      ]\n    },\n    \"title\": \"Eval Terminal P8D3\"\n  },\n  \"windows\": [\n    {\n      \"address\": \"0x55f5916814a0\",\n      \"class\": \"com.anthropic.Claude\",\n      \"focused\": true,\n      \"geometry\": [\n        12,\n        52,\n        2536,\n        1536\n      ],\n      \"title\": \"<kullanıcı penceresi>\",\n      \"workspace\": 2\n    },\n    {\n      \"address\": \"0x55f5905b40e0\",\n      \"class\": \"kitty\",\n      \"focused\": false,\n      \"geometry\": [\n        3560,\n        0,\n        1600,\n        900\n      ],\n      \"title\": \"Eval Terminal P8D3\",\n      \"workspace\": -214569610\n    },\n    {\n      \"address\": \"0x55f5917718c0\",\n      \"class\": \"firefox\",\n      \"focused\": false,\n      \"geometry\": [\n        12,\n        52,\n        2536,\n        1536\n      ],\n      \"title\": \"<kullanıcı penceresi>\",\n      \"workspace\": 1\n    },\n    {\n      \"address\": \"0x55f590591af0\",\n      \"class\": \"Spotify\",\n      \"focused\": false,\n      \"geometry\": [\n        12,\n        52,\n        2536,\n        1536\n      ],\n      \"title\": \"<kullanıcı penceresi>\",\n      \"workspace\": 3\n    }\n  ]\n}\n"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 82.4,
+     "ok": false,
+     "note": "eksik: ['2D7T2A3J']",
+     "stdout": "{\n  \"a11y_bus_enabled\": true,\n  \"element_count\": 0,\n  \"elements\": [],\n  \"hint\": \"Bu pencere bir terminal emülatörüdür. Ön plandaki kabuk/süreç durumu ve ekrandaki görünür metin satırları (`visible_lines`) `terminal_context` altında verilmiştir.\",\n  \"perception_mode\": \"terminal-pty\",\n  \"terminal_context\": {\n    \"cwd\": \"/home/chaple/Belgeler/Pc-Eye\",\n    \"foreground_cmd\": \"/usr/bin/kitten __watch_conf__ 141249 100 /etc/xdg/kitty/kitty.conf /home/chaple/.config/kitty/kitty.conf\",\n    \"foreground_pid\": 141278,\n    \"pty_path\": null,\n    \"recent_child_processes\": [\n      \"PID 141278 (S): /usr/bin/kitten __watch_conf__ 141249 100 /etc/xdg/kitty/kitty.conf /home/chaple/.config/kitty/kitty.conf\",\n      \"PID 141265 (S): /usr/bin/kitten __atexit__\",\n      \"PID 141269 (S): sleep 3600\"\n    ],\n    \"terminal_pid\": 141249,\n    \"visible_lines\": [\n      \"Dağıtım anahtarı: 207T2A3J\",\n      \"a\"\n    ]\n  },\n  \"timestamp_ms\": 1794746282149,\n  \"window_address\": \"0x55f5905b40e0\",\n  \"window_class\": \"kitty\",\n  \"window_geometry\": [\n    3560,\n    0,\n    1600,\n    900\n  ],\n  \"window_pid\": 141249,\n  \"window_title\": \"Eval Terminal P8D3\"\n}\n"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 8,
+   "vars": {
+    "token": "3FMPW9TY",
+    "pid": 141356,
+    "title": "Eval Terminal LFEN"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 261.3,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal LFEN"
+     ],
+     "rc": 0,
+     "ms": 182.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 79.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 9,
+   "vars": {
+    "token": "X27JT6CE",
+    "pid": 141478,
+    "title": "Eval Terminal AKX7"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 263.8,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal AKX7"
+     ],
+     "rc": 0,
+     "ms": 182.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 80.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 10,
+   "vars": {
+    "token": "NP77DKJ3",
+    "pid": 141586,
+    "title": "Eval Terminal 7GCV"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 291.4,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 7GCV"
+     ],
+     "rc": 0,
+     "ms": 188.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 103.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 11,
+   "vars": {
+    "token": "3PLKGP3H",
+    "pid": 141667,
+    "title": "Eval Terminal 2XLH"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 282.0,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 2XLH"
+     ],
+     "rc": 0,
+     "ms": 186.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 95.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 12,
+   "vars": {
+    "token": "CYMYHXDW",
+    "pid": 141777,
+    "title": "Eval Terminal N2GD"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 270.4,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal N2GD"
+     ],
+     "rc": 0,
+     "ms": 185.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 85.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 13,
+   "vars": {
+    "token": "K8A7NNYC",
+    "pid": 141933,
+    "title": "Eval Terminal 8LCL"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 271.2,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 8LCL"
+     ],
+     "rc": 0,
+     "ms": 188.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 82.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 14,
+   "vars": {
+    "token": "94U49WGV",
+    "pid": 142069,
+    "title": "Eval Terminal TLP3"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 263.0,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal TLP3"
+     ],
+     "rc": 0,
+     "ms": 182.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 80.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 15,
+   "vars": {
+    "token": "LDTNA4J9",
+    "pid": 142181,
+    "title": "Eval Terminal KGGY"
+   },
+   "ok": false,
+   "detail": "snapshot:eksik: ['LDTNA4J9']; ui:eksik: ['LDTNA4J9']",
+   "ms": 269.0,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal KGGY"
+     ],
+     "rc": 0,
+     "ms": 184.2,
+     "ok": false,
+     "note": "eksik: ['LDTNA4J9']",
+     "stdout": "{\n  \"daemon_running\": true,\n  \"hint\": \"Click with click_ui mark/name (offscreen ones are scrolled into view). Long pages: ui with query finds content outside this list. Repeated snapshots return only changes. Background state: processes/logs/xray.\",\n  \"monitors\": [\n    {\n      \"focused\": true,\n      \"name\": \"eDP-1\",\n      \"size\": [\n        2560,\n        1600\n      ],\n      \"workspace\": 2\n    },\n    {\n      \"focused\": false,\n      \"name\": \"PCEYE-EVAL\",\n      \"size\": [\n        1600,\n        900\n      ],\n      \"workspace\": -214569610\n    }\n  ],\n  \"seq\": 2154,\n  \"snap\": 46,\n  \"target\": {\n    \"address\": \"0x55f5905b40e0\",\n    \"class\": \"kitty\",\n    \"elements\": [],\n    \"perception\": \"terminal-pty\",\n    \"terminal\": {\n      \"cwd\": \"/home/chaple/Belgeler/Pc-Eye\",\n      \"foreground_cmd\": \"/usr/bin/kitten __watch_conf__ 142181 100 /etc/xdg/kitty/kitty.conf /home/chaple/.config/kitty/kitty.conf\",\n      \"visible_lines\": [\n        \"Dağıtım anahtarı: LDTNAGJ9\",\n        \"a\"\n      ]\n    },\n    \"title\": \"Eval Terminal KGGY\"\n  },\n  \"windows\": [\n    {\n      \"address\": \"0x55f5916814a0\",\n      \"class\": \"com.anthropic.Claude\",\n      \"focused\": true,\n      \"geometry\": [\n        12,\n        52,\n        2536,\n        1536\n      ],\n      \"title\": \"<kullanıcı penceresi>\",\n      \"workspace\": 2\n    },\n    {\n      \"address\": \"0x55f5905b40e0\",\n      \"class\": \"kitty\",\n      \"focused\": false,\n      \"geometry\": [\n        3560,\n        0,\n        1600,\n        900\n      ],\n      \"title\": \"Eval Terminal KGGY\",\n      \"workspace\": -214569610\n    },\n    {\n      \"address\": \"0x55f5917718c0\",\n      \"class\": \"firefox\",\n      \"focused\": false,\n      \"geometry\": [\n        12,\n        52,\n        2536,\n        1536\n      ],\n      \"title\": \"<kullanıcı penceresi>\",\n      \"workspace\": 1\n    },\n    {\n      \"address\": \"0x55f590591af0\",\n      \"class\": \"Spotify\",\n      \"focused\": false,\n      \"geometry\": [\n        12,\n        52,\n        2536,\n        1536\n      ],\n      \"title\": \"<kullanıcı penceresi>\",\n      \"workspace\": 3\n    }\n  ]\n}\n"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 84.8,
+     "ok": false,
+     "note": "eksik: ['LDTNA4J9']",
+     "stdout": "{\n  \"a11y_bus_enabled\": true,\n  \"element_count\": 0,\n  \"elements\": [],\n  \"hint\": \"Bu pencere bir terminal emülatörüdür. Ön plandaki kabuk/süreç durumu ve ekrandaki görünür metin satırları (`visible_lines`) `terminal_context` altında verilmiştir.\",\n  \"perception_mode\": \"terminal-pty\",\n  \"terminal_context\": {\n    \"cwd\": \"/home/chaple/Belgeler/Pc-Eye\",\n    \"foreground_cmd\": \"/usr/bin/kitten __watch_conf__ 142181 100 /etc/xdg/kitty/kitty.conf /home/chaple/.config/kitty/kitty.conf\",\n    \"foreground_pid\": 142215,\n    \"pty_path\": null,\n    \"recent_child_processes\": [\n      \"PID 142215 (S): /usr/bin/kitten __watch_conf__ 142181 100 /etc/xdg/kitty/kitty.conf /home/chaple/.config/kitty/kitty.conf\",\n      \"PID 142203 (S): /usr/bin/kitten __atexit__\",\n      \"PID 142207 (S): sleep 3600\"\n    ],\n    \"terminal_pid\": 142181,\n    \"visible_lines\": [\n      \"Dağıtım anahtarı: LDTNAGJ9\",\n      \"a\"\n    ]\n  },\n  \"timestamp_ms\": 1794746293700,\n  \"window_address\": \"0x55f5905b40e0\",\n  \"window_class\": \"kitty\",\n  \"window_geometry\": [\n    3560,\n    0,\n    1600,\n    900\n  ],\n  \"window_pid\": 142181,\n  \"window_title\": \"Eval Terminal KGGY\"\n}\n"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 16,
+   "vars": {
+    "token": "KRM3W7WE",
+    "pid": 142291,
+    "title": "Eval Terminal 4K64"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 263.7,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 4K64"
+     ],
+     "rc": 0,
+     "ms": 180.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 83.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 17,
+   "vars": {
+    "token": "ADUMRPAH",
+    "pid": 142403,
+    "title": "Eval Terminal THA4"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 291.3,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal THA4"
+     ],
+     "rc": 0,
+     "ms": 188.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 102.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 18,
+   "vars": {
+    "token": "4TVLE2P7",
+    "pid": 142481,
+    "title": "Eval Terminal FKND"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 277.8,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal FKND"
+     ],
+     "rc": 0,
+     "ms": 189.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 88.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 19,
+   "vars": {
+    "token": "KJET73HV",
+    "pid": 142602,
+    "title": "Eval Terminal 74TY"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 267.1,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 74TY"
+     ],
+     "rc": 0,
+     "ms": 184.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 83.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 20,
+   "vars": {
+    "token": "DW734MRF",
+    "pid": 142715,
+    "title": "Eval Terminal TEEJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 259.0,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal TEEJ"
+     ],
+     "rc": 0,
+     "ms": 175.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 83.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 21,
+   "vars": {
+    "token": "D7TG7XH8",
+    "pid": 142823,
+    "title": "Eval Terminal X3YM"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 267.8,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal X3YM"
+     ],
+     "rc": 0,
+     "ms": 183.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 83.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 22,
+   "vars": {
+    "token": "JUMKJNYV",
+    "pid": 142935,
+    "title": "Eval Terminal 82LF"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 262.0,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 82LF"
+     ],
+     "rc": 0,
+     "ms": 179.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 82.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 23,
+   "vars": {
+    "token": "2HEA4V4F",
+    "pid": 143049,
+    "title": "Eval Terminal 62P9"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 277.5,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 62P9"
+     ],
+     "rc": 0,
+     "ms": 197.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 80.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 24,
+   "vars": {
+    "token": "3V3D2PU2",
+    "pid": 143158,
+    "title": "Eval Terminal WKMP"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 265.8,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal WKMP"
+     ],
+     "rc": 0,
+     "ms": 180.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 85.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 25,
+   "vars": {
+    "token": "69NDNLVP",
+    "pid": 143282,
+    "title": "Eval Terminal ALD2"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 257.7,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal ALD2"
+     ],
+     "rc": 0,
+     "ms": 177.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 80.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 26,
+   "vars": {
+    "token": "VVTG6JWE",
+    "pid": 143391,
+    "title": "Eval Terminal 9JNU"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 291.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 9JNU"
+     ],
+     "rc": 0,
+     "ms": 188.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 103.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 27,
+   "vars": {
+    "token": "JKF7FCGU",
+    "pid": 143465,
+    "title": "Eval Terminal X4YR"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 250.5,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal X4YR"
+     ],
+     "rc": 0,
+     "ms": 168.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 82.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 28,
+   "vars": {
+    "token": "MGW8HVDG",
+    "pid": 143581,
+    "title": "Eval Terminal 6HCL"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 267.9,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal 6HCL"
+     ],
+     "rc": 0,
+     "ms": 186.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 81.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  },
+  {
+   "task": "terminal-read",
+   "attempt": 29,
+   "vars": {
+    "token": "Y8J7F8PK",
+    "pid": 143691,
+    "title": "Eval Terminal EAE2"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 270.6,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Terminal EAE2"
+     ],
+     "rc": 0,
+     "ms": 188.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "ui",
+      "--window",
+      "0x55f5905b40e0"
+     ],
+     "rc": 0,
+     "ms": 82.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ]
+  }
+ ]
+}

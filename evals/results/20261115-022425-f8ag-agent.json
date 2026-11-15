@@ -1,0 +1,98 @@
+{
+ "tier": "agent",
+ "started": "20261115-022425-f8ag",
+ "seed": 824922476,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "0a12da7",
+ "summary": {
+  "tasks": [
+   {
+    "task": "download-wait",
+    "runs": 3,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 300045.2,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 0,
+    "median_output_tokens": 0,
+    "cost_usd": 0.0015
+   }
+  ],
+  "pass_rate": 0.333,
+  "total_cost_usd": 0.0015
+ },
+ "session": "f8ag",
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "download-wait",
+   "attempt": 0,
+   "vars": {
+    "file": "fatura-9w72d.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": false,
+   "detail": "zaman aşımı (300 sn)",
+   "ms": 300046.0,
+   "is_error": true,
+   "turns": null,
+   "cost_usd": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 1,
+   "vars": {
+    "file": "fatura-2j99f.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": false,
+   "detail": "zaman aşımı (300 sn)",
+   "ms": 300045.2,
+   "is_error": true,
+   "turns": null,
+   "cost_usd": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_events": 1,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 2,
+   "vars": {
+    "file": "fatura-8ay8y.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "cevap='fatura-8ay8y.pdf'",
+   "ms": 188278.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00146019,
+   "input_tokens": 17837,
+   "output_tokens": 859,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_wait": 1,
+    "pc_eye_events": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

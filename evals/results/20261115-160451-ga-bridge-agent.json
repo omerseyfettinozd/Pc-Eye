@@ -1,0 +1,351 @@
+{
+ "tier": "agent",
+ "started": "20261115-160451-ga-bridge",
+ "seed": 1006171788,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "911dae4",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-web-long",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 9070.0,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 34174,
+    "median_output_tokens": 373,
+    "cost_usd": 0.0063
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 13387.0,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 42295,
+    "median_output_tokens": 888,
+    "cost_usd": 0.0059
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 12595.7,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 53169,
+    "median_output_tokens": 692,
+    "cost_usd": 0.0058
+   },
+   {
+    "task": "web-table-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 6827.7,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 19617,
+    "median_output_tokens": 175,
+    "cost_usd": 0.0034
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0215
+ },
+ "session": "ga",
+ "toolset": "full",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok TX22",
+    "pid": 229482,
+    "code": "8P-6431",
+    "stock": "547"
+   },
+   "ok": true,
+   "detail": "cevap='547'",
+   "ms": 8041.4,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0028938999999999996,
+   "input_tokens": 34174,
+   "output_tokens": 373,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_browser": 3
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Stok L7YG",
+    "pid": 230584,
+    "code": "NH-5889",
+    "stock": "269"
+   },
+   "ok": true,
+   "detail": "cevap='269'",
+   "ms": 9425.1,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0018170600000000001,
+   "input_tokens": 34205,
+   "output_tokens": 417,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_browser": 3
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Stok RFFC",
+    "pid": 231688,
+    "code": "7M-7920",
+    "stock": "49"
+   },
+   "ok": true,
+   "detail": "cevap='49'",
+   "ms": 9070.0,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00163075,
+   "input_tokens": 31264,
+   "output_tokens": 297,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_browser": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim KNMV",
+    "pid": 232790,
+    "phone_pretty": "0528 264 86 02",
+    "phone": "5282648602",
+    "email": "can21@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 16496.7,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0019748,
+   "input_tokens": 42295,
+   "output_tokens": 888,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 4
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval İletişim WGGR",
+    "pid": 234069,
+    "phone_pretty": "0551 506 85 69",
+    "phone": "5515068569",
+    "email": "naz89@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13387.0,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0020781600000000003,
+   "input_tokens": 52681,
+   "output_tokens": 895,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 5
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval İletişim A34U",
+    "pid": 235260,
+    "phone_pretty": "0534 972 40 83",
+    "phone": "5349724083",
+    "email": "ece17@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10877.9,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00189408,
+   "input_tokens": 41995,
+   "output_tokens": 823,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 4
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Doğru",
+    "city": "İzmir",
+    "default_city": "Muğla",
+    "title": "Eval Web Form 63WT",
+    "pid": 236399
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 11308.2,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0019554900000000003,
+   "input_tokens": 53281,
+   "output_tokens": 692,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 5
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "İlkay Ağaoğlu",
+    "city": "Muğla",
+    "default_city": "Şanlıurfa",
+    "title": "Eval Web Form YU66",
+    "pid": 237596
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 12595.7,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0019273,
+   "input_tokens": 53115,
+   "output_tokens": 710,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 5
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "Gülşen Doğru",
+    "city": "Muğla",
+    "default_city": "Ankara",
+    "title": "Eval Web Form C8GP",
+    "pid": 238774
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13553.5,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0019108700000000003,
+   "input_tokens": 53169,
+   "output_tokens": 624,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 5
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Boya",
+    "price": "379,99 TL",
+    "title": "Eval Fiyatlar V24E",
+    "pid": 239964
+   },
+   "ok": true,
+   "detail": "cevap='379,99 TL'",
+   "ms": 10023.7,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00122252,
+   "input_tokens": 29353,
+   "output_tokens": 259,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_browser": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 1,
+   "vars": {
+    "item": "Makas",
+    "price": "251,31 TL",
+    "title": "Eval Fiyatlar AK7E",
+    "pid": 241094
+   },
+   "ok": true,
+   "detail": "cevap='251,31 TL'",
+   "ms": 6298.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00108455,
+   "input_tokens": 19615,
+   "output_tokens": 174,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_browser": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 2,
+   "vars": {
+    "item": "Kalem",
+    "price": "275,32 TL",
+    "title": "Eval Fiyatlar 2C3C",
+    "pid": 242134
+   },
+   "ok": true,
+   "detail": "cevap='275,32 TL'",
+   "ms": 6827.7,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.00108545,
+   "input_tokens": 19617,
+   "output_tokens": 175,
+   "tool_calls": 2,
+   "tools": {
+    "pc_eye_browser": 2
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

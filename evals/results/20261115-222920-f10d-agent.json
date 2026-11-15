@@ -1,0 +1,122 @@
+{
+ "tier": "agent",
+ "started": "20261115-222920-f10d",
+ "seed": 790681360,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "6abd115",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-dolphin-move",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 126429.5,
+    "median_turns": 67,
+    "median_tool_calls": 66,
+    "median_input_tokens": 1681112,
+    "median_output_tokens": 14497,
+    "cost_usd": 0.1176
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.1176
+ },
+ "session": "f10d",
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Dosyalar DEKX",
+    "pid": 1087651,
+    "file": "rapor-284P.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261115-222920-f10d/hard-dolphin-move-0/Eval Dosyalar DEKX/Belgeler/2025/Ekim/rapor-284P.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261115-222920-f10d/hard-dolphin-move-0/Eval Dosyalar DEKX/Arşiv/rapor-284P.txt",
+    "content": "rapor içeriği KNYKTM9Y"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 126429.5,
+   "is_error": false,
+   "turns": 65,
+   "cost_usd": 0.039387069999999996,
+   "input_tokens": 1907977,
+   "output_tokens": 14497,
+   "tool_calls": 64,
+   "tools": {
+    "pc_eye_snapshot": 5,
+    "pc_eye_click_ui": 10,
+    "pc_eye_input": 32,
+    "pc_eye_vision": 14,
+    "pc_eye_wait": 2,
+    "pc_eye_ui": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Dosyalar VVW9",
+    "pid": 1091567,
+    "file": "rapor-FR9A.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261115-222920-f10d/hard-dolphin-move-1/Eval Dosyalar VVW9/Belgeler/2025/Mart/rapor-FR9A.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261115-222920-f10d/hard-dolphin-move-1/Eval Dosyalar VVW9/Arşiv/rapor-FR9A.txt",
+    "content": "rapor içeriği DHCVUVTC"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 113047.9,
+   "is_error": false,
+   "turns": 85,
+   "cost_usd": 0.040343290000000004,
+   "input_tokens": 1677888,
+   "output_tokens": 15430,
+   "tool_calls": 84,
+   "tools": {
+    "pc_eye_snapshot": 6,
+    "pc_eye_click_ui": 9,
+    "pc_eye_input": 40,
+    "pc_eye_wait": 14,
+    "pc_eye_vision": 14,
+    "pc_eye_events": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-dolphin-move",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Dosyalar C4F4",
+    "pid": 1094907,
+    "file": "rapor-TNAE.txt",
+    "src": "/run/user/1000/pc-eye-eval/20261115-222920-f10d/hard-dolphin-move-2/Eval Dosyalar C4F4/Belgeler/2026/Ekim/rapor-TNAE.txt",
+    "dest": "/run/user/1000/pc-eye-eval/20261115-222920-f10d/hard-dolphin-move-2/Eval Dosyalar C4F4/Arşiv/rapor-TNAE.txt",
+    "content": "rapor içeriği 3UTFHHEC"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 194355.3,
+   "is_error": false,
+   "turns": 67,
+   "cost_usd": 0.0378419,
+   "input_tokens": 1681112,
+   "output_tokens": 12805,
+   "tool_calls": 66,
+   "tools": {
+    "pc_eye_snapshot": 4,
+    "pc_eye_click_ui": 10,
+    "pc_eye_input": 34,
+    "pc_eye_vision": 11,
+    "pc_eye_wait": 7
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

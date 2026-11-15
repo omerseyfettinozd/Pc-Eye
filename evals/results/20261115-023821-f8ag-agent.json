@@ -1,0 +1,99 @@
+{
+ "tier": "agent",
+ "started": "20261115-023821-f8ag",
+ "seed": 855245423,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "b7fe72e",
+ "summary": {
+  "tasks": [
+   {
+    "task": "download-wait",
+    "runs": 3,
+    "passed": 2,
+    "setup_errors": 0,
+    "median_ms": 13447.4,
+    "median_turns": 4.0,
+    "median_tool_calls": 3,
+    "median_input_tokens": 36717,
+    "median_output_tokens": 883,
+    "cost_usd": 0.0035
+   }
+  ],
+  "pass_rate": 0.667,
+  "total_cost_usd": 0.0035
+ },
+ "session": "f8ag",
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "download-wait",
+   "attempt": 0,
+   "vars": {
+    "file": "fatura-2t4cj.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": false,
+   "detail": "zaman aşımı (120 sn)",
+   "ms": 120025.9,
+   "is_error": true,
+   "turns": null,
+   "cost_usd": null,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 1,
+   "vars": {
+    "file": "fatura-lnuve.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "cevap='fatura-lnuve.pdf'",
+   "ms": 11707.0,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00179276,
+   "input_tokens": 36717,
+   "output_tokens": 998,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 2,
+   "vars": {
+    "file": "fatura-ypeye.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "cevap='fatura-ypeye.pdf'",
+   "ms": 13447.4,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00173964,
+   "input_tokens": 36889,
+   "output_tokens": 883,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_events": 2,
+    "pc_eye_wait": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

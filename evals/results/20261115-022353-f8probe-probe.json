@@ -1,0 +1,218 @@
+{
+ "tier": "probe",
+ "started": "20261115-022353-f8probe",
+ "seed": 497404571,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "0a12da7",
+ "summary": {
+  "tasks": [
+   {
+    "task": "download-wait",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 6234.8
+   },
+   {
+    "task": "events-no-loss",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 7.9
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "f8probe",
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "download-wait",
+   "attempt": 0,
+   "vars": {
+    "file": "fatura-4xkf9.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6636.9,
+   "steps": [
+    {
+     "args": [
+      "wait",
+      "event",
+      "--match",
+      "file:fatura-",
+      "--timeout-ms",
+      "15000"
+     ],
+     "rc": 0,
+     "ms": 6636.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 1,
+   "vars": {
+    "file": "fatura-mpndu.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6134.2,
+   "steps": [
+    {
+     "args": [
+      "wait",
+      "event",
+      "--match",
+      "file:fatura-",
+      "--timeout-ms",
+      "15000"
+     ],
+     "rc": 0,
+     "ms": 6134.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "download-wait",
+   "attempt": 2,
+   "vars": {
+    "file": "fatura-d4hl9.pdf",
+    "dir": "/run/user/1000/pc-eye-eval/watch"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 6234.8,
+   "steps": [
+    {
+     "args": [
+      "wait",
+      "event",
+      "--match",
+      "file:fatura-",
+      "--timeout-ms",
+      "15000"
+     ],
+     "rc": 0,
+     "ms": 6234.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "events-no-loss",
+   "attempt": 0,
+   "vars": {
+    "since": 6,
+    "tag": "XR3GJ4",
+    "first": "ev-XR3GJ4-00.txt",
+    "mid": "ev-XR3GJ4-15.txt",
+    "last": "ev-XR3GJ4-29.txt",
+    "log_last": "pceye-ev-XR3GJ4-9"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 8.3,
+   "steps": [
+    {
+     "args": [
+      "events",
+      "--since",
+      "6",
+      "--kind",
+      "file,journal",
+      "--limit",
+      "500"
+     ],
+     "rc": 0,
+     "ms": 8.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "events-no-loss",
+   "attempt": 1,
+   "vars": {
+    "since": 76,
+    "tag": "KDNEYG",
+    "first": "ev-KDNEYG-00.txt",
+    "mid": "ev-KDNEYG-15.txt",
+    "last": "ev-KDNEYG-29.txt",
+    "log_last": "pceye-ev-KDNEYG-9"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 7.6,
+   "steps": [
+    {
+     "args": [
+      "events",
+      "--since",
+      "76",
+      "--kind",
+      "file,journal",
+      "--limit",
+      "500"
+     ],
+     "rc": 0,
+     "ms": 7.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "events-no-loss",
+   "attempt": 2,
+   "vars": {
+    "since": 136,
+    "tag": "V4K4RW",
+    "first": "ev-V4K4RW-00.txt",
+    "mid": "ev-V4K4RW-15.txt",
+    "last": "ev-V4K4RW-29.txt",
+    "log_last": "pceye-ev-V4K4RW-9"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 7.9,
+   "steps": [
+    {
+     "args": [
+      "events",
+      "--since",
+      "136",
+      "--kind",
+      "file,journal",
+      "--limit",
+      "500"
+     ],
+     "rc": 0,
+     "ms": 7.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

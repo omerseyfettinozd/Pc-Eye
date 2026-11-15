@@ -1,0 +1,100 @@
+{
+ "tier": "probe",
+ "started": "20261115-160427-gp",
+ "seed": 464216049,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "911dae4",
+ "summary": {
+  "tasks": [
+   {
+    "task": "recipe-web-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 3166.4
+   },
+   {
+    "task": "run-web-form",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 3486.7
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "gp",
+ "toolset": "full",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "recipe-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Güneş",
+    "city": "Şanlıurfa",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form PF7N",
+    "pid": 227402
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 3166.4,
+   "steps": [
+    {
+     "args": [
+      "snapshot",
+      "--window",
+      "Eval Web Form PF7N"
+     ],
+     "rc": 0,
+     "ms": 68.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form PF7N\", \"recipe\": \"Ad Soyad\", \"args\": {\"Ad Soyad\": \"Ümit Güneş\", \"Şehir\": \"Şanlıurfa\"}}"
+     ],
+     "rc": 0,
+     "ms": 3098.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "run-web-form",
+   "attempt": 0,
+   "vars": {
+    "name": "Şükrü Öztürk",
+    "city": "Muğla",
+    "default_city": "İstanbul",
+    "title": "Eval Web Form 2AUY",
+    "pid": 228338
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 3486.7,
+   "steps": [
+    {
+     "args": [
+      "run",
+      "{\"window\": \"Eval Web Form 2AUY\", \"steps\": [{\"set\": \"Ad Soyad\", \"text\": \"Şükrü Öztürk\"}, {\"click\": \"Bültene abone ol\"}, {\"select\": \"Şehir\", \"option\": \"Muğla\"}, {\"click\": \"Gönder\", \"expect\": \"Kaydedildi\"}]}"
+     ],
+     "rc": 0,
+     "ms": 3486.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

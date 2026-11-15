@@ -1,0 +1,311 @@
+{
+ "tier": "probe",
+ "started": "20261115-160409-gp-bridge",
+ "seed": 78281990,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "911dae4",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-web-long",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 32.3
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 871.2
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 866.3
+   },
+   {
+    "task": "web-table-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 13.3
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "gp",
+ "toolset": "full",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok NEYD",
+    "pid": 222904,
+    "code": "VU-9787",
+    "stock": "442"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 32.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "VU-9787"
+     ],
+     "rc": 0,
+     "ms": 32.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim NKHX",
+    "pid": 223752,
+    "phone_pretty": "0534 601 29 65",
+    "phone": "5346012965",
+    "email": "ali35@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 871.2,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "0534 601 29 65"
+     ],
+     "rc": 0,
+     "ms": 199.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "E-posta",
+      "--text",
+      "ali35@ornek.com"
+     ],
+     "rc": 0,
+     "ms": 163.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 165.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hata:",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 8.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "5346012965"
+     ],
+     "rc": 0,
+     "ms": 162.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 166.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Şükrü Çelik",
+    "city": "İzmir",
+    "default_city": "İstanbul",
+    "title": "Eval Web Form P67P",
+    "pid": 224631
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 866.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 11.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Ad Soyad",
+      "--text",
+      "Şükrü Çelik"
+     ],
+     "rc": 0,
+     "ms": 213.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "check",
+      "--name",
+      "Bültene abone ol",
+      "--args",
+      "{\"on\": true}"
+     ],
+     "rc": 0,
+     "ms": 163.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Şehir",
+      "--option",
+      "İzmir"
+     ],
+     "rc": 0,
+     "ms": 185.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 265.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 26.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Cetvel",
+    "price": "393,91 TL",
+    "title": "Eval Fiyatlar UPKK",
+    "pid": 225497
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Cetvel"
+     ],
+     "rc": 0,
+     "ms": 13.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

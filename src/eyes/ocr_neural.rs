@@ -197,6 +197,15 @@ static LONG_LIVED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool
 /// süreçler tesseract'ta kalır. `PCEYE_OCR=neural` her süreçte açar, `PCEYE_OCR=tesseract` her yerde kapatır.
 pub fn set_long_lived() {
     LONG_LIVED.store(true, std::sync::atomic::Ordering::Relaxed);
+    // Motor (GPU'da CUDA bağlamı + cuDNN çekirdekleri ~4 sn, CPU'da ~1 sn) arka planda ısınır:
+    // ilk OCR çağrısı açılışı beklemesin. Isınma bitmeden gelen çağrı aynı ilklendirmeyi bekler.
+    if std::env::var("PCEYE_OCR").map_or(true, |v| v != "tesseract") && installed().is_some() {
+        std::thread::spawn(|| {
+            let _ = engine_cell();
+            // Algılama ağının ilk çalıştırması da çekirdek seçimi yapar: boş bir kareyle tetiklenir.
+            let _ = recognize(&image::RgbImage::from_pixel(640, 360, image::Rgb([255, 255, 255])));
+        });
+    }
 }
 
 fn engine_cell() -> Option<&'static Mutex<Engine>> {

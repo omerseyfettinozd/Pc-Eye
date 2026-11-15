@@ -425,10 +425,22 @@ enum RecipeOp {
     Rm { id: String },
 }
 
-fn main() -> Result<()> {
+fn main() {
     let res = run();
     eyes::tess_ffi::shutdown();
-    res
+    let code = match res {
+        Ok(()) => 0,
+        Err(e) => {
+            eprintln!("Error: {:?}", e);
+            1
+        }
+    };
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+    let _ = std::io::stderr().flush();
+    // C++ atexit yıkıcıları (ONNX Runtime, CUDA) atlanır: OCR motoru arka planda ısınırken süreç
+    // kapanırsa yıkıcılar ilklendirmeyle çakışıp segfault veriyordu (MCP kısa oturumları rc=139).
+    unsafe { libc::_exit(code) }
 }
 
 fn run() -> Result<()> {

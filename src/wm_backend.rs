@@ -333,11 +333,24 @@ pub fn pointer_axis(axis: u32, steps: i32) -> Result<()> {
     Ok(())
 }
 
+/// Karakterler tek tek, aralarında 3 ms ile gönderilir: tüm metin tek seferde gelince Qt'nin otomatik
+/// tamamlayıcısı (Dolphin konum çubuğu) araya girip parçalar yutuyordu (aralıksız 3'te 1 bozuk, aralıklı
+/// 5/5 doğru). Aralık wm'in içinde değil burada: wm beklerken istemci isteklerini işleyemiyordu (6/10).
 pub fn type_text(text: &str) -> Result<()> {
-    let r = request(json!({ "op": "type", "text": text }))?;
-    match r["skipped"].as_array().filter(|s| !s.is_empty()) {
-        Some(s) => Err(anyhow!("pc-eye-wm şu karakterleri yazamadı: {:?}", s)),
-        None => Ok(()),
+    let mut skipped = Vec::new();
+    for (i, ch) in text.chars().enumerate() {
+        if i > 0 {
+            std::thread::sleep(Duration::from_millis(3));
+        }
+        let r = request(json!({ "op": "type", "text": ch.to_string() }))?;
+        if let Some(s) = r["skipped"].as_array() {
+            skipped.extend(s.iter().filter_map(|v| v.as_str().map(String::from)));
+        }
+    }
+    if skipped.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow!("pc-eye-wm şu karakterleri yazamadı: {:?}", skipped))
     }
 }
 

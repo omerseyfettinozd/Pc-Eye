@@ -317,12 +317,20 @@ pub fn is_auth_surface(text: &str) -> bool {
 
 pub fn is_protected_window(class: &str, title: &str) -> bool {
     let c = class.to_ascii_lowercase();
-    let t = title.to_ascii_lowercase();
+    // Başlıktaki dosya yolu parçaları (`/…/pc-eye-eval/…`) eşleşmeye katılmaz: dosya yöneticisi ya da
+    // düzenleyici bir klasörü gösterdi diye pencere korumalı sayılıp ajanın girdisi reddediliyordu
+    // (Dolphin araması: başlık tam yolu içeriyor). Uygulama adı ve başlığın geri kalanı yine denetlenir.
+    let t: String = title
+        .split_whitespace()
+        .filter(|w| !w.contains('/'))
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_ascii_lowercase();
     PROTECTED_WINDOW_KEYWORDS
         .iter()
         .any(|k| c.contains(k) || t.contains(k))
         || is_auth_surface(class)
-        || is_auth_surface(title)
+        || is_auth_surface(&t)
 }
 
 /// `0x…` ya da en az 8 haneli onaltılık dizgi adres sayılır; "cafe" gibi kısa başlıklar sayılmaz.
@@ -870,5 +878,14 @@ mod window_ref_tests {
         let err = resolve_window_ref("yok böyle", &w).unwrap_err().to_string();
         assert!(err.contains("Eval Düğmeler"), "{}", err);
         assert!(resolve_window_ref("0xdeadbeef", &w).is_err());
+    }
+
+    #[test]
+    fn protected_window_ignores_paths_in_title() {
+        assert!(!is_protected_window("org.kde.dolphin", "/run/user/1000/pc-eye-eval/x İçinde “rapor” Araması — Dolphin"));
+        assert!(!is_protected_window("org.kde.kate", "notlar.md — ~/Belgeler/Pc-Eye/docs — Kate"));
+        assert!(is_protected_window("firefox", "PC-Eye Gözlem Paneli — Mozilla Firefox"));
+        assert!(is_protected_window("org.keepassxc.KeePassXC", "Veritabanı"));
+        assert!(is_protected_window("polkit-gnome-authentication-agent-1", "Kimlik doğrulama"));
     }
 }

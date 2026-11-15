@@ -86,6 +86,11 @@ fn with_verification<F>(region: [i64; 4], act: F) -> Result<(ActionReceipt, Opti
 where
     F: FnOnce() -> Result<ActionReceipt>,
 {
+    if crate::wm_backend::active() {
+        // "Önce" görüntüsü wm belleğinde; yerine geçen boş görüntü yalnız "önce var" işaretidir.
+        let ok = crate::wm_backend::snapshot_region(region, &crate::wm_backend::verify_slot()).is_ok();
+        return with_verification_from(region, ok.then(|| image::RgbImage::new(1, 1)), act);
+    }
     let before = crate::eyes::vision::grab_region_ppm(region).ok();
     with_verification_from(region, before, act)
 }
@@ -105,10 +110,11 @@ where
     // pc-eye-wm: piksel yoklaması yerine kompozitörün kare bilgisi. Eylemin ardından gelen kareler
     // oturunca (ya da hiç kare gelmezse tolerans dolunca) tek bir "sonra" karesi alınır.
     if crate::wm_backend::active() {
-        // Her yeni karede bölgeye bakılır (kompozitörün kare haberiyle; piksel yoklaması yok):
+        // Her yeni karede bölge wm içinde "önce" yuvasıyla karşılaştırılır (görüntü aktarılmaz):
         // eylemden sonraki ilk kare ilgisiz olabilir (imleç yanıp sönmesi), değişim görülene ya da
         // süre dolana kadar sürer. Hiç kare gelmezse değişiklik yoktur.
-        let verification = before.and_then(|b| {
+        let slot = crate::wm_backend::verify_slot();
+        let verification = before.and_then(|_| {
             let start = std::time::Instant::now();
             let mut last = None;
             loop {
@@ -117,9 +123,9 @@ where
                     return last;
                 }
                 let r = crate::wm_backend::wait_idle(0, left, left).ok()?;
-                let frame = crate::eyes::vision::grab_region_ppm(region).ok()?;
-                let v = compare_frames(region, &b, &frame);
-                if v.visible_change || r["idle"].as_bool() != Some(true) {
+                let (changed, pct, visible) = crate::wm_backend::diff_region(&slot, false).ok()?;
+                let v = ActionVerification { region, changed_pixels: changed, change_pct: pct, visible_change: visible };
+                if visible || r["idle"].as_bool() != Some(true) {
                     return Some(v);
                 }
                 last = Some(v);
@@ -156,28 +162,30 @@ where
 fn stable_frame(region: [i64; 4], max_ms: u64) -> Option<image::RgbImage> {
     if crate::wm_backend::active() {
         // Yalnız bölge durgun olmalı: pencerenin başka yerindeki animasyon (az önce işaretlenen
-        // kutu) beklenmez. Her yeni karede bölgeye bakılır; iki ardışık karede aynıysa durgundur.
-        // Pencere bir süredir kare göndermiyorsa zaten durgundur: tek yakalama yeter.
-        if crate::wm_backend::idle_ms_at(region).map_or(false, |ms| ms >= 40) {
-            return crate::eyes::vision::grab_region_ppm(region).ok();
+        // kutu) beklenmez. "Önce" görüntüsü wm belleğindeki yuvada tutulur; her yeni karede wm içinde
+        // karşılaştırılır, iki ardışık karede aynıysa durgundur. Dönen boş görüntü yalnız işarettir.
+        let slot = crate::wm_backend::verify_slot();
+        crate::wm_backend::snapshot_region(region, &slot).ok()?;
+        let marker = Some(image::RgbImage::new(1, 1));
+        // Animasyonlar wm'in 16 ms'lik kare saatiyle kare gönderir: 20 ms kare yoksa durgundur.
+        if crate::wm_backend::idle_ms_at(region).map_or(false, |ms| ms >= 20) {
+            return marker;
         }
         let start = std::time::Instant::now();
-        let mut prev = crate::eyes::vision::grab_region_ppm(region).ok()?;
         loop {
             let left = max_ms.saturating_sub(start.elapsed().as_millis() as u64);
             if left == 0 {
-                return Some(prev);
+                return marker;
             }
             // 20 ms içinde yeni kare yoksa pencere durgundur (animasyon 16 ms'de bir kare gönderir).
             let r = crate::wm_backend::wait_idle(0, left.min(20), 20).ok()?;
             if r["idle"].as_bool() != Some(true) {
-                return Some(prev);
+                return marker;
             }
-            let cur = crate::eyes::vision::grab_region_ppm(region).ok()?;
-            if !compare_frames(region, &prev, &cur).visible_change {
-                return Some(cur);
+            let (_, _, moved) = crate::wm_backend::diff_region(&slot, true).ok()?;
+            if !moved {
+                return marker;
             }
-            prev = cur;
         }
     }
     let start = std::time::Instant::now();

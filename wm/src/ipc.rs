@@ -30,6 +30,25 @@ enum IpcRequest {
         id: u64,
         path: String,
     },
+    /// Bölgenin şimdiki görüntüsünü `slot` adıyla bellekte saklar.
+    SnapshotRegion {
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        slot: String,
+    },
+    /// Bölgenin şimdiki görüntüsünü saklanan yuvayla karşılaştırır (pc-eye `compare_frames` ile
+    /// aynı kural); `update` ise yuva şimdiki görüntüyle değiştirilir.
+    DiffRegion {
+        slot: String,
+        #[serde(default)]
+        update: bool,
+        #[serde(default = "default_pixel_delta")]
+        pixel_delta: u8,
+        #[serde(default = "default_min_changed")]
+        min_changed: u64,
+    },
     CaptureRegion {
         x: Option<i32>,
         y: Option<i32>,
@@ -101,6 +120,14 @@ enum IpcRequest {
         id: u64,
     },
     Quit,
+}
+
+fn default_pixel_delta() -> u8 {
+    32
+}
+
+fn default_min_changed() -> u64 {
+    30
 }
 
 fn default_quiet_ms() -> u64 {
@@ -461,6 +488,63 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                         "height": height,
                         "path": path,
                         "ms": ms,
+                    }))
+                }
+                Err(err) => Some(err_json(&err)),
+            }
+        }
+
+        IpcRequest::SnapshotRegion { x, y, w, h, slot } => {
+            match state.composite_region_rgb(Some(x), Some(y), Some(w), Some(h)) {
+                Ok((width, height, rgb)) => {
+                    state.region_slots.insert(slot, ([x, y, width as i32, height as i32], rgb));
+                    Some(json!({ "ok": true, "width": width, "height": height }))
+                }
+                Err(err) => Some(err_json(&err)),
+            }
+        }
+
+        IpcRequest::DiffRegion { slot, update, pixel_delta, min_changed } => {
+            let Some(([x, y, w, h], before)) = state.region_slots.get(&slot).cloned() else {
+                return Some(err_json(&format!("unknown slot: {slot}")));
+            };
+            match state.composite_region_rgb(Some(x), Some(y), Some(w), Some(h)) {
+                Ok((width, height, now)) => {
+                    let total = (width as u64 * height as u64).max(1);
+                    let (changed, thin) = if now.len() != before.len() {
+                        (total, false)
+                    } else {
+                        let wu = width as usize;
+                        let row = wu * 3;
+                        let (mut n, mut x0, mut y0, mut x1, mut y1) = (0u64, usize::MAX, usize::MAX, 0usize, 0usize);
+                        // Satırların çoğu aynıdır: önce satır bütün olarak (memcmp) karşılaştırılır,
+                        // piksel düzeyine yalnız farklı satırlarda inilir.
+                        for (py, (ra, rb)) in before.chunks_exact(row).zip(now.chunks_exact(row)).enumerate() {
+                            if ra == rb {
+                                continue;
+                            }
+                            for (px, (a, b)) in ra.chunks_exact(3).zip(rb.chunks_exact(3)).enumerate() {
+                                if a.iter().zip(b.iter()).any(|(p, q)| p.abs_diff(*q) > pixel_delta) {
+                                    n += 1;
+                                    x0 = x0.min(px);
+                                    y0 = y0.min(py);
+                                    x1 = x1.max(px);
+                                    y1 = y1.max(py);
+                                }
+                            }
+                        }
+                        // Dikey ince çizgi (metin imleci) değişim sayılmaz.
+                        (n, n > 0 && x1 - x0 < 3 && y1 - y0 >= 6)
+                    };
+                    if update {
+                        state.region_slots.insert(slot, ([x, y, w, h], now));
+                    }
+                    Some(json!({
+                        "ok": true,
+                        "region": [x, y, w, h],
+                        "changed_pixels": changed,
+                        "change_pct": (changed as f64 * 10000.0 / total as f64).round() / 100.0,
+                        "visible_change": changed >= min_changed && !thin,
                     }))
                 }
                 Err(err) => Some(err_json(&err)),

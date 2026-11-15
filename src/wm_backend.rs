@@ -281,6 +281,27 @@ pub fn capture_ppm(region: Option<[i64; 4]>) -> Result<Vec<u8>> {
     Ok(bytes?)
 }
 
+/// Doğrulama yuvası (süreç başına): "önce" görüntüsü wm'in belleğinde kalır.
+pub fn verify_slot() -> String {
+    format!("v{}", std::process::id())
+}
+
+/// Bölgenin şimdiki görüntüsünü wm belleğinde `slot` adıyla saklar (dosya/aktarım yok).
+pub fn snapshot_region(region: [i64; 4], slot: &str) -> Result<()> {
+    request(json!({ "op": "snapshot_region", "x": region[0], "y": region[1], "w": region[2], "h": region[3], "slot": slot }))?;
+    Ok(())
+}
+
+/// Şimdiki görüntüyü yuvayla wm içinde karşılaştırır: (değişen piksel, yüzde, görünür değişim).
+pub fn diff_region(slot: &str, update: bool) -> Result<(u64, f64, bool)> {
+    let r = request(json!({ "op": "diff_region", "slot": slot, "update": update }))?;
+    Ok((
+        r["changed_pixels"].as_u64().unwrap_or(0),
+        r["change_pct"].as_f64().unwrap_or(0.0),
+        r["visible_change"].as_bool().unwrap_or(false),
+    ))
+}
+
 /// Bölgenin merkezini kaplayan en üstteki pencere kaç ms'dir kare göndermiyor.
 pub fn idle_ms_at(region: [i64; 4]) -> Option<u64> {
     let st = request(json!({ "op": "state" })).ok()?;

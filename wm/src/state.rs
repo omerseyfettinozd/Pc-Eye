@@ -368,6 +368,8 @@ pub struct PcEyeWm {
     pub ipc_buffers: HashMap<u64, Vec<u8>>,
     pub event_subscribers: Vec<UnixStream>,
     pub waiters: Vec<PendingWaitIdle>,
+    /// `snapshot_region` ile saklanan bölge görüntüleri (ad → bölge + RGB): doğrulama dosyasız.
+    pub region_slots: std::collections::HashMap<String, ([i32; 4], Vec<u8>)>,
     pub children: Vec<Child>,
 }
 
@@ -477,6 +479,7 @@ impl PcEyeWm {
             ipc_buffers: HashMap::new(),
             event_subscribers: Vec::new(),
             waiters: Vec::new(),
+            region_slots: std::collections::HashMap::new(),
             children: Vec::new(),
         })
     }
@@ -950,6 +953,15 @@ fn blit_surface(
         Some(alpha) => {
             for sy in start_y..end_y {
                 let dy = (oy + sy) as usize;
+                // Satır tamamen opaksa (GTK/Qt pencerelerinde çoğu satır) harmanlama yerine kopya.
+                let arow = (sy as usize) * (img.width as usize);
+                if alpha[arow + start_x as usize..arow + end_x as usize].iter().all(|&a| a == 255) {
+                    let src = (arow + start_x as usize) * 3;
+                    let dst = (dy * (canvas_w as usize) + ((ox + start_x) as usize)) * 3;
+                    let len = ((end_x - start_x) as usize) * 3;
+                    canvas[dst..dst + len].copy_from_slice(&img.rgb[src..src + len]);
+                    continue;
+                }
                 for sx in start_x..end_x {
                     let dx = (ox + sx) as usize;
                     let sidx = (sy as usize) * (img.width as usize) + (sx as usize);

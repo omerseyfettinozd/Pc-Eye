@@ -101,6 +101,15 @@ pub fn activate(autostart: bool) -> Result<()> {
     std::env::set_var("WAYLAND_DISPLAY", info["wayland_display"].as_str().unwrap_or(""));
     // Yalnız X11 konuşan bir uygulama kullanıcının Xwayland'ine, yani onun ekranına açılırdı.
     std::env::remove_var("DISPLAY");
+    // pc-eye-wm kendi Xwayland'ini açar: X11 uygulamaları oraya (ajanın ekranına) gider.
+    if is_wm(&info) {
+        if let Some(d) = crate::wm_backend::request(json!({ "op": "state" }))
+            .ok()
+            .and_then(|s| s["x_display"].as_str().map(str::to_string))
+        {
+            std::env::set_var("DISPLAY", d);
+        }
+    }
     // Oturumda açılan uygulamaların sesi kullanıcının hoparlörüne değil oturumun boş çıkışına gider
     // (uygulama yine "sesli" çalar: tarayıcı medya durumunu MPRIS'te yayınlar).
     if let Some(sink) = info["audio_sink"].as_str() {
@@ -309,6 +318,25 @@ fn start_wm(name: &str, mode: &str) -> Result<Value> {
         let _ = child.kill();
         return Err(anyhow!("pc-eye-wm hazır olmadı: {}", ready.trim()));
     }
+    // Xwayland eşzamansız hazır olur: oturumun ilk komutu X11 uygulaması açabilsin diye kısa süre beklenir.
+    let x_display = {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut d = None;
+        while d.is_none() && Instant::now() < deadline {
+            let mut s = UnixStream::connect(&ipc).ok();
+            if let Some(s) = s.as_mut() {
+                let _ = s.set_read_timeout(Some(Duration::from_millis(500)));
+                let _ = s.write_all(b"{\"op\":\"state\"}\n");
+                let mut line = String::new();
+                let _ = std::io::BufRead::read_line(&mut std::io::BufReader::new(&*s), &mut line);
+                d = serde_json::from_str::<Value>(&line).ok().and_then(|v| v["x_display"].as_str().map(str::to_string));
+            }
+            if d.is_none() {
+                thread::sleep(Duration::from_millis(50));
+            }
+        }
+        d
+    };
     let (audio_sink, audio_module) = setup_audio(name);
     let size: Vec<i64> = mode.split('x').filter_map(|n| n.parse().ok()).collect();
     let info = json!({
@@ -318,6 +346,7 @@ fn start_wm(name: &str, mode: &str) -> Result<Value> {
         "audio_module": audio_module,
         "wayland_display": socket,
         "wm_ipc": ipc.to_string_lossy(),
+        "x_display": x_display,
         "pid": child.id(),
         "tag": tag,
         "output": "",

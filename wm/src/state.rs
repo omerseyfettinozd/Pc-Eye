@@ -1,16 +1,31 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     io::{ErrorKind, Read, Write},
     os::unix::net::UnixStream,
-    process::Child,
+    process::{Child, Stdio},
     sync::Arc,
     time::Instant,
 };
 
 use anyhow::{Context, Result};
 use smithay::{
+    backend::input::KeyState,
     desktop::{PopupManager, Space, Window},
-    input::{Seat, SeatState},
+    input::{
+        keyboard::{KeyboardTarget, KeysymHandle, ModifiersState},
+        pointer::{
+            AxisFrame, ButtonEvent, GestureHoldBeginEvent, GestureHoldEndEvent,
+            GesturePinchBeginEvent, GesturePinchEndEvent, GesturePinchUpdateEvent,
+            GestureSwipeBeginEvent, GestureSwipeEndEvent, GestureSwipeUpdateEvent, MotionEvent,
+            PointerTarget, RelativeMotionEvent,
+        },
+        touch::{
+            DownEvent as TouchDownEvent, MotionEvent as TouchMotionEvent, OrientationEvent,
+            ShapeEvent, TouchTarget, UpEvent as TouchUpEvent,
+        },
+        Seat, SeatState,
+    },
     output::{Mode as OutputMode, Output, PhysicalProperties, Scale, Subpixel},
     reexports::{
         calloop::{generic::Generic, EventLoop, Interest, LoopHandle, LoopSignal, Mode, PostAction},
@@ -20,19 +35,253 @@ use smithay::{
             Display, DisplayHandle, Resource,
         },
     },
-    utils::{Logical, Point, Size, Transform},
+    utils::{IsAlive, Logical, Point, Serial, Size, Transform},
     wayland::{
         compositor::{
             with_surface_tree_upward, CompositorClientState, CompositorState,
             SubsurfaceCachedState, TraversalAction, SUBSURFACE_ROLE,
         },
         output::OutputManagerState,
+        seat::WaylandFocus,
         selection::data_device::DataDeviceState,
         shell::xdg::{decoration::XdgDecorationState, XdgShellState},
         shm::ShmState,
         socket::ListeningSocketSource,
+        xwayland_keyboard_grab::XWaylandKeyboardGrabState,
+        xwayland_shell::XWaylandShellState,
     },
+    xwayland::{X11Surface, X11Wm, XWayland, XWaylandEvent},
 };
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FocusTarget {
+    Wayland(WlSurface),
+    X11(X11Surface),
+}
+
+impl IsAlive for FocusTarget {
+    #[inline]
+    fn alive(&self) -> bool {
+        match self {
+            Self::Wayland(s) => s.alive(),
+            Self::X11(s) => s.alive(),
+        }
+    }
+}
+
+impl WaylandFocus for FocusTarget {
+    #[inline]
+    fn wl_surface(&self) -> Option<Cow<'_, WlSurface>> {
+        match self {
+            Self::Wayland(s) => Some(Cow::Borrowed(s)),
+            Self::X11(s) => s.wl_surface().map(Cow::Owned),
+        }
+    }
+
+    #[inline]
+    fn same_client_as(&self, object_id: &ObjectId) -> bool {
+        match self {
+            Self::Wayland(s) => s.same_client_as(object_id),
+            Self::X11(s) => s.same_client_as(object_id),
+        }
+    }
+}
+
+impl KeyboardTarget<PcEyeWm> for FocusTarget {
+    fn enter(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, keys: Vec<KeysymHandle<'_>>, serial: Serial) {
+        match self {
+            Self::Wayland(s) => KeyboardTarget::enter(s, seat, data, keys, serial),
+            Self::X11(s) => KeyboardTarget::enter(s, seat, data, keys, serial),
+        }
+    }
+
+    fn leave(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, serial: Serial) {
+        match self {
+            Self::Wayland(s) => KeyboardTarget::leave(s, seat, data, serial),
+            Self::X11(s) => KeyboardTarget::leave(s, seat, data, serial),
+        }
+    }
+
+    fn key(
+        &self,
+        seat: &Seat<PcEyeWm>,
+        data: &mut PcEyeWm,
+        key: KeysymHandle<'_>,
+        state: KeyState,
+        serial: Serial,
+        time: u32,
+    ) {
+        match self {
+            Self::Wayland(s) => KeyboardTarget::key(s, seat, data, key, state, serial, time),
+            Self::X11(s) => KeyboardTarget::key(s, seat, data, key, state, serial, time),
+        }
+    }
+
+    fn modifiers(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, modifiers: ModifiersState, serial: Serial) {
+        match self {
+            Self::Wayland(s) => KeyboardTarget::modifiers(s, seat, data, modifiers, serial),
+            Self::X11(s) => KeyboardTarget::modifiers(s, seat, data, modifiers, serial),
+        }
+    }
+}
+
+impl PointerTarget<PcEyeWm> for FocusTarget {
+    fn enter(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &MotionEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::enter(s, seat, data, event),
+            Self::X11(s) => PointerTarget::enter(s, seat, data, event),
+        }
+    }
+
+    fn motion(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &MotionEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::motion(s, seat, data, event),
+            Self::X11(s) => PointerTarget::motion(s, seat, data, event),
+        }
+    }
+
+    fn relative_motion(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &RelativeMotionEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::relative_motion(s, seat, data, event),
+            Self::X11(s) => PointerTarget::relative_motion(s, seat, data, event),
+        }
+    }
+
+    fn button(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &ButtonEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::button(s, seat, data, event),
+            Self::X11(s) => PointerTarget::button(s, seat, data, event),
+        }
+    }
+
+    fn axis(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, frame: AxisFrame) {
+        match self {
+            Self::Wayland(s) => PointerTarget::axis(s, seat, data, frame),
+            Self::X11(s) => PointerTarget::axis(s, seat, data, frame),
+        }
+    }
+
+    fn frame(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm) {
+        match self {
+            Self::Wayland(s) => PointerTarget::frame(s, seat, data),
+            Self::X11(s) => PointerTarget::frame(s, seat, data),
+        }
+    }
+
+    fn gesture_swipe_begin(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &GestureSwipeBeginEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::gesture_swipe_begin(s, seat, data, event),
+            Self::X11(s) => PointerTarget::gesture_swipe_begin(s, seat, data, event),
+        }
+    }
+
+    fn gesture_swipe_update(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &GestureSwipeUpdateEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::gesture_swipe_update(s, seat, data, event),
+            Self::X11(s) => PointerTarget::gesture_swipe_update(s, seat, data, event),
+        }
+    }
+
+    fn gesture_swipe_end(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &GestureSwipeEndEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::gesture_swipe_end(s, seat, data, event),
+            Self::X11(s) => PointerTarget::gesture_swipe_end(s, seat, data, event),
+        }
+    }
+
+    fn gesture_pinch_begin(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &GesturePinchBeginEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::gesture_pinch_begin(s, seat, data, event),
+            Self::X11(s) => PointerTarget::gesture_pinch_begin(s, seat, data, event),
+        }
+    }
+
+    fn gesture_pinch_update(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &GesturePinchUpdateEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::gesture_pinch_update(s, seat, data, event),
+            Self::X11(s) => PointerTarget::gesture_pinch_update(s, seat, data, event),
+        }
+    }
+
+    fn gesture_pinch_end(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &GesturePinchEndEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::gesture_pinch_end(s, seat, data, event),
+            Self::X11(s) => PointerTarget::gesture_pinch_end(s, seat, data, event),
+        }
+    }
+
+    fn gesture_hold_begin(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &GestureHoldBeginEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::gesture_hold_begin(s, seat, data, event),
+            Self::X11(s) => PointerTarget::gesture_hold_begin(s, seat, data, event),
+        }
+    }
+
+    fn gesture_hold_end(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &GestureHoldEndEvent) {
+        match self {
+            Self::Wayland(s) => PointerTarget::gesture_hold_end(s, seat, data, event),
+            Self::X11(s) => PointerTarget::gesture_hold_end(s, seat, data, event),
+        }
+    }
+
+    fn leave(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, serial: Serial, time: u32) {
+        match self {
+            Self::Wayland(s) => PointerTarget::leave(s, seat, data, serial, time),
+            Self::X11(s) => PointerTarget::leave(s, seat, data, serial, time),
+        }
+    }
+}
+
+impl TouchTarget<PcEyeWm> for FocusTarget {
+    fn down(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &TouchDownEvent, seq: Serial) {
+        match self {
+            Self::Wayland(s) => TouchTarget::down(s, seat, data, event, seq),
+            Self::X11(s) => TouchTarget::down(s, seat, data, event, seq),
+        }
+    }
+
+    fn up(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &TouchUpEvent, seq: Serial) {
+        match self {
+            Self::Wayland(s) => TouchTarget::up(s, seat, data, event, seq),
+            Self::X11(s) => TouchTarget::up(s, seat, data, event, seq),
+        }
+    }
+
+    fn motion(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &TouchMotionEvent, seq: Serial) {
+        match self {
+            Self::Wayland(s) => TouchTarget::motion(s, seat, data, event, seq),
+            Self::X11(s) => TouchTarget::motion(s, seat, data, event, seq),
+        }
+    }
+
+    fn frame(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, seq: Serial) {
+        match self {
+            Self::Wayland(s) => TouchTarget::frame(s, seat, data, seq),
+            Self::X11(s) => TouchTarget::frame(s, seat, data, seq),
+        }
+    }
+
+    fn cancel(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, seq: Serial) {
+        match self {
+            Self::Wayland(s) => TouchTarget::cancel(s, seat, data, seq),
+            Self::X11(s) => TouchTarget::cancel(s, seat, data, seq),
+        }
+    }
+
+    fn shape(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &ShapeEvent, seq: Serial) {
+        match self {
+            Self::Wayland(s) => TouchTarget::shape(s, seat, data, event, seq),
+            Self::X11(s) => TouchTarget::shape(s, seat, data, event, seq),
+        }
+    }
+
+    fn orientation(&self, seat: &Seat<PcEyeWm>, data: &mut PcEyeWm, event: &OrientationEvent, seq: Serial) {
+        match self {
+            Self::Wayland(s) => TouchTarget::orientation(s, seat, data, event, seq),
+            Self::X11(s) => TouchTarget::orientation(s, seat, data, event, seq),
+        }
+    }
+}
 
 pub struct CalloopData {
     pub state: PcEyeWm,
@@ -87,6 +336,9 @@ pub struct PcEyeWm {
     pub data_device_state: DataDeviceState,
     pub popups: PopupManager,
     pub seat: Seat<Self>,
+    pub xwayland_shell_state: XWaylandShellState,
+    pub xwm: Option<X11Wm>,
+    pub x_display: Option<u32>,
 
     pub cursor_pos: Point<f64, Logical>,
     pub focus_history: Vec<u64>,
@@ -127,6 +379,8 @@ impl PcEyeWm {
         let mut seat_state = SeatState::new();
         let data_device_state = DataDeviceState::new::<Self>(&dh);
         let popups = PopupManager::default();
+        let xwayland_shell_state = XWaylandShellState::new::<Self>(&dh);
+        XWaylandKeyboardGrabState::new::<Self>(&dh);
 
         let cursor_pos = Point::from((output_dims.0 as f64 / 2.0, output_dims.1 as f64 / 2.0));
         let mut seat = seat_state.new_wl_seat(&dh, "seat0");
@@ -161,6 +415,7 @@ impl PcEyeWm {
         space.map_output(&output, (0, 0));
 
         Self::init_wayland_listener(display, &loop_handle, socket_name)?;
+        Self::start_xwayland(&dh, &loop_handle);
 
         Ok(Self {
             start_time,
@@ -181,6 +436,9 @@ impl PcEyeWm {
             data_device_state,
             popups,
             seat,
+            xwayland_shell_state,
+            xwm: None,
+            x_display: None,
             cursor_pos,
             focus_history: Vec::new(),
             next_window_id: 1,
@@ -194,6 +452,55 @@ impl PcEyeWm {
             waiters: Vec::new(),
             children: Vec::new(),
         })
+    }
+
+    fn start_xwayland(dh: &DisplayHandle, loop_handle: &LoopHandle<'static, CalloopData>) {
+        match XWayland::spawn(
+            dh,
+            None,
+            std::iter::empty::<(String, String)>(),
+            true,
+            Stdio::null(),
+            Stdio::null(),
+            |_| (),
+        ) {
+            Ok((xwayland, client)) => {
+                let wm_loop_handle = loop_handle.clone();
+                if let Err(err) = loop_handle.insert_source(xwayland, move |event, _, data| {
+                    match event {
+                        XWaylandEvent::Ready {
+                            x11_socket,
+                            display_number,
+                        } => {
+                            match X11Wm::start_wm(wm_loop_handle.clone(), x11_socket, client.clone()) {
+                                Ok(wm) => {
+                                    data.state.xwm = Some(wm);
+                                    data.state.x_display = Some(display_number);
+                                    tracing::info!(display = display_number, "Xwayland ready");
+                                }
+                                Err(err) => {
+                                    tracing::warn!(
+                                        ?err,
+                                        "failed to start X11 window manager; continuing as Wayland-only"
+                                    );
+                                }
+                            }
+                        }
+                        XWaylandEvent::Error => {
+                            tracing::warn!("Xwayland failed to start; continuing as Wayland-only");
+                        }
+                    }
+                }) {
+                    tracing::warn!(
+                        ?err,
+                        "failed to insert Xwayland event source; continuing as Wayland-only"
+                    );
+                }
+            }
+            Err(err) => {
+                tracing::warn!(?err, "failed to spawn Xwayland; continuing as Wayland-only");
+            }
+        }
     }
 
     fn init_wayland_listener(
@@ -233,13 +540,34 @@ impl PcEyeWm {
         Ok(())
     }
 
+    pub fn x_display_str(&self) -> Option<String> {
+        self.x_display.map(|n| format!(":{n}"))
+    }
+
     pub fn window_id_for_surface(&self, surface: &WlSurface) -> Option<u64> {
         self.windows.iter().find_map(|(&id, meta)| {
             meta.window
-                .toplevel()
-                .filter(|t| t.wl_surface() == surface)
+                .wl_surface()
+                .filter(|s| s.as_ref() == surface)
                 .map(|_| id)
         })
+    }
+
+    pub fn window_id_for_x11(&self, x11: &X11Surface) -> Option<u64> {
+        let target_id = x11.window_id();
+        self.windows.iter().find_map(|(&id, meta)| {
+            meta.window
+                .x11_surface()
+                .filter(|s| s.window_id() == target_id)
+                .map(|_| id)
+        })
+    }
+
+    pub fn window_id_for_focus(&self, focus: &FocusTarget) -> Option<u64> {
+        match focus {
+            FocusTarget::Wayland(surface) => self.window_id_for_surface(surface),
+            FocusTarget::X11(x11) => self.window_id_for_x11(x11),
+        }
     }
 
     pub fn window_id_for_window(&self, window: &Window) -> Option<u64> {
@@ -361,9 +689,9 @@ impl PcEyeWm {
             .ok_or_else(|| format!("unknown window id: {id}"))?;
         let root = meta
             .window
-            .toplevel()
-            .map(|t| t.wl_surface().clone())
-            .ok_or_else(|| "window has no toplevel surface".to_string())?;
+            .wl_surface()
+            .map(|s| s.into_owned())
+            .ok_or_else(|| format!("window {id} has no surface yet"))?;
         let root_img = self
             .surface_images
             .get(&root.id())
@@ -416,7 +744,7 @@ impl PcEyeWm {
         let mut canvas = vec![0u8; buf_len];
 
         for window in self.space.elements() {
-            let Some(root) = window.toplevel().map(|t| t.wl_surface().clone()) else {
+            let Some(root) = window.wl_surface().map(|s| s.into_owned()) else {
                 continue;
             };
             let win_loc = self

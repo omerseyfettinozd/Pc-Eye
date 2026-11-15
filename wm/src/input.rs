@@ -6,11 +6,10 @@ use smithay::{
         keyboard::{xkb, FilterResult, Keycode},
         pointer::{AxisFrame, ButtonEvent, MotionEvent, PointerHandle},
     },
-    reexports::wayland_server::protocol::wl_surface::WlSurface,
     utils::{Logical, Point, SERIAL_COUNTER},
 };
 
-use crate::state::PcEyeWm;
+use crate::state::{FocusTarget, PcEyeWm};
 
 const BTN_LEFT: u32 = 0x110;
 const BTN_RIGHT: u32 = 0x111;
@@ -38,13 +37,35 @@ impl PcEyeWm {
             }
         }
 
+        if let Some(x11) = window.x11_surface() {
+            let _ = x11.set_activated(true);
+            if let Some(xwm) = self.xwm.as_mut() {
+                let _ = xwm.raise_window(x11);
+            }
+            self.record_focus_history(id);
+            if x11.wl_surface().is_some() {
+                if let Some(keyboard) = self.seat.get_keyboard() {
+                    keyboard.set_focus(
+                        self,
+                        Some(FocusTarget::X11(x11.clone())),
+                        SERIAL_COUNTER.next_serial(),
+                    );
+                }
+            }
+            return Ok(());
+        }
+
         let wl_surface = window
             .toplevel()
             .map(|t| t.wl_surface().clone())
             .ok_or_else(|| format!("window {id} has no toplevel surface"))?;
 
         if let Some(keyboard) = self.seat.get_keyboard() {
-            keyboard.set_focus(self, Some(wl_surface), SERIAL_COUNTER.next_serial());
+            keyboard.set_focus(
+                self,
+                Some(FocusTarget::Wayland(wl_surface)),
+                SERIAL_COUNTER.next_serial(),
+            );
         }
         self.record_focus_history(id);
         Ok(())
@@ -53,14 +74,21 @@ impl PcEyeWm {
     fn surface_under_at(
         &self,
         pos: Point<f64, Logical>,
-    ) -> (Option<u64>, Option<(WlSurface, Point<f64, Logical>)>) {
+    ) -> (Option<u64>, Option<(FocusTarget, Point<f64, Logical>)>) {
         let Some((window, location)) = self.space.element_under(pos) else {
             return (None, None);
         };
         let win_id = self.window_id_for_window(window);
         let surface = window
             .surface_under(pos - location.to_f64(), WindowSurfaceType::ALL)
-            .map(|(s, p)| (s, (p + location).to_f64()));
+            .map(|(s, p)| {
+                let target = if let Some(x11) = window.x11_surface() {
+                    FocusTarget::X11(x11.clone())
+                } else {
+                    FocusTarget::Wayland(s)
+                };
+                (target, (p + location).to_f64())
+            });
         if surface.is_some() {
             (win_id, surface)
         } else {
@@ -182,7 +210,7 @@ impl PcEyeWm {
         id: u64,
         x: f64,
         y: f64,
-    ) -> Result<(Point<f64, Logical>, Option<(WlSurface, Point<f64, Logical>)>), String> {
+    ) -> Result<(Point<f64, Logical>, Option<(FocusTarget, Point<f64, Logical>)>), String> {
         if !x.is_finite() || !y.is_finite() {
             return Err("invalid pointer coordinates".to_string());
         }
@@ -201,11 +229,25 @@ impl PcEyeWm {
 
         let under = window
             .surface_under((x, y), WindowSurfaceType::ALL)
-            .map(|(s, loc)| (s, (loc + win_loc).to_f64()))
+            .map(|(s, loc)| {
+                let target = if let Some(x11) = window.x11_surface() {
+                    FocusTarget::X11(x11.clone())
+                } else {
+                    FocusTarget::Wayland(s)
+                };
+                (target, (loc + win_loc).to_f64())
+            })
             .or_else(|| {
                 self.space.element_under(global_pos).and_then(|(w, loc)| {
                     w.surface_under(global_pos - loc.to_f64(), WindowSurfaceType::ALL)
-                        .map(|(s, p)| (s, (p + loc).to_f64()))
+                        .map(|(s, p)| {
+                            let target = if let Some(x11) = w.x11_surface() {
+                                FocusTarget::X11(x11.clone())
+                            } else {
+                                FocusTarget::Wayland(s)
+                            };
+                            (target, (p + loc).to_f64())
+                        })
                 })
             });
 
@@ -442,6 +484,7 @@ impl PcEyeWm {
                 let cfg = XkbConfig { layout: "tr", ..Default::default() };
                 if keyboard.set_xkb_config(self, cfg).is_ok() {
                     switched = true;
+                    self.settle_keymap_for_x11();
                     found = find_keycode_and_level_for_keysym(self, &keyboard, sym);
                 }
             }
@@ -508,6 +551,9 @@ impl PcEyeWm {
         }
 
         if switched {
+            // X11 istemcisi tuş kodlarını kendi önbellekteki düzenle, işlediği anda çevirir: düzen
+            // hemen "us"e dönerse bekleyen tuşlar ABD düzeniyle okunur.
+            self.settle_keymap_for_x11();
             let _ = keyboard.set_xkb_config(self, XkbConfig::default());
         }
         Ok(skipped)
@@ -611,4 +657,17 @@ fn find_keycode_and_level_for_keysym(
         }
         None
     })
+}
+
+impl PcEyeWm {
+    /// Xwayland varken düzen değişikliğinin X istemcilerine ulaşması (MappingNotify → düzeni yeniden
+    /// okuma) için olaylar gönderilip kısa süre beklenir. Wayland istemcileri keymap olayını tuşlarla
+    /// aynı sırada aldığından beklemeye gerek yoktur.
+    fn settle_keymap_for_x11(&mut self) {
+        if self.xwm.is_none() {
+            return;
+        }
+        let _ = self.display_handle.flush_clients();
+        std::thread::sleep(std::time::Duration::from_millis(120));
+    }
 }

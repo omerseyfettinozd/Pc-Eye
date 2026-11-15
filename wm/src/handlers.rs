@@ -1,11 +1,13 @@
-use std::time::Instant;
+use std::{os::unix::io::OwnedFd, time::Instant};
 
 use smithay::{
     backend::renderer::utils::on_commit_buffer_handler,
     delegate_compositor, delegate_data_device, delegate_output, delegate_seat, delegate_shm,
-    delegate_xdg_decoration, delegate_xdg_shell,
+    delegate_xdg_decoration, delegate_xdg_shell, delegate_xwayland_keyboard_grab,
+    delegate_xwayland_shell,
     desktop::{
-        find_popup_root_surface, get_popup_toplevel_coords, PopupKind, PopupManager, Space, Window,
+        find_popup_root_surface, get_popup_toplevel_coords, space::RenderZindex, PopupKind,
+        PopupManager, Space, Window,
     },
     input::{Seat, SeatHandler, SeatState},
     reexports::{
@@ -18,7 +20,7 @@ use smithay::{
             Client, Resource,
         },
     },
-    utils::{Logical, Point, Serial, SERIAL_COUNTER},
+    utils::{Logical, Point, Rectangle, Serial, SERIAL_COUNTER},
     wayland::{
         buffer::BufferHandler,
         compositor::{
@@ -27,12 +29,15 @@ use smithay::{
             SurfaceAttributes, SUBSURFACE_ROLE,
         },
         output::{OutputHandler, OutputManagerState},
+        seat::WaylandFocus,
         selection::{
             data_device::{
-                set_data_device_focus, ClientDndGrabHandler, DataDeviceHandler, DataDeviceState,
+                clear_data_device_selection, current_data_device_selection_userdata,
+                request_data_device_client_selection, set_data_device_focus,
+                set_data_device_selection, ClientDndGrabHandler, DataDeviceHandler, DataDeviceState,
                 ServerDndGrabHandler,
             },
-            SelectionHandler,
+            SelectionHandler, SelectionTarget,
         },
         shell::xdg::{
             decoration::{XdgDecorationHandler, XdgDecorationState},
@@ -40,10 +45,16 @@ use smithay::{
             XdgToplevelSurfaceData,
         },
         shm::{with_buffer_contents, ShmHandler, ShmState},
+        xwayland_keyboard_grab::XWaylandKeyboardGrabHandler,
+        xwayland_shell::{XWaylandShellHandler, XWaylandShellState},
+    },
+    xwayland::{
+        xwm::{Reorder, ResizeEdge as X11ResizeEdge, WmWindowProperty, X11Window, XwmId},
+        X11Surface, X11Wm, XWaylandClientData, XwmHandler,
     },
 };
 
-use crate::state::{ClientState, PcEyeWm, SurfaceImage, WindowMeta};
+use crate::state::{CalloopData, ClientState, FocusTarget, PcEyeWm, SurfaceImage, WindowMeta};
 
 impl CompositorHandler for PcEyeWm {
     fn compositor_state(&mut self) -> &mut CompositorState {
@@ -51,7 +62,13 @@ impl CompositorHandler for PcEyeWm {
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
-        &client.get_data::<ClientState>().unwrap().compositor_state
+        if let Some(state) = client.get_data::<XWaylandClientData>() {
+            return &state.compositor_state;
+        }
+        if let Some(state) = client.get_data::<ClientState>() {
+            return &state.compositor_state;
+        }
+        panic!("Unknown client data type")
     }
 
     fn commit(&mut self, surface: &WlSurface) {
@@ -145,7 +162,7 @@ impl CompositorHandler for PcEyeWm {
                 .seat
                 .get_keyboard()
                 .and_then(|k| k.current_focus())
-                .is_some_and(|f| f == root);
+                .is_some_and(|f| f.wl_surface().as_deref() == Some(&root));
             if is_focused {
                 self.emit_activewindow(Some((id, &app_id, &title)));
             }
@@ -233,9 +250,9 @@ delegate_compositor!(PcEyeWm);
 delegate_shm!(PcEyeWm);
 
 impl SeatHandler for PcEyeWm {
-    type KeyboardFocus = WlSurface;
-    type PointerFocus = WlSurface;
-    type TouchFocus = WlSurface;
+    type KeyboardFocus = FocusTarget;
+    type PointerFocus = FocusTarget;
+    type TouchFocus = FocusTarget;
 
     fn seat_state(&mut self) -> &mut SeatState<PcEyeWm> {
         &mut self.seat_state
@@ -248,13 +265,15 @@ impl SeatHandler for PcEyeWm {
     ) {
     }
 
-    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&WlSurface>) {
+    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&FocusTarget>) {
         let dh = &self.display_handle;
-        let client = focused.and_then(|s| dh.get_client(s.id()).ok());
+        let client = focused
+            .and_then(|f| f.wl_surface())
+            .and_then(|s| dh.get_client(s.id()).ok());
         set_data_device_focus(dh, seat, client);
 
         let active_info = focused
-            .and_then(|s| self.window_id_for_surface(s))
+            .and_then(|f| self.window_id_for_focus(f))
             .and_then(|id| {
                 self.windows.get(&id).and_then(|meta| {
                     meta.announced.then(|| {
@@ -341,7 +360,11 @@ impl XdgShellHandler for PcEyeWm {
 
         let wl_surface = surface.wl_surface().clone();
         if let Some(keyboard) = self.seat.get_keyboard() {
-            keyboard.set_focus(self, Some(wl_surface), SERIAL_COUNTER.next_serial());
+            keyboard.set_focus(
+                self,
+                Some(FocusTarget::Wayland(wl_surface)),
+                SERIAL_COUNTER.next_serial(),
+            );
         }
     }
 
@@ -439,7 +462,7 @@ impl XdgShellHandler for PcEyeWm {
             .seat
             .get_keyboard()
             .and_then(|k| k.current_focus())
-            .is_some_and(|f| &f == surface.wl_surface());
+            .is_some_and(|f| f.wl_surface().as_deref() == Some(surface.wl_surface()));
 
         if was_focused {
             let next_id = self
@@ -490,6 +513,429 @@ impl XdgDecorationHandler for PcEyeWm {
 
 delegate_xdg_decoration!(PcEyeWm);
 
+impl XWaylandKeyboardGrabHandler for PcEyeWm {
+    fn keyboard_focus_for_xsurface(&self, surface: &WlSurface) -> Option<FocusTarget> {
+        let elem = self
+            .space
+            .elements()
+            .find(|elem| elem.wl_surface().as_deref() == Some(surface))?;
+        elem.x11_surface().cloned().map(FocusTarget::X11)
+    }
+}
+
+delegate_xwayland_keyboard_grab!(PcEyeWm);
+
+impl XWaylandShellHandler for PcEyeWm {
+    fn xwayland_shell_state(&mut self) -> &mut XWaylandShellState {
+        &mut self.xwayland_shell_state
+    }
+
+    fn surface_associated(&mut self, _xwm: XwmId, wl_surface: WlSurface, surface: X11Surface) {
+        let mut announce_event: Option<(u64, String, String)> = None;
+        let mut should_focus_id: Option<u64> = None;
+
+        if let Some(id) = self.window_id_for_x11(&surface) {
+            let has_pixels = self.surface_images.contains_key(&wl_surface.id());
+            if let Some(meta) = self.windows.get_mut(&id) {
+                if has_pixels {
+                    meta.window.on_commit();
+                    if !meta.announced {
+                        meta.announced = true;
+                        announce_event = Some((
+                            id,
+                            meta.app_id.clone().unwrap_or_default(),
+                            meta.title.clone().unwrap_or_default(),
+                        ));
+                    }
+                }
+            }
+            if self.focus_history.first().copied() == Some(id) {
+                should_focus_id = Some(id);
+            }
+        }
+
+        if let Some((id, app_id, title)) = announce_event {
+            self.emit_openwindow(id, &app_id, &title);
+        }
+        if let Some(id) = should_focus_id {
+            let _ = self.focus_window(id);
+        }
+    }
+}
+
+delegate_xwayland_shell!(PcEyeWm);
+
+impl XwmHandler for PcEyeWm {
+    fn xwm_state(&mut self, _xwm: XwmId) -> &mut X11Wm {
+        self.xwm.as_mut().expect("X11Wm not initialized")
+    }
+
+    fn new_window(&mut self, _xwm: XwmId, _window: X11Surface) {}
+
+    fn new_override_redirect_window(&mut self, _xwm: XwmId, _window: X11Surface) {}
+
+    fn map_window_request(&mut self, _xwm: XwmId, window: X11Surface) {
+        let rect = Rectangle::new((0, 0).into(), self.output_size);
+        let _ = window.set_fullscreen(true);
+        let _ = window.configure(rect);
+        if let Err(err) = window.set_mapped(true) {
+            tracing::warn!(?err, "failed to map X11 window");
+            return;
+        }
+
+        if let Some(existing_id) = self.window_id_for_x11(&window) {
+            let _ = self.focus_window(existing_id);
+            return;
+        }
+
+        let desktop_window = Window::new_x11_window(window.clone());
+        self.space.map_element(desktop_window.clone(), (0, 0), true);
+
+        for other in self.space.elements() {
+            if other != &desktop_window {
+                if let Some(toplevel) = other.toplevel() {
+                    if toplevel.is_initial_configure_sent() {
+                        toplevel.send_pending_configure();
+                    }
+                }
+            }
+        }
+
+        let id = self.next_window_id;
+        self.next_window_id += 1;
+
+        let class = window.class();
+        let title = window.title();
+        let app_id = (!class.is_empty()).then_some(class);
+        let title_opt = (!title.is_empty()).then_some(title);
+
+        let has_pixels = window
+            .wl_surface()
+            .is_some_and(|s| self.surface_images.contains_key(&s.id()));
+
+        let mut meta = WindowMeta {
+            id,
+            window: desktop_window,
+            app_id: app_id.clone(),
+            title: title_opt.clone(),
+            commits: 0,
+            last_commit: Instant::now(),
+            announced: false,
+        };
+        if has_pixels {
+            meta.window.on_commit();
+            meta.announced = true;
+        }
+
+        self.windows.insert(id, meta);
+
+        if has_pixels {
+            self.emit_openwindow(
+                id,
+                app_id.as_deref().unwrap_or_default(),
+                title_opt.as_deref().unwrap_or_default(),
+            );
+        }
+
+        let _ = self.focus_window(id);
+    }
+
+    fn mapped_override_redirect_window(&mut self, _xwm: XwmId, window: X11Surface) {
+        let location = window.geometry().loc;
+        let desktop_window = Window::new_x11_window(window);
+        desktop_window.override_z_index(RenderZindex::Overlay as u8);
+        self.space.map_element(desktop_window, location, false);
+    }
+
+    fn unmapped_window(&mut self, _xwm: XwmId, window: X11Surface) {
+        self.remove_x11_window(&window);
+        if !window.is_override_redirect() {
+            let _ = window.set_mapped(false);
+        }
+    }
+
+    fn destroyed_window(&mut self, _xwm: XwmId, window: X11Surface) {
+        self.remove_x11_window(&window);
+    }
+
+    fn configure_request(
+        &mut self,
+        _xwm: XwmId,
+        window: X11Surface,
+        _x: Option<i32>,
+        _y: Option<i32>,
+        _w: Option<u32>,
+        _h: Option<u32>,
+        _reorder: Option<Reorder>,
+    ) {
+        let rect = Rectangle::new((0, 0).into(), self.output_size);
+        let _ = window.configure(rect);
+    }
+
+    fn configure_notify(
+        &mut self,
+        _xwm: XwmId,
+        window: X11Surface,
+        geometry: Rectangle<i32, Logical>,
+        _above: Option<X11Window>,
+    ) {
+        if window.is_override_redirect() {
+            let target_id = window.window_id();
+            let found = self
+                .space
+                .elements()
+                .find(|w| w.x11_surface().is_some_and(|x| x.window_id() == target_id))
+                .cloned();
+            if let Some(elem) = found {
+                self.space.map_element(elem, geometry.loc, false);
+            }
+        }
+    }
+
+    fn property_notify(&mut self, _xwm: XwmId, window: X11Surface, property: WmWindowProperty) {
+        match property {
+            WmWindowProperty::Title => {
+                let title = window.title();
+                let new_title = (!title.is_empty()).then_some(title);
+                let mut emit_title: Option<(u64, String)> = None;
+                if let Some(id) = self.window_id_for_x11(&window) {
+                    if let Some(meta) = self.windows.get_mut(&id) {
+                        meta.title = new_title;
+                        if meta.announced {
+                            emit_title = Some((id, meta.title.clone().unwrap_or_default()));
+                        }
+                    }
+                }
+                if let Some((id, title)) = emit_title {
+                    self.emit_windowtitle(id, &title);
+                }
+            }
+            WmWindowProperty::Class => {
+                let class = window.class();
+                let new_app_id = (!class.is_empty()).then_some(class);
+                if let Some(id) = self.window_id_for_x11(&window) {
+                    if let Some(meta) = self.windows.get_mut(&id) {
+                        meta.app_id = new_app_id;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn maximize_request(&mut self, _xwm: XwmId, window: X11Surface) {
+        let _ = window.set_maximized(true);
+        let _ = window.configure(Rectangle::new((0, 0).into(), self.output_size));
+    }
+
+    fn unmaximize_request(&mut self, _xwm: XwmId, window: X11Surface) {
+        let _ = window.set_maximized(false);
+        let _ = window.configure(Rectangle::new((0, 0).into(), self.output_size));
+    }
+
+    fn fullscreen_request(&mut self, _xwm: XwmId, window: X11Surface) {
+        let _ = window.set_fullscreen(true);
+        let _ = window.configure(Rectangle::new((0, 0).into(), self.output_size));
+    }
+
+    fn unfullscreen_request(&mut self, _xwm: XwmId, window: X11Surface) {
+        let _ = window.configure(Rectangle::new((0, 0).into(), self.output_size));
+    }
+
+    fn resize_request(
+        &mut self,
+        _xwm: XwmId,
+        _window: X11Surface,
+        _button: u32,
+        _resize_edge: X11ResizeEdge,
+    ) {
+    }
+
+    fn move_request(&mut self, _xwm: XwmId, _window: X11Surface, _button: u32) {}
+
+    fn allow_selection_access(&mut self, xwm: XwmId, selection: SelectionTarget) -> bool {
+        if selection != SelectionTarget::Clipboard {
+            return false;
+        }
+        self.seat
+            .get_keyboard()
+            .and_then(|k| k.current_focus())
+            .is_some_and(|f| matches!(f, FocusTarget::X11(s) if s.xwm_id() == Some(xwm)))
+    }
+
+    fn send_selection(
+        &mut self,
+        _xwm: XwmId,
+        selection: SelectionTarget,
+        mime_type: String,
+        fd: OwnedFd,
+    ) {
+        if selection == SelectionTarget::Clipboard {
+            if let Err(err) = request_data_device_client_selection(&self.seat, mime_type, fd) {
+                tracing::warn!(?err, "failed to request Wayland clipboard for Xwayland");
+            }
+        }
+    }
+
+    fn new_selection(&mut self, _xwm: XwmId, selection: SelectionTarget, mime_types: Vec<String>) {
+        if selection == SelectionTarget::Clipboard {
+            set_data_device_selection(&self.display_handle, &self.seat, mime_types, ());
+        }
+    }
+
+    fn cleared_selection(&mut self, _xwm: XwmId, selection: SelectionTarget) {
+        if selection == SelectionTarget::Clipboard
+            && current_data_device_selection_userdata(&self.seat).is_some()
+        {
+            clear_data_device_selection(&self.display_handle, &self.seat);
+        }
+    }
+
+    fn disconnected(&mut self, _xwm: XwmId) {
+        self.xwm = None;
+        self.x_display = None;
+    }
+}
+
+impl XWaylandShellHandler for CalloopData {
+    fn xwayland_shell_state(&mut self) -> &mut XWaylandShellState {
+        self.state.xwayland_shell_state()
+    }
+
+    fn surface_associated(&mut self, xwm: XwmId, wl_surface: WlSurface, surface: X11Surface) {
+        self.state.surface_associated(xwm, wl_surface, surface);
+    }
+}
+
+impl XwmHandler for CalloopData {
+    fn xwm_state(&mut self, xwm: XwmId) -> &mut X11Wm {
+        self.state.xwm_state(xwm)
+    }
+
+    fn new_window(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.new_window(xwm, window);
+    }
+
+    fn new_override_redirect_window(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.new_override_redirect_window(xwm, window);
+    }
+
+    fn map_window_request(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.map_window_request(xwm, window);
+    }
+
+    fn map_window_notify(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.map_window_notify(xwm, window);
+    }
+
+    fn mapped_override_redirect_window(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.mapped_override_redirect_window(xwm, window);
+    }
+
+    fn unmapped_window(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.unmapped_window(xwm, window);
+    }
+
+    fn destroyed_window(&mut self, xwm: XwmId, window: X11Surface) {
+        self.state.destroyed_window(xwm, window);
+    }
+
+    fn configure_request(
+        &mut self,
+        xwm: XwmId,
+        window: X11Surface,
+        x: Option<i32>,
+        y: Option<i32>,
+        w: Option<u32>,
+        h: Option<u32>,
+        reorder: Option<Reorder>,
+    ) {
+        self.state.configure_request(xwm, window, x, y, w, h, reorder);
+    }
+
+    fn configure_notify(
+        &mut self,
+        xwm: XwmId,
+        window: X11Surface,
+        geometry: Rectangle<i32, Logical>,
+        above: Option<X11Window>,
+    ) {
+        self.state.configure_notify(xwm, window, geometry, above);
+    }
+
+    fn property_notify(&mut self, xwm: XwmId, window: X11Surface, property: WmWindowProperty) {
+        self.state.property_notify(xwm, window, property);
+    }
+
+    fn maximize_request(&mut self, xwm: XwmId, window: X11Surface) {
+        XwmHandler::maximize_request(&mut self.state, xwm, window);
+    }
+
+    fn unmaximize_request(&mut self, xwm: XwmId, window: X11Surface) {
+        XwmHandler::unmaximize_request(&mut self.state, xwm, window);
+    }
+
+    fn fullscreen_request(&mut self, xwm: XwmId, window: X11Surface) {
+        XwmHandler::fullscreen_request(&mut self.state, xwm, window);
+    }
+
+    fn unfullscreen_request(&mut self, xwm: XwmId, window: X11Surface) {
+        XwmHandler::unfullscreen_request(&mut self.state, xwm, window);
+    }
+
+    fn minimize_request(&mut self, xwm: XwmId, window: X11Surface) {
+        XwmHandler::minimize_request(&mut self.state, xwm, window);
+    }
+
+    fn unminimize_request(&mut self, xwm: XwmId, window: X11Surface) {
+        XwmHandler::unminimize_request(&mut self.state, xwm, window);
+    }
+
+    fn resize_request(
+        &mut self,
+        xwm: XwmId,
+        window: X11Surface,
+        button: u32,
+        resize_edge: X11ResizeEdge,
+    ) {
+        XwmHandler::resize_request(&mut self.state, xwm, window, button, resize_edge);
+    }
+
+    fn move_request(&mut self, xwm: XwmId, window: X11Surface, button: u32) {
+        XwmHandler::move_request(&mut self.state, xwm, window, button);
+    }
+
+    fn allow_selection_access(&mut self, xwm: XwmId, selection: SelectionTarget) -> bool {
+        self.state.allow_selection_access(xwm, selection)
+    }
+
+    fn send_selection(
+        &mut self,
+        xwm: XwmId,
+        selection: SelectionTarget,
+        mime_type: String,
+        fd: OwnedFd,
+    ) {
+        XwmHandler::send_selection(&mut self.state, xwm, selection, mime_type, fd);
+    }
+
+    fn new_selection(&mut self, xwm: XwmId, selection: SelectionTarget, mime_types: Vec<String>) {
+        XwmHandler::new_selection(&mut self.state, xwm, selection, mime_types);
+    }
+
+    fn cleared_selection(&mut self, xwm: XwmId, selection: SelectionTarget) {
+        self.state.cleared_selection(xwm, selection);
+    }
+
+    fn randr_primary_output_change(&mut self, xwm: XwmId, output_name: Option<String>) {
+        self.state.randr_primary_output_change(xwm, output_name);
+    }
+
+    fn disconnected(&mut self, xwm: XwmId) {
+        self.state.disconnected(xwm);
+    }
+}
+
 fn handle_xdg_commit(popups: &mut PopupManager, space: &Space<Window>, surface: &WlSurface) {
     if let Some(window) = space
         .elements()
@@ -518,6 +964,61 @@ fn handle_xdg_commit(popups: &mut PopupManager, space: &Space<Window>, surface: 
 }
 
 impl PcEyeWm {
+    fn remove_x11_window(&mut self, window: &X11Surface) {
+        let target_id = window.window_id();
+        let maybe_elem = self
+            .space
+            .elements()
+            .find(|w| w.x11_surface().is_some_and(|x| x.window_id() == target_id))
+            .cloned();
+        if let Some(elem) = maybe_elem {
+            self.space.unmap_elem(&elem);
+        }
+
+        let mut closed_id: Option<u64> = None;
+        if let Some(id) = self.window_id_for_x11(window) {
+            if let Some(meta) = self.windows.remove(&id) {
+                self.space.unmap_elem(&meta.window);
+                if meta.announced {
+                    closed_id = Some(id);
+                }
+            }
+            self.focus_history.retain(|&fid| fid != id);
+        }
+
+        if let Some(wl_surface) = window.wl_surface() {
+            self.surface_images.remove(&wl_surface.id());
+            self.subsurface_locations.remove(&wl_surface.id());
+        }
+
+        if let Some(id) = closed_id {
+            self.emit_closewindow(id);
+        }
+
+        let was_focused = self
+            .seat
+            .get_keyboard()
+            .and_then(|k| k.current_focus())
+            .is_some_and(|f| match &f {
+                FocusTarget::X11(x) => x.window_id() == target_id,
+                FocusTarget::Wayland(s) => window.wl_surface().as_ref() == Some(s),
+            });
+
+        if was_focused {
+            let next_id = self
+                .focus_history
+                .iter()
+                .copied()
+                .find(|fid| self.windows.contains_key(fid));
+            if let Some(next_id) = next_id {
+                let _ = self.focus_window(next_id);
+            } else if let Some(keyboard) = self.seat.get_keyboard() {
+                keyboard.set_focus(self, None, SERIAL_COUNTER.next_serial());
+                self.emit_activewindow(None);
+            }
+        }
+    }
+
     fn unconstrain_popup(&self, popup: &PopupSurface) {
         let Ok(root) = find_popup_root_surface(&PopupKind::Xdg(popup.clone())) else {
             return;

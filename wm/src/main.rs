@@ -161,12 +161,15 @@ fn main() -> Result<()> {
         )
         .map_err(|e| anyhow::anyhow!("failed to insert frame timer: {e:?}"))?;
 
-    let ready_line = serde_json::json!({
+    let mut ready_line = serde_json::json!({
         "ready": true,
         "socket": cli.socket,
         "ipc": cli.ipc,
         "events": cli.events,
     });
+    if let Some(x_display) = data.state.x_display_str() {
+        ready_line["x_display"] = serde_json::Value::String(x_display);
+    }
     println!("{ready_line}");
     let _ = std::io::stdout().flush();
 

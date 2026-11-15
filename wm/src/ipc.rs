@@ -1,4 +1,10 @@
-use smithay::reexports::wayland_server::Resource;
+use smithay::{
+    reexports::{
+        calloop::{generic::Generic, Interest, LoopHandle, Mode, PostAction},
+        wayland_server::Resource,
+    },
+    wayland::seat::WaylandFocus,
+};
 use std::{
     fs::File,
     io::{BufWriter, ErrorKind, Read, Write},
@@ -11,9 +17,6 @@ use std::{
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use smithay::reexports::calloop::{
-    generic::Generic, Interest, LoopHandle, Mode, PostAction,
-};
 
 use crate::state::{CalloopData, PcEyeWm, PendingWaitIdle, WindowMeta};
 
@@ -132,6 +135,7 @@ struct StateWindowInfo {
     app_id: String,
     title: String,
     pid: i64,
+    x11: bool,
     size: [i32; 2],
     at: [i32; 2],
     commits: u64,
@@ -145,8 +149,8 @@ fn window_pixel_size(state: &PcEyeWm, meta: &WindowMeta) -> [i32; 2] {
         [geo_size.w, geo_size.h]
     } else if let Some(img) = meta
         .window
-        .toplevel()
-        .and_then(|t| state.surface_images.get(&t.wl_surface().id()))
+        .wl_surface()
+        .and_then(|s| state.surface_images.get(&s.id()))
     {
         [img.width as i32, img.height as i32]
     } else {
@@ -384,7 +388,7 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                 .seat
                 .get_keyboard()
                 .and_then(|k| k.current_focus())
-                .and_then(|s| state.window_id_for_surface(&s));
+                .and_then(|f| state.window_id_for_focus(&f));
 
             let windows: Vec<StateWindowInfo> = state
                 .space
@@ -397,13 +401,18 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                         .space
                         .element_location(&meta.window)
                         .unwrap_or_else(|| (0, 0).into());
-                    let pid = meta
-                        .window
-                        .toplevel()
-                        .and_then(|t| state.display_handle.get_client(t.wl_surface().id()).ok())
-                        .and_then(|client| client.get_credentials(&state.display_handle).ok())
-                        .map(|creds| i64::from(creds.pid))
-                        .unwrap_or(0);
+                    let (pid, x11) = if let Some(x11_surf) = meta.window.x11_surface() {
+                        (x11_surf.pid().map(i64::from).unwrap_or(0), true)
+                    } else {
+                        let pid = meta
+                            .window
+                            .toplevel()
+                            .and_then(|t| state.display_handle.get_client(t.wl_surface().id()).ok())
+                            .and_then(|client| client.get_credentials(&state.display_handle).ok())
+                            .map(|creds| i64::from(creds.pid))
+                            .unwrap_or(0);
+                        (pid, false)
+                    };
                     let focus_rank = state
                         .focus_history
                         .iter()
@@ -414,6 +423,7 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                         app_id: meta.app_id.clone().unwrap_or_default(),
                         title: meta.title.clone().unwrap_or_default(),
                         pid,
+                        x11,
                         size: window_pixel_size(state, meta),
                         at: [loc.x, loc.y],
                         commits: meta.commits,
@@ -428,6 +438,7 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                 "size": [state.output_size.w, state.output_size.h],
                 "cursor": [state.cursor_pos.x, state.cursor_pos.y],
                 "focused": focused,
+                "x_display": state.x_display_str(),
                 "windows": windows,
             }))
         }
@@ -583,8 +594,12 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                 .env("MOZ_ENABLE_WAYLAND", "1")
                 .env("GSK_RENDERER", "cairo")
                 .env("LIBGL_ALWAYS_SOFTWARE", "1")
-                .env_remove("DISPLAY")
                 .stdin(Stdio::null());
+            if let Some(x_display) = state.x_display_str() {
+                command.env("DISPLAY", x_display);
+            } else {
+                command.env_remove("DISPLAY");
+            }
 
             match command.spawn() {
                 Ok(child) => {
@@ -606,6 +621,11 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
             if let Some(toplevel) = meta.window.toplevel() {
                 toplevel.send_close();
                 Some(json!({ "ok": true }))
+            } else if let Some(x11) = meta.window.x11_surface() {
+                match x11.close() {
+                    Ok(()) => Some(json!({ "ok": true })),
+                    Err(err) => Some(err_json(&format!("failed to close X11 window {id}: {err}"))),
+                }
             } else {
                 Some(err_json(&format!("window {id} has no toplevel")))
             }

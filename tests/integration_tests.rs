@@ -56,7 +56,7 @@ fn test_mcp_initialize_and_tools_list() {
     let tools = responses[1]["result"]["tools"]
         .as_array()
         .expect("tools should be an array");
-    assert_eq!(tools.len(), 17, "Expected 17 MCP tools");
+    assert_eq!(tools.len(), 18, "Expected 18 MCP tools");
     assert!(tools.iter().any(|t| t["name"] == "pc_eye_snapshot"));
     assert!(tools.iter().any(|t| t["name"] == "pc_eye_processes"));
 

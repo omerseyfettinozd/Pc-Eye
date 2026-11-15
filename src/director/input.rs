@@ -90,6 +90,31 @@ where
     F: FnOnce() -> Result<ActionReceipt>,
 {
     let receipt = act()?;
+    // pc-eye-wm: piksel yoklaması yerine kompozitörün kare bilgisi. Eylemin ardından gelen kareler
+    // oturunca (ya da hiç kare gelmezse tolerans dolunca) tek bir "sonra" karesi alınır.
+    if crate::wm_backend::active() {
+        // Her yeni karede bölgeye bakılır (kompozitörün kare haberiyle; piksel yoklaması yok):
+        // eylemden sonraki ilk kare ilgisiz olabilir (imleç yanıp sönmesi), değişim görülene ya da
+        // süre dolana kadar sürer. Hiç kare gelmezse değişiklik yoktur.
+        let verification = before.and_then(|b| {
+            let start = std::time::Instant::now();
+            let mut last = None;
+            loop {
+                let left = VERIFY_MAX_MS.saturating_sub(start.elapsed().as_millis() as u64);
+                if left == 0 {
+                    return last;
+                }
+                let r = crate::wm_backend::wait_idle(0, left, left).ok()?;
+                let frame = crate::eyes::vision::grab_region_ppm(region).ok()?;
+                let v = compare_frames(region, &b, &frame);
+                if v.visible_change || r["idle"].as_bool() != Some(true) {
+                    return Some(v);
+                }
+                last = Some(v);
+            }
+        });
+        return Ok((receipt, verification));
+    }
     let verification = before.and_then(|b| {
         let start = std::time::Instant::now();
         let mut last: Option<(ActionVerification, image::RgbImage)> = None;
@@ -117,6 +142,10 @@ where
 
 /// Bölge durulana kadar (iki ardışık kare aynı) kare alır, en çok `max_ms`; son kareyi döner.
 fn stable_frame(region: [i64; 4], max_ms: u64) -> Option<image::RgbImage> {
+    if crate::wm_backend::active() {
+        let _ = crate::wm_backend::wait_idle(30, max_ms, 0);
+        return crate::eyes::vision::grab_region_ppm(region).ok();
+    }
     let start = std::time::Instant::now();
     let mut prev = crate::eyes::vision::grab_region_ppm(region).ok()?;
     loop {

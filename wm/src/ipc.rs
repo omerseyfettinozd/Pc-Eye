@@ -40,6 +40,11 @@ enum IpcRequest {
         quiet_ms: u64,
         #[serde(default = "default_timeout_ms")]
         timeout_ms: u64,
+        /// Eylem sonrası bekleme: istekten sonra kare gelirse onun `quiet_ms` oturması beklenir;
+        /// hiç kare gelmezse `grace_ms` dolunca durgun sayılır (tıklamaya henüz tepki gelmemişken
+        /// "zaten durgun" denmesin).
+        #[serde(default)]
+        grace_ms: u64,
     },
     Click {
         id: u64,
@@ -478,6 +483,7 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
             id,
             quiet_ms,
             timeout_ms,
+            grace_ms,
         } => {
             if let Some(win_id) = id {
                 if !state.windows.contains_key(&win_id) {
@@ -492,6 +498,7 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                 client_id,
                 window_id: id,
                 quiet_ms,
+                grace_ms,
                 started: now,
                 deadline,
             });
@@ -611,6 +618,15 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
     }
 }
 
+fn settled(now: Instant, last_commit: Instant, waiter: &PendingWaitIdle, quiet: Duration) -> bool {
+    let quiet_ok = now.saturating_duration_since(last_commit) >= quiet;
+    if last_commit > waiter.started {
+        quiet_ok
+    } else {
+        quiet_ok && now.saturating_duration_since(waiter.started) >= Duration::from_millis(waiter.grace_ms)
+    }
+}
+
 pub fn resolve_waiters(state: &mut PcEyeWm) {
     if state.waiters.is_empty() {
         return;
@@ -627,7 +643,7 @@ pub fn resolve_waiters(state: &mut PcEyeWm) {
             Some(win_id) => match state.windows.get(&win_id) {
                 None => Some(err_json(&format!("window {win_id} closed"))),
                 Some(meta) => {
-                    let is_idle = now.saturating_duration_since(meta.last_commit) >= quiet;
+                    let is_idle = settled(now, meta.last_commit, &waiter, quiet);
                     if is_idle || now >= waiter.deadline {
                         Some(json!({
                             "ok": true,
@@ -641,10 +657,8 @@ pub fn resolve_waiters(state: &mut PcEyeWm) {
                 }
             },
             None => {
-                let is_idle = state
-                    .windows
-                    .values()
-                    .all(|meta| now.saturating_duration_since(meta.last_commit) >= quiet);
+                let latest = state.windows.values().map(|m| m.last_commit).max();
+                let is_idle = latest.map_or(true, |last| settled(now, last, &waiter, quiet));
                 if is_idle || now >= waiter.deadline {
                     let total_commits: u64 = state.windows.values().map(|m| m.commits).sum();
                     Some(json!({

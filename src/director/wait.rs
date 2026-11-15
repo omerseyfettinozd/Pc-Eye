@@ -67,6 +67,20 @@ pub fn wait_for_condition(
                 ]
             };
 
+            // pc-eye-wm: "durdu" kompozitörün kare sessizliğidir (piksel yoklaması yok).
+            if crate::wm_backend::active() {
+                let left = deadline.saturating_duration_since(Instant::now()).as_millis() as u64;
+                let r = crate::wm_backend::wait_idle(80, left, 0)?;
+                if r["idle"].as_bool() == Some(true) {
+                    return Ok(WaitReport {
+                        condition: "visual_settle".to_string(),
+                        matched: true,
+                        elapsed_ms: start.elapsed().as_millis() as u64,
+                        details: format!("kare sessizliği (pc-eye-wm, {} kare)", r["commits"]),
+                    });
+                }
+                return Err(anyhow!("Zaman aşımı: pencereler kare göndermeyi kesmedi (pc-eye-wm)"));
+            }
             let mut prev_hash: Option<u64> = None;
             let mut stable_streak = 0u32;
 

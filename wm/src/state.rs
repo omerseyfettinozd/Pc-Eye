@@ -61,6 +61,7 @@ pub struct PendingWaitIdle {
     pub client_id: u64,
     pub window_id: Option<u64>,
     pub quiet_ms: u64,
+    pub grace_ms: u64,
     pub started: Instant,
     pub deadline: Instant,
 }

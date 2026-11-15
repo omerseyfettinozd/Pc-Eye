@@ -30,13 +30,22 @@ pub fn active() -> bool {
 
 /// wm IPC'ye tek istek (satır JSON). `wait_idle` gibi geç yanıtlar için süre isteğe göre uzar.
 pub fn request(req: Value) -> Result<Value> {
+    let t0 = std::time::Instant::now();
+    let r = request_inner(&req);
+    if std::env::var_os("PCEYE_WM_TRACE").is_some() {
+        eprintln!("[wm] {:>6.1} ms {}", t0.elapsed().as_secs_f64() * 1000.0, req["op"].as_str().unwrap_or("?"));
+    }
+    r
+}
+
+fn request_inner(req: &Value) -> Result<Value> {
     let path = std::env::var(IPC_VAR).map_err(|_| anyhow!("pc-eye-wm oturumu etkin değil"))?;
     let mut stream =
         UnixStream::connect(&path).with_context(|| format!("pc-eye-wm IPC'ye bağlanılamadı: {}", path))?;
     let wait_ms = req.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(0);
     stream.set_read_timeout(Some(Duration::from_millis(5_000 + wait_ms)))?;
     stream.set_write_timeout(Some(Duration::from_secs(5)))?;
-    let mut line = serde_json::to_string(&req)?;
+    let mut line = serde_json::to_string(req)?;
     line.push('\n');
     stream.write_all(line.as_bytes())?;
     let mut resp = String::new();
@@ -306,8 +315,20 @@ pub fn key_combo(combo: &str) -> Result<()> {
 }
 
 /// Kare doğruluğunda bekleme: hiçbir pencere `quiet_ms` boyunca yeni kare göndermeyene dek.
-pub fn wait_idle(quiet_ms: u64, timeout_ms: u64) -> Result<Value> {
-    request(json!({ "op": "wait_idle", "quiet_ms": quiet_ms, "timeout_ms": timeout_ms }))
+/// `grace_ms`: istekten sonra hiç kare gelmezse bu süre dolunca durgun sayılır (eylem sonrası).
+/// Yalnız odaktaki pencere izlenir: arkada sürekli kare gönderen bir pencere (yükleme animasyonu,
+/// başka uygulama) eylemin beklemesini uzatmasın. Odak yoksa tüm pencereler.
+pub fn wait_idle(quiet_ms: u64, timeout_ms: u64, grace_ms: u64) -> Result<Value> {
+    let focused = request(json!({ "op": "state" })).ok().and_then(|s| s["focused"].as_u64());
+    wait_idle_window(focused, quiet_ms, timeout_ms, grace_ms)
+}
+
+pub fn wait_idle_window(id: Option<u64>, quiet_ms: u64, timeout_ms: u64, grace_ms: u64) -> Result<Value> {
+    let mut req = json!({ "op": "wait_idle", "quiet_ms": quiet_ms, "timeout_ms": timeout_ms, "grace_ms": grace_ms });
+    if let Some(id) = id {
+        req["id"] = json!(id);
+    }
+    request(req)
 }
 
 #[cfg(test)]

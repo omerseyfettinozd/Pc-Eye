@@ -65,6 +65,17 @@ PIXEL_SYSTEM = (
     "kullanabilirsin; koordinatlar ekran görüntüsündeki piksel koordinatlarıdır."
 )
 
+# Dış rakip (F10): wayland-mcp (alex-oleshkevich, v0.5.2, kaynaktan derlenmiş). Aynı model ve görevler;
+# sahne aynı yalıtılmış oturumda (iç içe Hyprland: wlroots yakalama/girdi protokolleri). Rakibin
+# "host" hedefi o oturumdur; kullanıcının ekranına erişimi yoktur.
+RIVAL_BIN = {"wayland-mcp": str(Path.home() / ".local/share/pc-eye/rivals/wayland-mcp")}
+RIVAL_SYSTEM = (
+    "Bir masaüstü otomasyon ölçüm görevindesin. Bilgisayarı yalnız sana verilen MCP araçlarıyla kullan. "
+    "Görev uygulaması şu an bağlı olduğun masaüstünde (hedef: host) açık; sandbox başlatma. "
+    "Görevi bitirince yanıtının son satırına `CEVAP: <değer>` yaz; sorulan bir değer yoksa `CEVAP: tamam` yaz."
+)
+SCENE_WAYLAND = None
+
 # Tarayıcı algısı: "atspi" masaüstü erişilebilirlik ağacı (önceki ölçümlerle kıyaslanabilir taban),
 # "bridge" Firefox'a Pc-Eye Bridge eklentisi bağlanır ve ajan pc_eye_browser aracını da kullanabilir.
 BROWSER = "atspi"
@@ -168,7 +179,8 @@ class Sandbox:
         info = r.json()
         if r.rc != 0 or not info:
             raise RuntimeError(f"ajan oturumu açılamadı: {r.stderr or r.stdout}")
-        global SCENE_WM_IPC
+        global SCENE_WM_IPC, SCENE_WAYLAND
+        SCENE_WAYLAND = info.get("wayland_display")
         SCENE_HYPR_SIG = info.get("signature")
         SCENE_WM_IPC = info.get("wm_ipc")
         # Bundan sonra her pc-eye çağrısı (CLI, ajanın MCP sunucusu) oturumun içindedir.
@@ -944,6 +956,12 @@ def run_agent(task, scene, sb, work, args, transcript):
     system = AGENT_SYSTEM.format(display=sb.label, workspace=sb.workspace)
     allowed = ["mcp__pc-eye"]
     disallowed = []
+    if args.toolset in RIVAL_BIN:
+        if not SCENE_WAYLAND or SCENE_WM_IPC:
+            raise RuntimeError("rakip araç seti iç içe Hyprland oturumu ister: PC_EYE_BACKEND=hyprland --session <ad>")
+        renv = {"WAYLAND_DISPLAY": SCENE_WAYLAND}
+        mcp.write_text(json.dumps({"mcpServers": {"rival": {"command": RIVAL_BIN[args.toolset], "args": [], "env": renv}}}))
+        system, allowed, disallowed = RIVAL_SYSTEM, ["mcp__rival"], []
     if BROWSER == "bridge":
         system += BRIDGE_SYSTEM
     else:
@@ -1093,7 +1111,7 @@ def main():
     ap.add_argument("--timeout", type=int, default=300, help="agent görev süresi sınırı (sn)")
     ap.add_argument("--budget", type=float, default=1.0, help="agent görev başı $ sınırı")
     ap.add_argument("--no-save", action="store_true")
-    ap.add_argument("--toolset", choices=["full", "pixels"], default="full",
+    ap.add_argument("--toolset", choices=["full", "pixels", "wayland-mcp"], default="full",
                     help="pixels: yalnız ekran görüntüsü + fare/klavye (rakip mimarisi kıyası)")
     ap.add_argument("--browser", choices=["atspi", "bridge"], default="atspi",
                     help="bridge: Firefox sahnelerine Pc-Eye Bridge eklentisi bağlanır (pc_eye_browser)")
@@ -1115,7 +1133,7 @@ def main():
     rng = random.Random(seed)
     # Paralel koşucular (farklı oturumlar) aynı saniyede başlayabilir: dosyalar çakışmasın.
     stamp = (time.strftime("%Y%m%d-%H%M%S") + (f"-{args.session}" if args.session else "")
-             + ("-pixels" if args.toolset == "pixels" else "")
+             + (f"-{args.toolset}" if args.toolset != "full" else "")
              + ("-bridge" if args.browser == "bridge" else ""))
     work_root = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "pc-eye-eval" / stamp
     transcripts = RESULTS_DIR / "transcripts" / stamp

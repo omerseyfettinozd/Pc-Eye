@@ -1,8 +1,10 @@
 use std::{
     borrow::Cow,
     collections::HashMap,
+    fs::{File, OpenOptions},
     io::{ErrorKind, Read, Write},
-    os::unix::net::UnixStream,
+    os::unix::{fs::MetadataExt, net::UnixStream},
+    path::{Path, PathBuf},
     process::{Child, Stdio},
     sync::Arc,
     time::Instant,
@@ -10,7 +12,15 @@ use std::{
 
 use anyhow::{Context, Result};
 use smithay::{
-    backend::input::KeyState,
+    backend::{
+        allocator::gbm::GbmDevice,
+        egl::{EGLContext, EGLDevice, EGLDisplay},
+        input::KeyState,
+        renderer::{
+            gles::{GlesRenderbuffer, GlesRenderer},
+            ImportDma,
+        },
+    },
     desktop::{PopupManager, Space, Window},
     input::{
         keyboard::{KeyboardTarget, KeysymHandle, ModifiersState},
@@ -41,6 +51,7 @@ use smithay::{
             with_surface_tree_upward, CompositorClientState, CompositorState,
             SubsurfaceCachedState, TraversalAction, SUBSURFACE_ROLE,
         },
+        dmabuf::{DmabufFeedbackBuilder, DmabufGlobal, DmabufState},
         output::OutputManagerState,
         seat::WaylandFocus,
         selection::data_device::DataDeviceState,
@@ -331,6 +342,10 @@ pub struct PcEyeWm {
     pub xdg_shell_state: XdgShellState,
     pub xdg_decoration_state: XdgDecorationState,
     pub shm_state: ShmState,
+    pub dmabuf_state: DmabufState,
+    pub dmabuf_global: Option<DmabufGlobal>,
+    pub renderer: Option<GlesRenderer>,
+    pub dmabuf_renderbuffer: Option<((i32, i32), GlesRenderbuffer)>,
     pub output_manager_state: OutputManagerState,
     pub seat_state: SeatState<PcEyeWm>,
     pub data_device_state: DataDeviceState,
@@ -375,6 +390,14 @@ impl PcEyeWm {
             &dh,
             vec![wl_shm::Format::Argb8888, wl_shm::Format::Xrgb8888],
         );
+        let mut dmabuf_state = DmabufState::new();
+        let (renderer, dmabuf_global) = match try_init_dmabuf_renderer() {
+            Some((renderer, file_dev_id)) => {
+                let global = create_dmabuf_global(&mut dmabuf_state, &dh, &renderer, file_dev_id);
+                (Some(renderer), Some(global))
+            }
+            None => (None, None),
+        };
         let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&dh);
         let mut seat_state = SeatState::new();
         let data_device_state = DataDeviceState::new::<Self>(&dh);
@@ -431,6 +454,10 @@ impl PcEyeWm {
             xdg_shell_state,
             xdg_decoration_state,
             shm_state,
+            dmabuf_state,
+            dmabuf_global,
+            renderer,
+            dmabuf_renderbuffer: None,
             output_manager_state,
             seat_state,
             data_device_state,
@@ -452,6 +479,10 @@ impl PcEyeWm {
             waiters: Vec::new(),
             children: Vec::new(),
         })
+    }
+
+    pub fn has_dmabuf(&self) -> bool {
+        self.renderer.is_some() && self.dmabuf_global.is_some()
     }
 
     fn start_xwayland(dh: &DisplayHandle, loop_handle: &LoopHandle<'static, CalloopData>) {
@@ -768,6 +799,98 @@ impl PcEyeWm {
         self.children
             .retain_mut(|child| matches!(child.try_wait(), Ok(None)));
     }
+}
+
+fn open_render_node() -> Result<File> {
+    let preferred = Path::new("/dev/dri/renderD128");
+    if preferred.exists() {
+        match OpenOptions::new().read(true).write(true).open(preferred) {
+            Ok(file) => return Ok(file),
+            Err(err) => {
+                tracing::debug!(path = %preferred.display(), ?err, "failed to open /dev/dri/renderD128");
+            }
+        }
+    }
+
+    let mut candidates: Vec<PathBuf> = std::fs::read_dir("/dev/dri")
+        .context("failed to read /dev/dri")?
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|path| {
+            path != preferred
+                && path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with("renderD"))
+        })
+        .collect();
+    candidates.sort();
+
+    for path in candidates {
+        match OpenOptions::new().read(true).write(true).open(&path) {
+            Ok(file) => return Ok(file),
+            Err(err) => {
+                tracing::debug!(path = %path.display(), ?err, "failed to open render node");
+            }
+        }
+    }
+
+    anyhow::bail!("no usable DRM render node found under /dev/dri")
+}
+
+fn try_init_dmabuf_renderer() -> Option<(GlesRenderer, Option<u64>)> {
+    if std::env::var_os("PCEYE_WM_DMABUF").is_some_and(|v| v == "0") {
+        tracing::info!("dmabuf disabled via PCEYE_WM_DMABUF=0");
+        return None;
+    }
+
+    let init = || -> Result<(GlesRenderer, Option<u64>)> {
+        let file = open_render_node()?;
+        let file_dev_id = file.metadata().ok().map(|m| m.rdev());
+        let gbm = GbmDevice::new(file).context("failed to create GbmDevice")?;
+        // Safety: `gbm` is a valid initialized `GbmDevice` wrapping an open DRM render node.
+        let display = unsafe { EGLDisplay::new(gbm) }.context("failed to create EGLDisplay from GBM")?;
+        let context = EGLContext::new(&display).context("failed to create EGLContext")?;
+        // Safety: `context` is a valid `EGLContext` created from the live `EGLDisplay`.
+        let renderer = unsafe { GlesRenderer::new(context) }.context("failed to create GlesRenderer")?;
+        Ok((renderer, file_dev_id))
+    };
+
+    match init() {
+        Ok(res) => {
+            tracing::info!("initialized EGL/GLES renderer for dmabuf support");
+            Some(res)
+        }
+        Err(err) => {
+            tracing::warn!(?err, "GPU dmabuf initialization failed; falling back to wl_shm only");
+            None
+        }
+    }
+}
+
+fn create_dmabuf_global(
+    dmabuf_state: &mut DmabufState,
+    dh: &DisplayHandle,
+    renderer: &GlesRenderer,
+    file_dev_id: Option<u64>,
+) -> DmabufGlobal {
+    let formats = renderer.dmabuf_formats();
+    let egl_dev_id = EGLDevice::device_for_display(renderer.egl_context().display())
+        .ok()
+        .and_then(|dev| dev.try_get_render_node().ok().flatten())
+        .map(|node| node.dev_id());
+
+    if let Some(dev_id) = egl_dev_id.or_else(|| file_dev_id.and_then(|r| r.try_into().ok())) {
+        match DmabufFeedbackBuilder::new(dev_id, formats.clone()).build() {
+            Ok(feedback) => {
+                return dmabuf_state.create_global_with_default_feedback::<PcEyeWm>(dh, &feedback);
+            }
+            Err(err) => {
+                tracing::warn!(?err, "failed to build dmabuf default feedback; using v3 global");
+            }
+        }
+    }
+
+    dmabuf_state.create_global::<PcEyeWm>(dh, formats)
 }
 
 fn drain_stream(stream: &mut UnixStream) -> bool {

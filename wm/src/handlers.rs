@@ -1,9 +1,17 @@
 use std::{os::unix::io::OwnedFd, time::Instant};
 
 use smithay::{
-    backend::renderer::utils::on_commit_buffer_handler,
-    delegate_compositor, delegate_data_device, delegate_output, delegate_seat, delegate_shm,
-    delegate_xdg_decoration, delegate_xdg_shell, delegate_xwayland_keyboard_grab,
+    backend::{
+        allocator::{dmabuf::Dmabuf, format::has_alpha, Buffer as _, Fourcc},
+        renderer::{
+            gles::{GlesRenderbuffer, GlesRenderer},
+            utils::on_commit_buffer_handler,
+            Bind, Color32F, ExportMem, Frame, ImportDma, Offscreen, Renderer, Texture,
+            TextureMapping,
+        },
+    },
+    delegate_compositor, delegate_data_device, delegate_dmabuf, delegate_output, delegate_seat,
+    delegate_shm, delegate_xdg_decoration, delegate_xdg_shell, delegate_xwayland_keyboard_grab,
     delegate_xwayland_shell,
     desktop::{
         find_popup_root_surface, get_popup_toplevel_coords, space::RenderZindex, PopupKind,
@@ -20,7 +28,7 @@ use smithay::{
             Client, Resource,
         },
     },
-    utils::{Logical, Point, Rectangle, Serial, SERIAL_COUNTER},
+    utils::{Logical, Point, Rectangle, Serial, Transform, SERIAL_COUNTER},
     wayland::{
         buffer::BufferHandler,
         compositor::{
@@ -28,6 +36,7 @@ use smithay::{
             CompositorClientState, CompositorHandler, CompositorState, SubsurfaceCachedState,
             SurfaceAttributes, SUBSURFACE_ROLE,
         },
+        dmabuf::{get_dmabuf, DmabufGlobal, DmabufHandler, DmabufState, ImportNotifier},
         output::{OutputHandler, OutputManagerState},
         seat::WaylandFocus,
         selection::{
@@ -74,7 +83,7 @@ impl CompositorHandler for PcEyeWm {
     fn commit(&mut self, surface: &WlSurface) {
         let mut extracted_image: Option<Option<SurfaceImage>> = None;
         let mut subsurface_loc: Option<Point<i32, Logical>> = None;
-        let mut buffer_to_release: Option<wl_buffer::WlBuffer> = None;
+        let mut new_buffer: Option<wl_buffer::WlBuffer> = None;
 
         let is_subsurface = get_role(surface) == Some(SUBSURFACE_ROLE);
 
@@ -92,16 +101,7 @@ impl CompositorHandler for PcEyeWm {
             let current = attrs.current();
             match &current.buffer {
                 Some(BufferAssignment::NewBuffer(buffer)) => {
-                    match extract_shm_image(buffer) {
-                        Ok(Some(img)) => {
-                            extracted_image = Some(Some(img));
-                        }
-                        Ok(None) => {}
-                        Err(err) => {
-                            tracing::debug!(?err, "skipping non-shm or invalid buffer");
-                        }
-                    }
-                    buffer_to_release = Some(buffer.clone());
+                    new_buffer = Some(buffer.clone());
                 }
                 Some(BufferAssignment::Removed) => {
                     extracted_image = Some(None);
@@ -109,6 +109,35 @@ impl CompositorHandler for PcEyeWm {
                 None => {}
             }
         });
+
+        let mut buffer_to_release: Option<wl_buffer::WlBuffer> = None;
+        if let Some(buffer) = new_buffer {
+            if let Ok(dmabuf) = get_dmabuf(&buffer) {
+                let dmabuf = dmabuf.clone();
+                if let Some(renderer) = self.renderer.as_mut() {
+                    match extract_dmabuf_image(renderer, &mut self.dmabuf_renderbuffer, &dmabuf) {
+                        Ok(Some(img)) => {
+                            extracted_image = Some(Some(img));
+                        }
+                        Ok(None) => {}
+                        Err(err) => {
+                            tracing::debug!(?err, "skipping dmabuf frame pixel update");
+                        }
+                    }
+                }
+            } else {
+                match extract_shm_image(&buffer) {
+                    Ok(Some(img)) => {
+                        extracted_image = Some(Some(img));
+                    }
+                    Ok(None) => {}
+                    Err(err) => {
+                        tracing::debug!(?err, "skipping non-shm or invalid buffer");
+                    }
+                }
+            }
+            buffer_to_release = Some(buffer);
+        }
 
         if let Some(loc) = subsurface_loc {
             self.subsurface_locations.insert(surface.id(), loc);
@@ -174,6 +203,133 @@ impl CompositorHandler for PcEyeWm {
         self.surface_images.remove(&id);
         self.subsurface_locations.remove(&id);
     }
+}
+
+fn extract_dmabuf_image(
+    renderer: &mut GlesRenderer,
+    cached_rbo: &mut Option<((i32, i32), GlesRenderbuffer)>,
+    dmabuf: &Dmabuf,
+) -> Result<Option<SurfaceImage>, String> {
+    let texture = renderer
+        .import_dmabuf(dmabuf, None)
+        .map_err(|err| format!("import_dmabuf failed: {err:?}"))?;
+    let size = texture.size();
+    if size.w <= 0 || size.h <= 0 {
+        return Ok(None);
+    }
+
+    let width = size.w as usize;
+    let height = size.h as usize;
+    let pixel_count = width
+        .checked_mul(height)
+        .ok_or_else(|| "dmabuf pixel count overflow".to_string())?;
+    let expected_bytes = pixel_count
+        .checked_mul(4)
+        .ok_or_else(|| "dmabuf byte size overflow".to_string())?;
+
+    let mut offscreen = match cached_rbo.take() {
+        Some((dims, rbo)) if dims == (size.w, size.h) => rbo,
+        _ => Offscreen::<GlesRenderbuffer>::create_buffer(renderer, Fourcc::Abgr8888, size)
+            .map_err(|err| format!("create offscreen buffer failed: {err:?}"))?,
+    };
+
+    let render_result: Result<_, String> = (|| {
+        let mut framebuffer = renderer
+            .bind(&mut offscreen)
+            .map_err(|err| format!("bind offscreen buffer failed: {err:?}"))?;
+        let damage_rect = Rectangle::from_size((size.w, size.h).into());
+
+        let sync = {
+            let mut frame = renderer
+                .render(&mut framebuffer, (size.w, size.h).into(), Transform::Normal)
+                .map_err(|err| format!("renderer.render failed: {err:?}"))?;
+            frame
+                .clear(Color32F::TRANSPARENT, &[damage_rect])
+                .map_err(|err| format!("frame.clear failed: {err:?}"))?;
+            frame
+                .render_texture_at(
+                    &texture,
+                    (0, 0).into(),
+                    1,
+                    1.0,
+                    Transform::Normal,
+                    &[damage_rect],
+                    &[],
+                    1.0,
+                )
+                .map_err(|err| format!("render_texture_at failed: {err:?}"))?;
+            frame
+                .finish()
+                .map_err(|err| format!("frame.finish failed: {err:?}"))?
+        };
+        if let Err(err) = sync.wait() {
+            tracing::debug!(?err, "sync wait interrupted before dmabuf readback");
+        }
+
+        renderer
+            .copy_framebuffer(
+                &framebuffer,
+                Rectangle::from_size((size.w, size.h).into()),
+                Fourcc::Abgr8888,
+            )
+            .map_err(|err| format!("copy_framebuffer failed: {err:?}"))
+    })();
+
+    *cached_rbo = Some(((size.w, size.h), offscreen));
+    let mapping = render_result?;
+
+    let flipped = mapping.flipped();
+    let pixels = renderer
+        .map_texture(&mapping)
+        .map_err(|err| format!("map_texture failed: {err:?}"))?;
+    if pixels.len() < expected_bytes {
+        return Err(format!(
+            "mapped dmabuf texture too small: {} < {}",
+            pixels.len(),
+            expected_bytes
+        ));
+    }
+
+    let has_alpha_chan = has_alpha(dmabuf.format().code);
+    let mut rgb = Vec::with_capacity(pixel_count * 3);
+    let mut alpha = if has_alpha_chan {
+        Some(Vec::with_capacity(pixel_count))
+    } else {
+        None
+    };
+
+    let row_bytes = width * 4;
+    let push_row = |y: usize, rgb: &mut Vec<u8>, alpha: &mut Option<Vec<u8>>| {
+        let row_start = y * row_bytes;
+        let row = &pixels[row_start..row_start + row_bytes];
+        for px in row.chunks_exact(4) {
+            // `Fourcc::Abgr8888` in GL (`GL_RGBA`/`GL_UNSIGNED_BYTE`) is [R, G, B, A] in memory.
+            rgb.push(px[0]);
+            rgb.push(px[1]);
+            rgb.push(px[2]);
+            if let Some(ref mut alpha_buf) = alpha {
+                alpha_buf.push(px[3]);
+            }
+        }
+    };
+
+    // `GlesMapping::flipped() == true` means top-down row order from `Transform::Normal` FBO render.
+    if flipped {
+        for y in 0..height {
+            push_row(y, &mut rgb, &mut alpha);
+        }
+    } else {
+        for y in (0..height).rev() {
+            push_row(y, &mut rgb, &mut alpha);
+        }
+    }
+
+    Ok(Some(SurfaceImage {
+        width: size.w as u32,
+        height: size.h as u32,
+        rgb,
+        alpha,
+    }))
 }
 
 fn extract_shm_image(buffer: &wl_buffer::WlBuffer) -> Result<Option<SurfaceImage>, String> {
@@ -246,8 +402,36 @@ impl ShmHandler for PcEyeWm {
     }
 }
 
+impl DmabufHandler for PcEyeWm {
+    fn dmabuf_state(&mut self) -> &mut DmabufState {
+        &mut self.dmabuf_state
+    }
+
+    fn dmabuf_imported(
+        &mut self,
+        _global: &DmabufGlobal,
+        dmabuf: Dmabuf,
+        notifier: ImportNotifier,
+    ) {
+        let Some(renderer) = self.renderer.as_mut() else {
+            notifier.failed();
+            return;
+        };
+        match renderer.import_dmabuf(&dmabuf, None) {
+            Ok(_) => {
+                let _ = notifier.successful::<Self>();
+            }
+            Err(err) => {
+                tracing::debug!(?err, "dmabuf import failed");
+                notifier.failed();
+            }
+        }
+    }
+}
+
 delegate_compositor!(PcEyeWm);
 delegate_shm!(PcEyeWm);
+delegate_dmabuf!(PcEyeWm);
 
 impl SeatHandler for PcEyeWm {
     type KeyboardFocus = FocusTarget;

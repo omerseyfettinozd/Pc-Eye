@@ -150,6 +150,9 @@ fn main() -> Result<()> {
                         |_, _| Some(output.clone()),
                     );
                 }
+                if let Some(renderer) = data.state.renderer.as_mut() {
+                    let _ = smithay::backend::renderer::Renderer::cleanup_texture_cache(renderer);
+                }
                 data.state.space.refresh();
                 data.state.popups.cleanup();
                 ipc::resolve_waiters(&mut data.state);
@@ -163,6 +166,7 @@ fn main() -> Result<()> {
 
     let mut ready_line = serde_json::json!({
         "ready": true,
+        "dmabuf": data.state.has_dmabuf(),
         "socket": cli.socket,
         "ipc": cli.ipc,
         "events": cli.events,
@@ -178,6 +182,7 @@ fn main() -> Result<()> {
         ipc = %cli.ipc,
         events = %cli.events,
         size = ?(cli.width, cli.height),
+        dmabuf = data.state.has_dmabuf(),
         "pc-eye-wm ready"
     );
 

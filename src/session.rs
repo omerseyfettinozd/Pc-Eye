@@ -105,9 +105,18 @@ pub fn activate(autostart: bool) -> Result<()> {
         // Hyprland'e hiçbir istek gitmesin: her şey wm IPC'sinden (bkz. wm_backend).
         std::env::remove_var("HYPRLAND_INSTANCE_SIGNATURE");
         std::env::set_var(crate::wm_backend::IPC_VAR, info["wm_ipc"].as_str().unwrap_or(""));
-        // wm yalnız paylaşımlı bellek (wl_shm) tamponu okur: GPU tampon paylaşımı (dmabuf) yok.
-        // OpenGL ile çizen uygulamalar (kitty, Electron) yazılım çizimine düşsün ki piksel versin.
-        std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+        // wm GPU tamponlarını (dmabuf) okuyabiliyorsa uygulamalar GPU'da çizer; okuyamıyorsa
+        // OpenGL ile çizenler (kitty, Electron) yazılım çizimine düşer ki piksel versin.
+        let dmabuf = crate::wm_backend::request(json!({ "op": "state" }))
+            .ok()
+            .and_then(|s| s["dmabuf"].as_bool())
+            .unwrap_or(false);
+        if !dmabuf {
+            std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+        }
+        // GTK4'ün GPU çizicisi odaktaki metin kutusunun imlecini her karede soldurup açar: pencere
+        // hiç durulmaz ("durdu" kararı ve doğrulama bozulur). Yazılım çizicisinde bu animasyon yok.
+        std::env::set_var("GSK_RENDERER", "cairo");
         std::env::set_var("GDK_BACKEND", "wayland");
         std::env::set_var("QT_QPA_PLATFORM", "wayland");
         std::env::set_var("MOZ_ENABLE_WAYLAND", "1");

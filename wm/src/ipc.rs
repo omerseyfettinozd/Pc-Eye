@@ -435,6 +435,7 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
 
             Some(json!({
                 "ok": true,
+                "dmabuf": state.has_dmabuf(),
                 "size": [state.output_size.w, state.output_size.h],
                 "cursor": [state.cursor_pos.x, state.cursor_pos.y],
                 "focused": focused,
@@ -592,9 +593,12 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                 .env("GDK_BACKEND", "wayland")
                 .env("QT_QPA_PLATFORM", "wayland")
                 .env("MOZ_ENABLE_WAYLAND", "1")
-                .env("GSK_RENDERER", "cairo")
-                .env("LIBGL_ALWAYS_SOFTWARE", "1")
                 .stdin(Stdio::null());
+            if !state.has_dmabuf() {
+                command
+                    .env("GSK_RENDERER", "cairo")
+                    .env("LIBGL_ALWAYS_SOFTWARE", "1");
+            }
             if let Some(x_display) = state.x_display_str() {
                 command.env("DISPLAY", x_display);
             } else {

@@ -51,8 +51,22 @@ fn load(name: &str) -> Option<Value> {
     serde_json::from_str(&text).ok()
 }
 
+fn is_wm(info: &Value) -> bool {
+    info["backend"].as_str() == Some("wm")
+}
+
+/// Oturum kompozitörü: `PC_EYE_BACKEND=wm` ile pc-eye-wm (F7), yoksa iç içe Hyprland (F4).
+fn default_backend() -> String {
+    std::env::var("PC_EYE_BACKEND").ok().filter(|b| b == "wm").unwrap_or_else(|| "hyprland".into())
+}
+
 fn alive(info: &Value) -> bool {
     let pid = info["pid"].as_i64().unwrap_or(0);
+    if is_wm(info) {
+        return pid > 0
+            && has_tag(pid, info["tag"].as_str().unwrap_or(""))
+            && std::path::Path::new(info["wm_ipc"].as_str().unwrap_or("")).exists();
+    }
     let sig = info["signature"].as_str().unwrap_or("");
     pid > 0
         && has_tag(pid, info["tag"].as_str().unwrap_or(""))
@@ -67,10 +81,22 @@ pub fn activate(autostart: bool) -> Result<()> {
     let Some(name) = active_name() else { return Ok(()) };
     let info = match load(&name).filter(alive) {
         Some(info) => info,
-        None if autostart => start_unchecked(&name, DEFAULT_MODE)?,
+        None if autostart => start_backend(&name, DEFAULT_MODE, &default_backend())?,
         None => return Err(anyhow!("ajan oturumu çalışmıyor: {} (`pc-eye session start {}`)", name, name)),
     };
-    std::env::set_var("HYPRLAND_INSTANCE_SIGNATURE", info["signature"].as_str().unwrap_or(""));
+    if is_wm(&info) {
+        // Hyprland'e hiçbir istek gitmesin: her şey wm IPC'sinden (bkz. wm_backend).
+        std::env::remove_var("HYPRLAND_INSTANCE_SIGNATURE");
+        std::env::set_var(crate::wm_backend::IPC_VAR, info["wm_ipc"].as_str().unwrap_or(""));
+        // wm yalnız paylaşımlı bellek (wl_shm) tamponu okur: GPU tampon paylaşımı (dmabuf) yok.
+        // OpenGL ile çizen uygulamalar (kitty, Electron) yazılım çizimine düşsün ki piksel versin.
+        std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+        std::env::set_var("GDK_BACKEND", "wayland");
+        std::env::set_var("QT_QPA_PLATFORM", "wayland");
+        std::env::set_var("MOZ_ENABLE_WAYLAND", "1");
+    } else {
+        std::env::set_var("HYPRLAND_INSTANCE_SIGNATURE", info["signature"].as_str().unwrap_or(""));
+    }
     ACTIVATED.store(true, std::sync::atomic::Ordering::SeqCst);
     std::env::set_var("WAYLAND_DISPLAY", info["wayland_display"].as_str().unwrap_or(""));
     // Yalnız X11 konuşan bir uygulama kullanıcının Xwayland'ine, yani onun ekranına açılırdı.
@@ -94,7 +120,11 @@ pub fn ensure_alive() -> Result<()> {
         // Aynı adla yeniden açılmışsa bu süreç hâlâ eski örneğe bakıyordur.
         Some(info)
             if alive(&info)
-                && info["signature"].as_str() == std::env::var("HYPRLAND_INSTANCE_SIGNATURE").ok().as_deref() =>
+                && if is_wm(&info) {
+                    info["wm_ipc"].as_str() == std::env::var(crate::wm_backend::IPC_VAR).ok().as_deref()
+                } else {
+                    info["signature"].as_str() == std::env::var("HYPRLAND_INSTANCE_SIGNATURE").ok().as_deref()
+                } =>
         {
             Ok(())
         }
@@ -203,11 +233,129 @@ fn output_name(name: &str) -> String {
 }
 
 /// Oturumu açar (çalışıyorsa olduğu gibi döner).
-pub fn start(name: &str, mode: &str) -> Result<Value> {
+pub fn start(name: &str, mode: &str, backend: &str) -> Result<Value> {
     if active_name().is_some() {
         return Err(anyhow!("ajan oturumunun içinden yeni oturum açılamaz (PC_EYE_SESSION ayarlı)"));
     }
-    start_unchecked(name, mode)
+    start_backend(name, mode, backend)
+}
+
+fn start_backend(name: &str, mode: &str, backend: &str) -> Result<Value> {
+    match backend {
+        "wm" => start_wm(name, mode),
+        "hyprland" => start_unchecked(name, mode),
+        other => Err(anyhow!("bilinmeyen oturum arka ucu: {} (hyprland | wm)", other)),
+    }
+}
+
+/// pc-eye-wm ikilisi: pc-eye'in yanında, yoksa PATH'te.
+fn wm_binary() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(|d| d.join("pc-eye-wm")))
+        .filter(|p| p.exists())
+        .unwrap_or_else(|| PathBuf::from("pc-eye-wm"))
+}
+
+/// pc-eye-wm oturumu (F7): kullanıcının Hyprland'ine hiç dokunmaz (headless çıkış, iç örnek yok).
+fn start_wm(name: &str, mode: &str) -> Result<Value> {
+    if !valid_name(name) {
+        return Err(anyhow!("oturum adı yalnız harf, rakam, `-`, `_` (en çok 32): {}", name));
+    }
+    let dir = session_dir(name);
+    std::fs::create_dir_all(&dir)?;
+    let lock = std::fs::OpenOptions::new().create(true).write(true).open(dir.join("start.lock"))?;
+    unsafe { libc::flock(std::os::unix::io::AsRawFd::as_raw_fd(&lock), libc::LOCK_EX) };
+    if let Some(info) = load(name).filter(alive) {
+        let mut out = info;
+        out["reused"] = json!(true);
+        return Ok(out);
+    }
+    let tag = format!(
+        "{}-{}-{}",
+        name,
+        std::process::id(),
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    );
+    let socket = format!("pceye-wm-{}", name);
+    let ipc = dir.join("wm.sock");
+    let log = std::fs::File::create(dir.join("wm.log"))?;
+    let mut cmd = std::process::Command::new(wm_binary());
+    cmd.args(["--socket", &socket, "--ipc"])
+        .arg(&ipc)
+        .args(["--size", mode])
+        .env(TAG_VAR, &tag)
+        .env("RUST_LOG", "warn")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(log);
+    // CLI süreci bitince oturum yaşamaya devam etsin (kendi süreç grubunda).
+    unsafe {
+        std::os::unix::process::CommandExt::pre_exec(&mut cmd, || {
+            libc::setsid();
+            Ok(())
+        });
+    }
+    let mut child = cmd.spawn().context("pc-eye-wm başlatılamadı (wm/ krateini derleyip ~/.local/bin'e kurun)")?;
+    let stdout = child.stdout.take().ok_or_else(|| anyhow!("pc-eye-wm stdout yok"))?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    thread::spawn(move || {
+        let mut line = String::new();
+        let _ = std::io::BufRead::read_line(&mut std::io::BufReader::new(stdout), &mut line);
+        let _ = tx.send(line);
+    });
+    let ready = rx.recv_timeout(START_TIMEOUT).unwrap_or_default();
+    if !ready.contains("\"ready\":true") {
+        let _ = child.kill();
+        return Err(anyhow!("pc-eye-wm hazır olmadı: {}", ready.trim()));
+    }
+    let (audio_sink, audio_module) = setup_audio(name);
+    let size: Vec<i64> = mode.split('x').filter_map(|n| n.parse().ok()).collect();
+    let info = json!({
+        "name": name,
+        "backend": "wm",
+        "audio_sink": audio_module.map(|_| audio_sink.clone()),
+        "audio_module": audio_module,
+        "wayland_display": socket,
+        "wm_ipc": ipc.to_string_lossy(),
+        "pid": child.id(),
+        "tag": tag,
+        "output": "",
+        "size": size,
+        "created": SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0),
+        "use": format!("PC_EYE_SESSION={} pc-eye <komut>  |  MCP: env PC_EYE_SESSION={}", name, name),
+    });
+    std::fs::write(dir.join("session.json"), serde_json::to_string_pretty(&info)?)?;
+    Ok(info)
+}
+
+/// Oturumun ses çıkışı: uygulamalar kullanıcının hoparlörüne değil boş bir sink'e çalar.
+fn setup_audio(name: &str) -> (String, Option<u32>) {
+    let audio_sink = format!("pceye_{}", name.replace('-', "_"));
+    // Ölmüş eski oturumun null-sink modülü ses sunucusunda kalmış olabilir; yeni modülü yüklemeden
+    // önce kayıtlı modül ve aynı sink_name'i taşıyan artıklar boşaltılır, yoksa kalıcı olarak birikir.
+    if let Some(old) = load(name).and_then(|i| i["audio_module"].as_u64()) {
+        let old_id = old.to_string();
+        let _ = std::process::Command::new("pactl").args(["unload-module", old_id.as_str()]).output();
+    }
+    if let Ok(out) = std::process::Command::new("pactl").args(["list", "short", "modules"]).output() {
+        let listing = String::from_utf8_lossy(&out.stdout);
+        for id in null_sink_module_ids(&listing, &audio_sink) {
+            let _ = std::process::Command::new("pactl").args(["unload-module", id.as_str()]).output();
+        }
+    }
+    let audio_module = std::process::Command::new("pactl")
+        .args([
+            "load-module",
+            "module-null-sink",
+            &format!("sink_name={}", audio_sink),
+            &format!("sink_properties=device.description=PC-Eye-{}", name),
+        ])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok());
+    (audio_sink, audio_module)
 }
 
 fn start_unchecked(name: &str, mode: &str) -> Result<Value> {
@@ -273,33 +421,11 @@ fn start_unchecked(name: &str, mode: &str) -> Result<Value> {
         return Err(last_err);
     };
 
-    let audio_sink = format!("pceye_{}", name.replace('-', "_"));
-    // Ölmüş eski oturumun null-sink modülü ses sunucusunda kalmış olabilir; yeni modülü yüklemeden
-    // önce kayıtlı modül ve aynı sink_name'i taşıyan artıklar boşaltılır, yoksa kalıcı olarak birikir.
-    if let Some(old) = load(name).and_then(|i| i["audio_module"].as_u64()) {
-        let old_id = old.to_string();
-        let _ = std::process::Command::new("pactl").args(["unload-module", old_id.as_str()]).output();
-    }
-    if let Ok(out) = std::process::Command::new("pactl").args(["list", "short", "modules"]).output() {
-        let listing = String::from_utf8_lossy(&out.stdout);
-        for id in null_sink_module_ids(&listing, &audio_sink) {
-            let _ = std::process::Command::new("pactl").args(["unload-module", id.as_str()]).output();
-        }
-    }
-    let audio_module = std::process::Command::new("pactl")
-        .args([
-            "load-module",
-            "module-null-sink",
-            &format!("sink_name={}", audio_sink),
-            &format!("sink_properties=device.description=PC-Eye-{}", name),
-        ])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok());
+    let (audio_sink, audio_module) = setup_audio(name);
 
     let info = json!({
         "name": name,
+        "backend": "hyprland",
         "audio_sink": audio_module.map(|_| audio_sink.clone()),
         "audio_module": audio_module,
         "signature": signature,

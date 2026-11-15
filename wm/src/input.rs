@@ -4,7 +4,7 @@ use smithay::{
     desktop::WindowSurfaceType,
     input::{
         keyboard::{xkb, FilterResult, Keycode},
-        pointer::{AxisFrame, ButtonEvent, MotionEvent},
+        pointer::{AxisFrame, ButtonEvent, MotionEvent, PointerHandle},
     },
     reexports::wayland_server::protocol::wl_surface::WlSurface,
     utils::{Logical, Point, SERIAL_COUNTER},
@@ -46,6 +46,134 @@ impl PcEyeWm {
         if let Some(keyboard) = self.seat.get_keyboard() {
             keyboard.set_focus(self, Some(wl_surface), SERIAL_COUNTER.next_serial());
         }
+        self.record_focus_history(id);
+        Ok(())
+    }
+
+    fn surface_under_at(
+        &self,
+        pos: Point<f64, Logical>,
+    ) -> (Option<u64>, Option<(WlSurface, Point<f64, Logical>)>) {
+        let Some((window, location)) = self.space.element_under(pos) else {
+            return (None, None);
+        };
+        let win_id = self.window_id_for_window(window);
+        let surface = window
+            .surface_under(pos - location.to_f64(), WindowSurfaceType::ALL)
+            .map(|(s, p)| (s, (p + location).to_f64()));
+        if surface.is_some() {
+            (win_id, surface)
+        } else {
+            (None, None)
+        }
+    }
+
+    fn sync_pointer_focus(&mut self, pointer: &PointerHandle<Self>, time: u32) {
+        if pointer.is_grabbed() {
+            return;
+        }
+        let pos = self.cursor_pos;
+        let (_, under) = self.surface_under_at(pos);
+        if under.as_ref().map(|(s, _)| s) != pointer.current_focus().as_ref() {
+            pointer.motion(
+                self,
+                under,
+                &MotionEvent {
+                    location: pos,
+                    serial: SERIAL_COUNTER.next_serial(),
+                    time,
+                },
+            );
+            pointer.frame(self);
+        }
+    }
+
+    pub fn pointer_move(&mut self, x: f64, y: f64) -> Result<Option<u64>, String> {
+        if !x.is_finite() || !y.is_finite() {
+            return Err("invalid pointer coordinates".to_string());
+        }
+        let pos: Point<f64, Logical> = (x, y).into();
+        self.cursor_pos = pos;
+
+        let (win_id, under) = self.surface_under_at(pos);
+        let pointer = self
+            .seat
+            .get_pointer()
+            .ok_or_else(|| "seat has no pointer".to_string())?;
+        let time = self.time_msec();
+
+        pointer.motion(
+            self,
+            under,
+            &MotionEvent {
+                location: pos,
+                serial: SERIAL_COUNTER.next_serial(),
+                time,
+            },
+        );
+        pointer.frame(self);
+        Ok(win_id)
+    }
+
+    pub fn pointer_button(&mut self, button: u32, pressed: bool) -> Result<(), String> {
+        if pressed {
+            let (win_id, _) = self.surface_under_at(self.cursor_pos);
+            if let Some(id) = win_id {
+                self.focus_window(id)?;
+            }
+        }
+
+        let pointer = self
+            .seat
+            .get_pointer()
+            .ok_or_else(|| "seat has no pointer".to_string())?;
+        let time = self.time_msec();
+        if pressed {
+            self.sync_pointer_focus(&pointer, time);
+        }
+
+        let state = if pressed {
+            ButtonState::Pressed
+        } else {
+            ButtonState::Released
+        };
+        pointer.button(
+            self,
+            &ButtonEvent {
+                button,
+                state,
+                serial: SERIAL_COUNTER.next_serial(),
+                time,
+            },
+        );
+        pointer.frame(self);
+        Ok(())
+    }
+
+    pub fn pointer_axis(&mut self, dx: f64, dy: f64) -> Result<(), String> {
+        if !dx.is_finite() || !dy.is_finite() {
+            return Err("invalid pointer axis delta".to_string());
+        }
+        let pointer = self
+            .seat
+            .get_pointer()
+            .ok_or_else(|| "seat has no pointer".to_string())?;
+        let time = self.time_msec();
+        self.sync_pointer_focus(&pointer, time);
+
+        let mut frame = AxisFrame::new(time).source(AxisSource::Wheel);
+        if dx != 0.0 {
+            frame = frame
+                .value(Axis::Horizontal, dx * 15.0)
+                .v120(Axis::Horizontal, (dx * 120.0).round() as i32);
+        }
+        if dy != 0.0 {
+            frame = frame
+                .value(Axis::Vertical, dy * 15.0)
+                .v120(Axis::Vertical, (dy * 120.0).round() as i32);
+        }
+        pointer.axis(self, frame);
+        pointer.frame(self);
         Ok(())
     }
 
@@ -55,6 +183,9 @@ impl PcEyeWm {
         x: f64,
         y: f64,
     ) -> Result<(Point<f64, Logical>, Option<(WlSurface, Point<f64, Logical>)>), String> {
+        if !x.is_finite() || !y.is_finite() {
+            return Err("invalid pointer coordinates".to_string());
+        }
         let window = self
             .windows
             .get(&id)
@@ -83,6 +214,7 @@ impl PcEyeWm {
 
     pub fn inject_move(&mut self, id: u64, x: f64, y: f64) -> Result<bool, String> {
         let (global_pos, under) = self.pointer_focus_for_window(id, x, y)?;
+        self.cursor_pos = global_pos;
         let surface_found = under.is_some();
         let pointer = self
             .seat
@@ -120,6 +252,7 @@ impl PcEyeWm {
 
         self.focus_window(id)?;
         let (global_pos, under) = self.pointer_focus_for_window(id, x, y)?;
+        self.cursor_pos = global_pos;
         let surface_found = under.is_some();
         let pointer = self
             .seat
@@ -165,7 +298,11 @@ impl PcEyeWm {
     }
 
     pub fn inject_scroll(&mut self, id: u64, x: f64, y: f64, dy: f64) -> Result<(), String> {
+        if !dy.is_finite() {
+            return Err("invalid scroll delta".to_string());
+        }
         let (global_pos, under) = self.pointer_focus_for_window(id, x, y)?;
+        self.cursor_pos = global_pos;
         let pointer = self
             .seat
             .get_pointer()

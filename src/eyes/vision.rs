@@ -353,8 +353,28 @@ pub fn capture_vision(
     })
 }
 
+/// Bölgenin ham PPM baytları: pc-eye-wm oturumunda istemci tamponlarından (ekran yakalama yok),
+/// aksi hâlde `grim`.
+pub fn grab_region_ppm_bytes(geom: [i64; 4]) -> Result<Vec<u8>> {
+    if crate::wm_backend::active() {
+        return crate::wm_backend::capture_ppm(Some(geom));
+    }
+    let [x, y, w, h] = geom;
+    let out = Command::new("grim")
+        .args(["-g", &format!("{},{} {}x{}", x, y, w, h), "-t", "ppm", "-"])
+        .output()
+        .context("grim çalıştırılamadı")?;
+    if !out.status.success() || out.stdout.is_empty() {
+        return Err(anyhow!("grim yakalama hatası: {}", String::from_utf8_lossy(&out.stderr).trim()));
+    }
+    Ok(out.stdout)
+}
+
 /// `grim -g "x,y WxH" -t ppm -` ile sıkıştırmasız ham RGB belleği ~20ms içinde doğrudan RAM'e çeker.
 pub fn grab_region_ppm(geom: [i64; 4]) -> Result<RgbImage> {
+    if crate::wm_backend::active() {
+        return parse_ppm_p6(&crate::wm_backend::capture_ppm(Some(geom))?);
+    }
     let [x, y, w, h] = geom;
     let geom_arg = format!("{},{} {}x{}", x, y, w, h);
     let output = Command::new("grim")

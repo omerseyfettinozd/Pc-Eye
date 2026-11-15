@@ -111,9 +111,22 @@ def pceye(*args, timeout=30, env=None):
 
 # `--session` modunda sahneler ajan oturumunun Hyprland'ındadır; kullanıcı denetimleri dış örnekte kalır.
 SCENE_HYPR_SIG = None
+# pc-eye-wm arka ucu (PC_EYE_BACKEND=wm): sahne sorguları Hyprland yerine wm IPC'sine gider.
+SCENE_WM_IPC = None
+
+
+def wm_clients():
+    with socket.socket(socket.AF_UNIX) as s:
+        s.connect(SCENE_WM_IPC)
+        s.sendall(b'{"op":"state"}\n')
+        st = json.loads(s.makefile().readline())
+    return [{"address": hex(w["id"]), "at": w.get("at", [0, 0]), "size": w["size"] or st["size"],
+             "class": w["app_id"], "title": w["title"], "pid": w["pid"]} for w in st["windows"]]
 
 
 def hyprctl_json(*args, scene=False):
+    if scene and SCENE_WM_IPC and args == ("clients",):
+        return wm_clients()
     inst = ["--instance", SCENE_HYPR_SIG] if scene and SCENE_HYPR_SIG else []
     out = subprocess.run(["hyprctl", *inst, "-j", *args], capture_output=True, text=True).stdout
     return json.loads(out or "null")
@@ -155,7 +168,9 @@ class Sandbox:
         info = r.json()
         if r.rc != 0 or not info:
             raise RuntimeError(f"ajan oturumu açılamadı: {r.stderr or r.stdout}")
-        SCENE_HYPR_SIG = info["signature"]
+        global SCENE_WM_IPC
+        SCENE_HYPR_SIG = info.get("signature")
+        SCENE_WM_IPC = info.get("wm_ipc")
         # Bundan sonra her pc-eye çağrısı (CLI, ajanın MCP sunucusu) oturumun içindedir.
         os.environ["PC_EYE_SESSION"] = self.session
         self.workspace = "1"

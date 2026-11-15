@@ -864,6 +864,8 @@ pub fn press_key_combo(
 // ============================================================================
 
 struct WaylandVirtualInput {
+    /// pc-eye-wm oturumu: olaylar sanal girdi protokolü yerine wm IPC'sine gider.
+    wm: bool,
     stream: UnixStream,
     ptr_id: u32,
     kbd_id: u32,
@@ -872,6 +874,10 @@ struct WaylandVirtualInput {
 
 impl WaylandVirtualInput {
     fn connect() -> Result<Self> {
+        if crate::wm_backend::active() {
+            let (stream, _) = UnixStream::pair()?;
+            return Ok(Self { wm: true, stream, ptr_id: 0, kbd_id: 0, next_id: 0 });
+        }
         let runtime_dir =
             env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/run/user/1000".to_string());
         let display = env::var("WAYLAND_DISPLAY").unwrap_or_else(|_| "wayland-1".to_string());
@@ -960,6 +966,7 @@ impl WaylandVirtualInput {
         Self::wait_sync(&mut stream, sync_id)?;
 
         Ok(Self {
+            wm: false,
             stream,
             ptr_id,
             kbd_id,
@@ -984,6 +991,9 @@ impl WaylandVirtualInput {
     }
 
     fn flush_sync(&mut self) -> Result<()> {
+        if self.wm {
+            return Ok(());
+        }
         let sync_id = self.next_id;
         self.next_id += 1;
         let mut pkt = Vec::new();
@@ -993,6 +1003,9 @@ impl WaylandVirtualInput {
     }
 
     fn pointer_button(&mut self, button: u32, state: u32) -> Result<()> {
+        if self.wm {
+            return crate::wm_backend::pointer_button(button, state == 1);
+        }
         let mut pkt = Vec::new();
         // zwlr_virtual_pointer_v1.button (opcode 2): time, button, state
         write_wl_msg(&mut pkt, self.ptr_id, 2, &[wl_time_ms(), button, state]);
@@ -1005,6 +1018,10 @@ impl WaylandVirtualInput {
     /// Gerçek bir göreli hareket (+1 piksel, geri): istemci imlecin yerini ancak bir hareket olayıyla
     /// öğrenir; kompozitörün imleç ışınlaması (`CursorMove`) olay üretmiyor.
     fn pointer_nudge(&mut self) -> Result<()> {
+        // wm imleç taşımasında hareket olayını zaten hedef yüzeye verir.
+        if self.wm {
+            return Ok(());
+        }
         let mut pkt = Vec::new();
         let one = 256u32; // wl_fixed 1.0
         // zwlr_virtual_pointer_v1.motion (opcode 0): time, dx, dy
@@ -1017,6 +1034,9 @@ impl WaylandVirtualInput {
     }
 
     fn pointer_scroll(&mut self, axis: u32, discrete_steps: i32) -> Result<()> {
+        if self.wm {
+            return crate::wm_backend::pointer_axis(axis, discrete_steps);
+        }
         let mut pkt = Vec::new();
         // axis_source (opcode 5): 0 (wheel)
         write_wl_msg(&mut pkt, self.ptr_id, 5, &[0]);
@@ -1037,6 +1057,9 @@ impl WaylandVirtualInput {
     fn type_unicode_string(&mut self, text: &str) -> Result<()> {
         if text.is_empty() {
             return Ok(());
+        }
+        if self.wm {
+            return crate::wm_backend::type_text(text);
         }
         // Her parçada en çok SAFE_EVDEV.len() benzersiz karakter: her biri bir "güvenli" fiziksel
         // tuş koduna bağlanır (bkz. SAFE_EVDEV). Daha uzun metinler parça parça, her parça kendi
@@ -1089,6 +1112,9 @@ impl WaylandVirtualInput {
     /// gerçek tuş olaylarından izler; bu yüzden her tuş fiziksel evdev koduyla, modifier'lar da
     /// gerçek Ctrl/Shift/Alt/Super tuş basışlarıyla gönderilir (`modifiers` isteği kullanılmaz).
     fn send_key_combo(&mut self, combo: &str) -> Result<()> {
+        if self.wm {
+            return crate::wm_backend::key_combo(combo);
+        }
         let parts: Vec<&str> = combo.split('+').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
         // (keysym adı, evdev kodu)
         let mut mods: Vec<(String, u32)> = Vec::new();
@@ -1182,6 +1208,9 @@ impl WaylandVirtualInput {
     }
 
     fn upload_keymap(&mut self, keymap_text: &str) -> Result<()> {
+        if self.wm {
+            return Ok(());
+        }
         let mut bytes = keymap_text.as_bytes().to_vec();
         bytes.push(0); // Null-terminated XKB string
         let size = bytes.len() as u32;

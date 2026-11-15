@@ -34,6 +34,16 @@ const PROTECTED_WINDOW_KEYWORDS: &[&str] = &[
 
 /// Hyprland `.socket.sock` veya `.socket2.sock` yolunu bulur.
 pub fn resolve_hyprland_socket(socket_name: &str) -> Result<PathBuf> {
+    // pc-eye-wm oturumu: olay soketi wm'in Hyprland biçimli olay akışı; istek soketi yok
+    // (istekler `hypr_request_raw` içinde wm IPC'sine çevrilir).
+    if crate::wm_backend::active() {
+        return match socket_name {
+            ".socket2.sock" => crate::wm_backend::events_path()
+                .filter(|p| p.exists())
+                .ok_or_else(|| anyhow!("pc-eye-wm olay soketi yok")),
+            other => Err(anyhow!("pc-eye-wm oturumunda Hyprland soketi yok ({})", other)),
+        };
+    }
     let runtime_dir = env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/run/user/1000".to_string());
     if let Ok(sig) = env::var("HYPRLAND_INSTANCE_SIGNATURE") {
         let p = PathBuf::from(&runtime_dir)
@@ -71,6 +81,10 @@ pub fn resolve_hyprland_socket(socket_name: &str) -> Result<PathBuf> {
 
 /// Hyprland `.socket.sock` üzerinden süreç başlatmadan (<0.3ms) ham komut/sorgu çalıştırır.
 pub fn hypr_request_raw(command: &str) -> Result<String> {
+    // pc-eye-wm oturumu: Hyprland yok, istek wm'in IPC'sinden Hyprland biçiminde yanıtlanır.
+    if crate::wm_backend::active() {
+        return crate::wm_backend::hypr_emulate(command);
+    }
     let sock_path = resolve_hyprland_socket(".socket.sock")?;
     let mut stream = UnixStream::connect(&sock_path)
         .with_context(|| format!("Hyprland soketine bağlanılamadı: {}", sock_path.display()))?;

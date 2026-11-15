@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    io::{ErrorKind, Read, Write},
     os::unix::net::UnixStream,
     process::Child,
     sync::Arc,
@@ -53,6 +54,7 @@ pub struct WindowMeta {
     pub title: Option<String>,
     pub commits: u64,
     pub last_commit: Instant,
+    pub announced: bool,
 }
 
 pub struct PendingWaitIdle {
@@ -85,6 +87,9 @@ pub struct PcEyeWm {
     pub popups: PopupManager,
     pub seat: Seat<Self>,
 
+    pub cursor_pos: Point<f64, Logical>,
+    pub focus_history: Vec<u64>,
+
     pub next_window_id: u64,
     pub windows: HashMap<u64, WindowMeta>,
     pub surface_images: HashMap<ObjectId, SurfaceImage>,
@@ -93,6 +98,7 @@ pub struct PcEyeWm {
     pub next_ipc_client_id: u64,
     pub ipc_clients: HashMap<u64, UnixStream>,
     pub ipc_buffers: HashMap<u64, Vec<u8>>,
+    pub event_subscribers: Vec<UnixStream>,
     pub waiters: Vec<PendingWaitIdle>,
     pub children: Vec<Child>,
 }
@@ -121,10 +127,12 @@ impl PcEyeWm {
         let data_device_state = DataDeviceState::new::<Self>(&dh);
         let popups = PopupManager::default();
 
+        let cursor_pos = Point::from((output_dims.0 as f64 / 2.0, output_dims.1 as f64 / 2.0));
         let mut seat = seat_state.new_wl_seat(&dh, "seat0");
         seat.add_keyboard(Default::default(), 200, 25)
             .context("failed to initialize seat0 keyboard")?;
-        seat.add_pointer();
+        let pointer = seat.add_pointer();
+        pointer.set_location(cursor_pos);
 
         let mut space = Space::default();
         let output_size: Size<i32, Logical> = output_dims.into();
@@ -172,6 +180,8 @@ impl PcEyeWm {
             data_device_state,
             popups,
             seat,
+            cursor_pos,
+            focus_history: Vec::new(),
             next_window_id: 1,
             windows: HashMap::new(),
             surface_images: HashMap::new(),
@@ -179,6 +189,7 @@ impl PcEyeWm {
             next_ipc_client_id: 1,
             ipc_clients: HashMap::new(),
             ipc_buffers: HashMap::new(),
+            event_subscribers: Vec::new(),
             waiters: Vec::new(),
             children: Vec::new(),
         })
@@ -230,6 +241,118 @@ impl PcEyeWm {
         })
     }
 
+    pub fn window_id_for_window(&self, window: &Window) -> Option<u64> {
+        self.windows
+            .iter()
+            .find_map(|(&id, meta)| (&meta.window == window).then_some(id))
+    }
+
+    pub fn record_focus_history(&mut self, id: u64) {
+        self.focus_history.retain(|&fid| fid != id);
+        self.focus_history.insert(0, id);
+    }
+
+    pub fn drain_event_subscribers(&mut self) {
+        if self.event_subscribers.is_empty() {
+            return;
+        }
+        self.event_subscribers.retain_mut(drain_stream);
+    }
+
+    fn emit_event_payload(&mut self, payload: &str) {
+        if self.event_subscribers.is_empty() {
+            return;
+        }
+        let bytes = payload.as_bytes();
+        self.event_subscribers
+            .retain_mut(|stream| drain_stream(stream) && stream.write_all(bytes).is_ok());
+    }
+
+    pub fn emit_openwindow(&mut self, id: u64, app_id: &str, title: &str) {
+        let app_id = sanitize_event_field(app_id);
+        let title = sanitize_event_field(title);
+        let payload = format!("openwindow>>{id:x},1,{app_id},{title}\n");
+        self.emit_event_payload(&payload);
+    }
+
+    pub fn emit_closewindow(&mut self, id: u64) {
+        let payload = format!("closewindow>>{id:x}\n");
+        self.emit_event_payload(&payload);
+    }
+
+    pub fn emit_activewindow(&mut self, info: Option<(u64, &str, &str)>) {
+        match info {
+            Some((id, app_id, title)) => {
+                let app_id = sanitize_event_field(app_id);
+                let title = sanitize_event_field(title);
+                let payload = format!("activewindow>>{app_id},{title}\nactivewindowv2>>{id:x}\n");
+                self.emit_event_payload(&payload);
+            }
+            None => {
+                self.emit_event_payload("activewindow>>,\nactivewindowv2>>\n");
+            }
+        }
+    }
+
+    pub fn emit_windowtitle(&mut self, id: u64, title: &str) {
+        let title = sanitize_event_field(title);
+        let payload = format!("windowtitle>>{id:x}\nwindowtitlev2>>{id:x},{title}\n");
+        self.emit_event_payload(&payload);
+    }
+
+    fn draw_window_into(
+        &self,
+        canvas: &mut [u8],
+        canvas_w: u32,
+        canvas_h: u32,
+        root: &WlSurface,
+        offset_x: i32,
+        offset_y: i32,
+    ) {
+        with_surface_tree_upward(
+            root,
+            Point::<i32, Logical>::from((offset_x, offset_y)),
+            |surf, states, parent_loc| {
+                let offset = if surf == root || states.role != Some(SUBSURFACE_ROLE) {
+                    Point::from((0, 0))
+                } else {
+                    self.subsurface_locations
+                        .get(&surf.id())
+                        .copied()
+                        .unwrap_or_else(|| {
+                            states
+                                .cached_state
+                                .get::<SubsurfaceCachedState>()
+                                .current()
+                                .location
+                        })
+                };
+                TraversalAction::DoChildren(*parent_loc + offset)
+            },
+            |surf, states, parent_loc| {
+                let offset = if surf == root || states.role != Some(SUBSURFACE_ROLE) {
+                    Point::from((0, 0))
+                } else {
+                    self.subsurface_locations
+                        .get(&surf.id())
+                        .copied()
+                        .unwrap_or_else(|| {
+                            states
+                                .cached_state
+                                .get::<SubsurfaceCachedState>()
+                                .current()
+                                .location
+                        })
+                };
+                let loc = *parent_loc + offset;
+                if let Some(img) = self.surface_images.get(&surf.id()) {
+                    blit_surface(canvas, canvas_w, canvas_h, img, loc.x, loc.y);
+                }
+            },
+            |_, _, _| true,
+        );
+    }
+
     pub fn composite_window_rgb(&self, id: u64) -> Result<(u32, u32, Vec<u8>), String> {
         let meta = self
             .windows
@@ -252,56 +375,90 @@ impl PcEyeWm {
         }
 
         let mut canvas = vec![0u8; (canvas_w as usize) * (canvas_h as usize) * 3];
-
-        with_surface_tree_upward(
-            &root,
-            Point::<i32, Logical>::from((0, 0)),
-            |surf, states, parent_loc| {
-                let offset = if surf == &root || states.role != Some(SUBSURFACE_ROLE) {
-                    Point::from((0, 0))
-                } else {
-                    self.subsurface_locations
-                        .get(&surf.id())
-                        .copied()
-                        .unwrap_or_else(|| {
-                            states
-                                .cached_state
-                                .get::<SubsurfaceCachedState>()
-                                .current()
-                                .location
-                        })
-                };
-                TraversalAction::DoChildren(*parent_loc + offset)
-            },
-            |surf, states, parent_loc| {
-                let offset = if surf == &root || states.role != Some(SUBSURFACE_ROLE) {
-                    Point::from((0, 0))
-                } else {
-                    self.subsurface_locations
-                        .get(&surf.id())
-                        .copied()
-                        .unwrap_or_else(|| {
-                            states
-                                .cached_state
-                                .get::<SubsurfaceCachedState>()
-                                .current()
-                                .location
-                        })
-                };
-                let loc = *parent_loc + offset;
-                if let Some(img) = self.surface_images.get(&surf.id()) {
-                    blit_surface(&mut canvas, canvas_w, canvas_h, img, loc.x, loc.y);
-                }
-            },
-            |_, _, _| true,
-        );
-
+        self.draw_window_into(&mut canvas, canvas_w, canvas_h, &root, 0, 0);
         Ok((canvas_w, canvas_h, canvas))
+    }
+
+    pub fn composite_region_rgb(
+        &self,
+        x: Option<i32>,
+        y: Option<i32>,
+        w: Option<i32>,
+        h: Option<i32>,
+    ) -> Result<(u32, u32, Vec<u8>), String> {
+        let out_w = self.output_size.w;
+        let out_h = self.output_size.h;
+        if out_w <= 0 || out_h <= 0 {
+            return Err("invalid output size".to_string());
+        }
+
+        let rx = x.unwrap_or(0);
+        let ry = y.unwrap_or(0);
+        let rw = w.unwrap_or(out_w);
+        let rh = h.unwrap_or(out_h);
+
+        let x0 = rx.clamp(0, out_w);
+        let y0 = ry.clamp(0, out_h);
+        let x1 = (rx as i64).saturating_add(rw as i64).clamp(0, out_w as i64) as i32;
+        let y1 = (ry as i64).saturating_add(rh as i64).clamp(0, out_h as i64) as i32;
+
+        let crop_w = (x1 - x0).max(0) as u32;
+        let crop_h = (y1 - y0).max(0) as u32;
+        if crop_w == 0 || crop_h == 0 {
+            return Err("capture region is empty after clamping".to_string());
+        }
+
+        let buf_len = (crop_w as usize)
+            .checked_mul(crop_h as usize)
+            .and_then(|n| n.checked_mul(3))
+            .ok_or_else(|| "capture region buffer size overflow".to_string())?;
+        let mut canvas = vec![0u8; buf_len];
+
+        for window in self.space.elements() {
+            let Some(root) = window.toplevel().map(|t| t.wl_surface().clone()) else {
+                continue;
+            };
+            let win_loc = self
+                .space
+                .element_location(window)
+                .unwrap_or_else(|| (0, 0).into());
+            self.draw_window_into(
+                &mut canvas,
+                crop_w,
+                crop_h,
+                &root,
+                win_loc.x - x0,
+                win_loc.y - y0,
+            );
+        }
+
+        Ok((crop_w, crop_h, canvas))
     }
 
     pub fn reap_children(&mut self) {
         self.children
             .retain_mut(|child| matches!(child.try_wait(), Ok(None)));
+    }
+}
+
+fn drain_stream(stream: &mut UnixStream) -> bool {
+    let mut tmp = [0u8; 1024];
+    for _ in 0..64 {
+        match stream.read(&mut tmp) {
+            Ok(0) => return true,
+            Ok(_) => continue,
+            Err(err) if err.kind() == ErrorKind::WouldBlock => return true,
+            Err(_) => return false,
+        }
+    }
+    true
+}
+
+fn sanitize_event_field(s: &str) -> String {
+    if s.contains(['\n', '\r']) {
+        s.replace(['\r', '\n'], " ")
+    } else {
+        s.to_string()
     }
 }
 

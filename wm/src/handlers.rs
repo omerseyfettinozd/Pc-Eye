@@ -117,17 +117,39 @@ impl CompositorHandler for PcEyeWm {
             root = parent;
         }
 
+        let mut announce_event: Option<(u64, String, String)> = None;
         if let Some(id) = self.window_id_for_surface(&root) {
+            let has_pixels = self.surface_images.contains_key(&root.id());
             if let Some(meta) = self.windows.get_mut(&id) {
                 if !is_sync_subsurface(surface) {
                     meta.window.on_commit();
                 }
                 meta.commits += 1;
                 meta.last_commit = Instant::now();
+                if has_pixels && !meta.announced {
+                    meta.announced = true;
+                    announce_event = Some((
+                        id,
+                        meta.app_id.clone().unwrap_or_default(),
+                        meta.title.clone().unwrap_or_default(),
+                    ));
+                }
             }
         }
 
         handle_xdg_commit(&mut self.popups, &self.space, surface);
+
+        if let Some((id, app_id, title)) = announce_event {
+            self.emit_openwindow(id, &app_id, &title);
+            let is_focused = self
+                .seat
+                .get_keyboard()
+                .and_then(|k| k.current_focus())
+                .is_some_and(|f| f == root);
+            if is_focused {
+                self.emit_activewindow(Some((id, &app_id, &title)));
+            }
+        }
     }
 
     fn destroyed(&mut self, surface: &WlSurface) {
@@ -230,6 +252,26 @@ impl SeatHandler for PcEyeWm {
         let dh = &self.display_handle;
         let client = focused.and_then(|s| dh.get_client(s.id()).ok());
         set_data_device_focus(dh, seat, client);
+
+        let active_info = focused
+            .and_then(|s| self.window_id_for_surface(s))
+            .and_then(|id| {
+                self.windows.get(&id).and_then(|meta| {
+                    meta.announced.then(|| {
+                        (
+                            id,
+                            meta.app_id.clone().unwrap_or_default(),
+                            meta.title.clone().unwrap_or_default(),
+                        )
+                    })
+                })
+            });
+
+        if focused.is_none() {
+            self.emit_activewindow(None);
+        } else if let Some((id, app_id, title)) = active_info {
+            self.emit_activewindow(Some((id, &app_id, &title)));
+        }
     }
 }
 
@@ -261,7 +303,9 @@ impl XdgShellHandler for PcEyeWm {
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         surface.with_pending_state(|state| {
             state.size = Some(self.output_size);
-            state.states.set(xdg_toplevel::State::Maximized);
+            // Tam ekran: istemci başlık çubuğu (CSD) çizilmez; ajan Hyprland oturumundaki gibi
+            // yalnız uygulamanın içeriğini görür (başlık düğmeleri ağacı kirletiyordu).
+            state.states.set(xdg_toplevel::State::Fullscreen);
             state.states.set(xdg_toplevel::State::Activated);
         });
 
@@ -278,11 +322,6 @@ impl XdgShellHandler for PcEyeWm {
             }
         }
 
-        let wl_surface = surface.wl_surface().clone();
-        if let Some(keyboard) = self.seat.get_keyboard() {
-            keyboard.set_focus(self, Some(wl_surface), SERIAL_COUNTER.next_serial());
-        }
-
         let id = self.next_window_id;
         self.next_window_id += 1;
 
@@ -295,8 +334,15 @@ impl XdgShellHandler for PcEyeWm {
                 title: None,
                 commits: 0,
                 last_commit: Instant::now(),
+                announced: false,
             },
         );
+        self.record_focus_history(id);
+
+        let wl_surface = surface.wl_surface().clone();
+        if let Some(keyboard) = self.seat.get_keyboard() {
+            keyboard.set_focus(self, Some(wl_surface), SERIAL_COUNTER.next_serial());
+        }
     }
 
     fn new_popup(&mut self, surface: PopupSurface, _positioner: PositionerState) {
@@ -357,31 +403,55 @@ impl XdgShellHandler for PcEyeWm {
                 .get::<XdgToplevelSurfaceData>()
                 .and_then(|d| d.lock().unwrap().title.clone())
         });
+        let mut emit_title: Option<(u64, String)> = None;
         if let Some(id) = self.window_id_for_surface(surface.wl_surface()) {
             if let Some(meta) = self.windows.get_mut(&id) {
                 meta.title = title;
+                if meta.announced {
+                    emit_title = Some((id, meta.title.clone().unwrap_or_default()));
+                }
             }
+        }
+        if let Some((id, title)) = emit_title {
+            self.emit_windowtitle(id, &title);
         }
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
+        let mut closed_id: Option<u64> = None;
         if let Some(id) = self.window_id_for_surface(surface.wl_surface()) {
             if let Some(meta) = self.windows.remove(&id) {
                 self.space.unmap_elem(&meta.window);
+                if meta.announced {
+                    closed_id = Some(id);
+                }
             }
+            self.focus_history.retain(|&fid| fid != id);
         }
         self.surface_images.remove(&surface.wl_surface().id());
-        let next_focus = self
-            .space
-            .elements()
-            .next_back()
-            .and_then(|w| w.toplevel().map(|t| t.wl_surface().clone()));
-        if let Some(keyboard) = self.seat.get_keyboard() {
-            if keyboard
-                .current_focus()
-                .is_some_and(|f| &f == surface.wl_surface())
-            {
-                keyboard.set_focus(self, next_focus, SERIAL_COUNTER.next_serial());
+        self.subsurface_locations.remove(&surface.wl_surface().id());
+
+        if let Some(id) = closed_id {
+            self.emit_closewindow(id);
+        }
+
+        let was_focused = self
+            .seat
+            .get_keyboard()
+            .and_then(|k| k.current_focus())
+            .is_some_and(|f| &f == surface.wl_surface());
+
+        if was_focused {
+            let next_id = self
+                .focus_history
+                .iter()
+                .copied()
+                .find(|fid| self.windows.contains_key(fid));
+            if let Some(next_id) = next_id {
+                let _ = self.focus_window(next_id);
+            } else if let Some(keyboard) = self.seat.get_keyboard() {
+                keyboard.set_focus(self, None, SERIAL_COUNTER.next_serial());
+                self.emit_activewindow(None);
             }
         }
     }

@@ -5,7 +5,7 @@ mod input;
 mod ipc;
 mod state;
 
-use std::{io::Write, time::Duration};
+use std::{io::Write, path::Path, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use smithay::reexports::{
@@ -22,6 +22,7 @@ pub use state::{CalloopData, PcEyeWm};
 struct CliArgs {
     socket: String,
     ipc: String,
+    events: String,
     width: i32,
     height: i32,
 }
@@ -46,6 +47,7 @@ fn parse_size(raw: &str) -> Result<(i32, i32)> {
 fn parse_args() -> Result<CliArgs> {
     let mut socket: Option<String> = None;
     let mut ipc: Option<String> = None;
+    let mut events: Option<String> = None;
     let mut width = 1600;
     let mut height = 900;
 
@@ -59,6 +61,10 @@ fn parse_args() -> Result<CliArgs> {
             ipc = Some(val.to_string());
         } else if arg == "--ipc" {
             ipc = Some(args.next().context("missing value for --ipc")?);
+        } else if let Some(val) = arg.strip_prefix("--events=") {
+            events = Some(val.to_string());
+        } else if arg == "--events" {
+            events = Some(args.next().context("missing value for --events")?);
         } else if let Some(val) = arg.strip_prefix("--size=") {
             let (w, h) = parse_size(val)?;
             width = w;
@@ -75,10 +81,20 @@ fn parse_args() -> Result<CliArgs> {
 
     let socket = socket.filter(|s| !s.is_empty()).context("--socket is required")?;
     let ipc = ipc.filter(|s| !s.is_empty()).context("--ipc is required")?;
+    let events = events.filter(|s| !s.is_empty()).unwrap_or_else(|| {
+        let ipc_path = Path::new(&ipc);
+        match ipc_path.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => {
+                parent.join("wm-events.sock").to_string_lossy().into_owned()
+            }
+            _ => "wm-events.sock".to_string(),
+        }
+    });
 
     Ok(CliArgs {
         socket,
         ipc,
+        events,
         width,
         height,
     })
@@ -117,6 +133,7 @@ fn main() -> Result<()> {
     };
 
     ipc::init_ipc_listener(&event_loop.handle(), &cli.ipc)?;
+    ipc::init_events_listener(&event_loop.handle(), &cli.events)?;
 
     event_loop
         .handle()
@@ -136,6 +153,7 @@ fn main() -> Result<()> {
                 data.state.space.refresh();
                 data.state.popups.cleanup();
                 ipc::resolve_waiters(&mut data.state);
+                data.state.drain_event_subscribers();
                 data.state.reap_children();
                 let _ = data.display_handle.flush_clients();
                 TimeoutAction::ToDuration(Duration::from_millis(16))
@@ -147,16 +165,24 @@ fn main() -> Result<()> {
         "ready": true,
         "socket": cli.socket,
         "ipc": cli.ipc,
+        "events": cli.events,
     });
     println!("{ready_line}");
     let _ = std::io::stdout().flush();
 
-    info!(socket = %cli.socket, ipc = %cli.ipc, size = ?(cli.width, cli.height), "pc-eye-wm ready");
+    info!(
+        socket = %cli.socket,
+        ipc = %cli.ipc,
+        events = %cli.events,
+        size = ?(cli.width, cli.height),
+        "pc-eye-wm ready"
+    );
 
     event_loop
         .run(None, &mut data, |_| {})
         .context("event loop exited with error")?;
 
     let _ = std::fs::remove_file(&cli.ipc);
+    let _ = std::fs::remove_file(&cli.events);
     Ok(())
 }

@@ -15,16 +15,24 @@ use smithay::reexports::calloop::{
     generic::Generic, Interest, LoopHandle, Mode, PostAction,
 };
 
-use crate::state::{CalloopData, PcEyeWm, PendingWaitIdle};
+use crate::state::{CalloopData, PcEyeWm, PendingWaitIdle, WindowMeta};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum IpcRequest {
     Ping,
     Windows,
+    State,
     Capture {
         id: u64,
         path: String,
+    },
+    CaptureRegion {
+        x: Option<i32>,
+        y: Option<i32>,
+        w: Option<i32>,
+        h: Option<i32>,
+        path: Option<String>,
     },
     WaitIdle {
         id: Option<u64>,
@@ -52,6 +60,23 @@ enum IpcRequest {
         x: f64,
         y: f64,
         dy: f64,
+    },
+    PointerMove {
+        x: f64,
+        y: f64,
+    },
+    PointerButton {
+        button: u32,
+        pressed: bool,
+    },
+    PointerAxis {
+        #[serde(default)]
+        dx: f64,
+        #[serde(default)]
+        dy: f64,
+    },
+    Focus {
+        id: u64,
     },
     Key {
         id: Option<u64>,
@@ -96,6 +121,34 @@ struct WindowInfo {
     idle_ms: u64,
 }
 
+#[derive(Serialize)]
+struct StateWindowInfo {
+    id: u64,
+    app_id: String,
+    title: String,
+    pid: i64,
+    size: [i32; 2],
+    at: [i32; 2],
+    commits: u64,
+    idle_ms: u64,
+    focus_rank: usize,
+}
+
+fn window_pixel_size(state: &PcEyeWm, meta: &WindowMeta) -> [i32; 2] {
+    let geo_size = meta.window.geometry().size;
+    if geo_size.w > 0 && geo_size.h > 0 {
+        [geo_size.w, geo_size.h]
+    } else if let Some(img) = meta
+        .window
+        .toplevel()
+        .and_then(|t| state.surface_images.get(&t.wl_surface().id()))
+    {
+        [img.width as i32, img.height as i32]
+    } else {
+        [0, 0]
+    }
+}
+
 pub fn init_ipc_listener(
     loop_handle: &LoopHandle<'static, CalloopData>,
     ipc_path: &str,
@@ -137,6 +190,54 @@ pub fn init_ipc_listener(
             },
         )
         .map_err(|e| anyhow::anyhow!("failed to register IPC listener source: {e:?}"))?;
+
+    Ok(())
+}
+
+pub fn init_events_listener(
+    loop_handle: &LoopHandle<'static, CalloopData>,
+    events_path: &str,
+) -> Result<()> {
+    let path = Path::new(events_path);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!("failed to create events parent dir '{}'", parent.display())
+            })?;
+        }
+    }
+    let _ = std::fs::remove_file(path);
+
+    let listener = UnixListener::bind(path)
+        .with_context(|| format!("failed to bind events Unix socket '{events_path}'"))?;
+    listener
+        .set_nonblocking(true)
+        .context("failed to set events listener nonblocking")?;
+
+    loop_handle
+        .insert_source(
+            Generic::new(listener, Interest::READ, Mode::Level),
+            |_, listener, data| {
+                loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => {
+                            if let Err(err) = stream.set_nonblocking(true) {
+                                tracing::warn!(?err, "failed to set event subscriber nonblocking");
+                                continue;
+                            }
+                            data.state.event_subscribers.push(stream);
+                        }
+                        Err(err) if err.kind() == ErrorKind::WouldBlock => break,
+                        Err(err) => {
+                            tracing::warn!(?err, "error accepting events connection");
+                            break;
+                        }
+                    }
+                }
+                Ok(PostAction::Continue)
+            },
+        )
+        .map_err(|e| anyhow::anyhow!("failed to register events listener source: {e:?}"))?;
 
     Ok(())
 }
@@ -257,27 +358,13 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
             let mut list: Vec<WindowInfo> = state
                 .windows
                 .values()
-                .map(|meta| {
-                    let geo_size = meta.window.geometry().size;
-                    let (w, h) = if geo_size.w > 0 && geo_size.h > 0 {
-                        (geo_size.w, geo_size.h)
-                    } else if let Some(img) = meta
-                        .window
-                        .toplevel()
-                        .and_then(|t| state.surface_images.get(&t.wl_surface().id()))
-                    {
-                        (img.width as i32, img.height as i32)
-                    } else {
-                        (0, 0)
-                    };
-                    WindowInfo {
-                        id: meta.id,
-                        app_id: meta.app_id.clone().unwrap_or_default(),
-                        title: meta.title.clone().unwrap_or_default(),
-                        size: [w, h],
-                        commits: meta.commits,
-                        idle_ms: meta.last_commit.elapsed().as_millis() as u64,
-                    }
+                .map(|meta| WindowInfo {
+                    id: meta.id,
+                    app_id: meta.app_id.clone().unwrap_or_default(),
+                    title: meta.title.clone().unwrap_or_default(),
+                    size: window_pixel_size(state, meta),
+                    commits: meta.commits,
+                    idle_ms: meta.last_commit.elapsed().as_millis() as u64,
                 })
                 .collect();
             list.sort_by_key(|w| w.id);
@@ -287,9 +374,89 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
             }))
         }
 
+        IpcRequest::State => {
+            let focused = state
+                .seat
+                .get_keyboard()
+                .and_then(|k| k.current_focus())
+                .and_then(|s| state.window_id_for_surface(&s));
+
+            let windows: Vec<StateWindowInfo> = state
+                .space
+                .elements()
+                .rev()
+                .filter_map(|win| {
+                    let id = state.window_id_for_window(win)?;
+                    let meta = state.windows.get(&id)?;
+                    let loc = state
+                        .space
+                        .element_location(&meta.window)
+                        .unwrap_or_else(|| (0, 0).into());
+                    let pid = meta
+                        .window
+                        .toplevel()
+                        .and_then(|t| state.display_handle.get_client(t.wl_surface().id()).ok())
+                        .and_then(|client| client.get_credentials(&state.display_handle).ok())
+                        .map(|creds| i64::from(creds.pid))
+                        .unwrap_or(0);
+                    let focus_rank = state
+                        .focus_history
+                        .iter()
+                        .position(|&fid| fid == id)
+                        .unwrap_or(state.focus_history.len());
+                    Some(StateWindowInfo {
+                        id,
+                        app_id: meta.app_id.clone().unwrap_or_default(),
+                        title: meta.title.clone().unwrap_or_default(),
+                        pid,
+                        size: window_pixel_size(state, meta),
+                        at: [loc.x, loc.y],
+                        commits: meta.commits,
+                        idle_ms: meta.last_commit.elapsed().as_millis() as u64,
+                        focus_rank,
+                    })
+                })
+                .collect();
+
+            Some(json!({
+                "ok": true,
+                "size": [state.output_size.w, state.output_size.h],
+                "cursor": [state.cursor_pos.x, state.cursor_pos.y],
+                "focused": focused,
+                "windows": windows,
+            }))
+        }
+
         IpcRequest::Capture { id, path } => {
+            if path.is_empty() {
+                return Some(err_json("path must not be empty"));
+            }
             let started = Instant::now();
             match state.composite_window_rgb(id) {
+                Ok((width, height, rgb)) => {
+                    if let Err(err) = write_ppm_p6(&path, width, height, &rgb) {
+                        return Some(err_json(&format!("failed to write ppm '{path}': {err}")));
+                    }
+                    let ms = started.elapsed().as_millis() as u64;
+                    Some(json!({
+                        "ok": true,
+                        "width": width,
+                        "height": height,
+                        "path": path,
+                        "ms": ms,
+                    }))
+                }
+                Err(err) => Some(err_json(&err)),
+            }
+        }
+
+        IpcRequest::CaptureRegion { x, y, w, h, path } => {
+            let path = path.unwrap_or_else(|| "/tmp/pc-eye-wm-capture.ppm".to_string());
+            if path.is_empty() {
+                return Some(err_json("path must not be empty"));
+            }
+            let started = Instant::now();
+            match state.composite_region_rgb(x, y, w, h) {
                 Ok((width, height, rgb)) => {
                     if let Err(err) = write_ppm_p6(&path, width, height, &rgb) {
                         return Some(err_json(&format!("failed to write ppm '{path}': {err}")));
@@ -318,12 +485,15 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
                 }
             }
             let now = Instant::now();
+            let deadline = now
+                .checked_add(Duration::from_millis(timeout_ms))
+                .unwrap_or_else(|| now + Duration::from_secs(86_400));
             state.waiters.push(PendingWaitIdle {
                 client_id,
                 window_id: id,
                 quiet_ms,
                 started: now,
-                deadline: now + Duration::from_millis(timeout_ms),
+                deadline,
             });
             None
         }
@@ -351,6 +521,31 @@ fn handle_request(state: &mut PcEyeWm, client_id: u64, req: IpcRequest) -> Optio
         },
 
         IpcRequest::Scroll { id, x, y, dy } => match state.inject_scroll(id, x, y, dy) {
+            Ok(()) => Some(json!({ "ok": true })),
+            Err(err) => Some(err_json(&err)),
+        },
+
+        IpcRequest::PointerMove { x, y } => match state.pointer_move(x, y) {
+            Ok(window) => Some(json!({
+                "ok": true,
+                "window": window,
+            })),
+            Err(err) => Some(err_json(&err)),
+        },
+
+        IpcRequest::PointerButton { button, pressed } => {
+            match state.pointer_button(button, pressed) {
+                Ok(()) => Some(json!({ "ok": true })),
+                Err(err) => Some(err_json(&err)),
+            }
+        }
+
+        IpcRequest::PointerAxis { dx, dy } => match state.pointer_axis(dx, dy) {
+            Ok(()) => Some(json!({ "ok": true })),
+            Err(err) => Some(err_json(&err)),
+        },
+
+        IpcRequest::Focus { id } => match state.focus_window(id) {
             Ok(()) => Some(json!({ "ok": true })),
             Err(err) => Some(err_json(&err)),
         },

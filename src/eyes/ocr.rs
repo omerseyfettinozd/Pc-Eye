@@ -61,15 +61,9 @@ pub fn ocr_region_elements(
         return Ok(Vec::new());
     }
 
-    let geom_arg = format!("{},{} {}x{}", rx, ry, rw, rh);
-    let grim_out = Command::new("grim")
-        .args(["-g", &geom_arg, "-t", "ppm", "-"])
-        .output()?;
-    if !grim_out.status.success() || grim_out.stdout.is_empty() {
-        return Err(anyhow!("grim ile bölge yakalanamadı: {}", geom_arg));
-    }
-
-    ocr_ppm_bytes_to_elements(&grim_out.stdout, region, query_filter, max_elements)
+    let ppm = crate::eyes::vision::grab_region_ppm_bytes(region)
+        .map_err(|e| anyhow!("bölge yakalanamadı ({},{} {}x{}): {}", rx, ry, rw, rh, e))?;
+    ocr_ppm_bytes_to_elements(&ppm, region, query_filter, max_elements)
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -254,20 +248,15 @@ fn semantic_position_label(rel: [i64; 4], win_w: i64, win_h: i64) -> &'static st
 
 /// Terminal veya metin pencereleri için görünür ekran satırlarını yukarıdan aşağıya düz metin olarak çıkarır.
 pub fn ocr_region_lines(region: [i64; 4], max_lines: usize) -> Result<Vec<String>> {
-    let [rx, ry, rw, rh] = region;
+    let [_, _, rw, rh] = region;
     if rw <= 4 || rh <= 4 {
         return Ok(Vec::new());
     }
 
-    let geom_arg = format!("{},{} {}x{}", rx, ry, rw, rh);
-    let grim_out = Command::new("grim")
-        .args(["-g", &geom_arg, "-t", "ppm", "-"])
-        .output()?;
-    if !grim_out.status.success() || grim_out.stdout.is_empty() {
+    let Ok(ppm) = crate::eyes::vision::grab_region_ppm_bytes(region) else {
         return Ok(Vec::new());
-    }
-
-    let img = parse_ppm_p6(&grim_out.stdout)?;
+    };
+    let img = parse_ppm_p6(&ppm)?;
     // Terminal satırları tesseract'ta kalır: sinir ağı küçük eş aralıklı yazıda karakter düşürüyordu
     // ("Dağıtım anahtarı: PVDYEG9L" → "Dağtm anahtar: PVDYEGL"); tesseract bu yazı tipinde kararlı.
     terminal_lines_from_image(&img, max_lines)

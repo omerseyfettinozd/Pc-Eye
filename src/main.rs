@@ -7,6 +7,7 @@ pub mod mcp;
 pub mod protocol;
 pub mod session;
 pub mod web;
+pub mod wm_backend;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -389,6 +390,9 @@ enum SessionOp {
         name: String,
         #[arg(long, default_value = "1600x900")]
         mode: String,
+        /// Kompozitör: hyprland (iç içe Hyprland) | wm (pc-eye-wm, F7)
+        #[arg(long, env = "PC_EYE_BACKEND", default_value = "hyprland")]
+        backend: String,
     },
     /// Oturumu kapat (iç Hyprland + headless çıkış)
     Stop {
@@ -567,7 +571,7 @@ fn run() -> Result<()> {
         }
         Commands::Session { op } => {
             let out = match op {
-                SessionOp::Start { name, mode } => session::start(&name, &mode)?,
+                SessionOp::Start { name, mode, backend } => session::start(&name, &mode, &backend)?,
                 SessionOp::Stop { name } => session::stop(&name)?,
                 SessionOp::List => serde_json::json!(session::list()),
             };

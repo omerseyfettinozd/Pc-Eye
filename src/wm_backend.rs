@@ -29,9 +29,33 @@ pub fn active() -> bool {
 }
 
 /// wm IPC'ye tek istek (satır JSON). `wait_idle` gibi geç yanıtlar için süre isteğe göre uzar.
+/// `state` yanıtı 10 ms önbellekte tutulur: Hyprland taklidi tek bir tıklamada wm'e 60–80 kez
+/// "durum" soruyordu. Durum değiştirebilecek her istek (eylem, açma, kapama) önbelleği siler.
+static STATE_CACHE: std::sync::Mutex<Option<(std::time::Instant, Value)>> = std::sync::Mutex::new(None);
+const STATE_CACHE_MS: u128 = 10;
+
 pub fn request(req: Value) -> Result<Value> {
+    let op = req["op"].as_str().unwrap_or("");
+    if op == "state" {
+        if let Ok(g) = STATE_CACHE.lock() {
+            if let Some((t, v)) = g.as_ref() {
+                if t.elapsed().as_millis() < STATE_CACHE_MS {
+                    return Ok(v.clone());
+                }
+            }
+        }
+    } else if !matches!(op, "capture" | "capture_region" | "wait_idle") {
+        if let Ok(mut g) = STATE_CACHE.lock() {
+            *g = None;
+        }
+    }
     let t0 = std::time::Instant::now();
     let r = request_inner(&req);
+    if op == "state" {
+        if let (Ok(v), Ok(mut g)) = (&r, STATE_CACHE.lock()) {
+            *g = Some((std::time::Instant::now(), v.clone()));
+        }
+    }
     if std::env::var_os("PCEYE_WM_TRACE").is_some() {
         eprintln!("[wm] {:>6.1} ms {}", t0.elapsed().as_secs_f64() * 1000.0, req["op"].as_str().unwrap_or("?"));
     }
@@ -255,6 +279,17 @@ pub fn capture_ppm(region: Option<[i64; 4]>) -> Result<Vec<u8>> {
     let bytes = std::fs::read(&path);
     let _ = std::fs::remove_file(&path);
     Ok(bytes?)
+}
+
+/// Bölgenin merkezini kaplayan en üstteki pencere kaç ms'dir kare göndermiyor.
+pub fn idle_ms_at(region: [i64; 4]) -> Option<u64> {
+    let st = request(json!({ "op": "state" })).ok()?;
+    let (cx, cy) = (region[0] + region[2] / 2, region[1] + region[3] / 2);
+    st["windows"].as_array()?.iter().find_map(|w| {
+        let (x, y) = (w["at"][0].as_i64().unwrap_or(0), w["at"][1].as_i64().unwrap_or(0));
+        let (ww, wh) = (w["size"][0].as_i64().unwrap_or(0), w["size"][1].as_i64().unwrap_or(0));
+        (cx >= x && cx < x + ww && cy >= y && cy < y + wh).then(|| w["idle_ms"].as_u64()).flatten()
+    })
 }
 
 /// `grim -g "x,y wxh"` biçimindeki geometriyi çözer.

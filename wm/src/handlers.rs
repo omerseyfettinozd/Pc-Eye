@@ -81,6 +81,23 @@ impl CompositorHandler for PcEyeWm {
     }
 
     fn commit(&mut self, surface: &WlSurface) {
+        self.commit_inner(surface);
+        // Kare gelir gelmez bekleyenler yanıtlanır (yalnız 16 ms'lik zamanlayıcıyı beklemek eylem
+        // doğrulamasına kare başına ~8 ms ortalama gecikme ekliyordu). Yanıtlar istemciye hemen gider.
+        if !self.waiters.is_empty() {
+            crate::ipc::resolve_waiters(self);
+        }
+    }
+
+    fn destroyed(&mut self, surface: &WlSurface) {
+        let id = surface.id();
+        self.surface_images.remove(&id);
+        self.subsurface_locations.remove(&id);
+    }
+}
+
+impl PcEyeWm {
+    fn commit_inner(&mut self, surface: &WlSurface) {
         let mut extracted_image: Option<Option<SurfaceImage>> = None;
         let mut subsurface_loc: Option<Point<i32, Logical>> = None;
         let mut new_buffer: Option<wl_buffer::WlBuffer> = None;
@@ -198,11 +215,6 @@ impl CompositorHandler for PcEyeWm {
         }
     }
 
-    fn destroyed(&mut self, surface: &WlSurface) {
-        let id = surface.id();
-        self.surface_images.remove(&id);
-        self.subsurface_locations.remove(&id);
-    }
 }
 
 fn extract_dmabuf_image(

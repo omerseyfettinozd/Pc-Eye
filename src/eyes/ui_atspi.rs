@@ -156,6 +156,10 @@ pub fn inspect_window_ui(
         let key = tree_cache_key(&win, query_filter, max_elements.max(10));
         if let Some(cached) = cached_tree(&key, &win) {
             elements = cached;
+        } else if let Some(filtered) = query_filter.and_then(|q| filter_cached_full_tree(&win, q, max_elements.max(10))) {
+            // Aynı pencerenin geçerli, kesilmemiş tam ağacı varsa (ör. önceki eylemden sonra
+            // okunmuş) arama bellekte yapılır: her yeni ad için ağacı yeniden gezmek ~35 ms'ydi.
+            elements = filtered;
         } else {
             let deadline = Instant::now() + Duration::from_millis(2500);
             let started_at = Instant::now();
@@ -443,6 +447,32 @@ async fn read_node(conn: &zbus::Connection, service: &str, path: String, in_docu
     }
 }
 
+/// Pencere sürecinin kümesi (alt süreçler, aynı cgroup). Bulmak için tüm `/proc` taranır (~20 ms,
+/// her erişilebilirlik okumasında); küme ancak yeni alt süreçle değişir: 10 sn önbellek.
+fn cluster_pids_cached(root: i32) -> HashSet<i32> {
+    static CACHE: std::sync::Mutex<Option<(i32, Instant, HashSet<i32>)>> = std::sync::Mutex::new(None);
+    if let Ok(g) = CACHE.lock() {
+        if let Some((pid, at, set)) = g.as_ref() {
+            if *pid == root && at.elapsed() < Duration::from_secs(10) {
+                return set.clone();
+            }
+        }
+    }
+    let set: HashSet<i32> = collect_app_cluster(root)
+        .map(|(m, _)| m.into_iter().map(|p| p.pid).collect())
+        .unwrap_or_else(|_| {
+            let mut s = HashSet::new();
+            if root > 0 {
+                s.insert(root);
+            }
+            s
+        });
+    if let Ok(mut g) = CACHE.lock() {
+        *g = Some((root, Instant::now(), set.clone()));
+    }
+    set
+}
+
 async fn collect_atspi_elements_for_window(
     conn: &zbus::Connection,
     win: &WindowInfo,
@@ -459,15 +489,7 @@ async fn collect_atspi_elements_for_window(
         return (Vec::new(), false, Vec::new());
     }
 
-    let cluster_pids: HashSet<i32> = collect_app_cluster(win.pid)
-        .map(|(m, _)| m.into_iter().map(|p| p.pid).collect())
-        .unwrap_or_else(|_| {
-            let mut s = HashSet::new();
-            if win.pid > 0 {
-                s.insert(win.pid);
-            }
-            s
-        });
+    let cluster_pids = cluster_pids_cached(win.pid);
 
     let win_class_lower = win.class.to_ascii_lowercase();
     let mut pid_services = Vec::new();
@@ -784,6 +806,37 @@ fn cached_tree(key: &str, win: &WindowInfo) -> Option<Vec<UiElement>> {
             .iter()
             .all(|(svc, g)| a11y_events::generation(svc) == Some(*g));
     fresh.then(|| entry.elements.clone())
+}
+
+/// Geçerli tam ağaç (sorgusuz, sınıra takılmamış) varsa sorgu bellekte uygulanır. Eşleşme kuralı
+/// gezinme sırasındakiyle aynıdır (katlanmış ad içerir ya da rol içerir).
+fn filter_cached_full_tree(win: &WindowInfo, query: &str, max: usize) -> Option<Vec<UiElement>> {
+    if a11y_events::cache_bypassed() {
+        return None;
+    }
+    let prefix = format!("{}||", win.address);
+    let keys: Vec<(String, usize)> = {
+        let cache = TREE_CACHE.get()?.lock().ok()?;
+        cache
+            .iter()
+            .filter_map(|(k, v)| {
+                let limit: usize = k.strip_prefix(&prefix)?.parse().ok()?;
+                (v.elements.len() < limit).then(|| (k.clone(), limit))
+            })
+            .collect()
+    };
+    let q = crate::eyes::fold(query);
+    for (key, _) in keys {
+        if let Some(all) = cached_tree(&key, win) {
+            let hits: Vec<UiElement> = all
+                .into_iter()
+                .filter(|e| crate::eyes::fold(&e.name).contains(q.as_str()) || e.role.to_lowercase().contains(q.as_str()))
+                .take(max)
+                .collect();
+            return Some(hits);
+        }
+    }
+    None
 }
 
 fn store_tree(

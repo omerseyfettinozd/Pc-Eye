@@ -52,20 +52,32 @@ const VERIFY_POLL_MS: u64 = 40;
 
 fn compare_frames(region: [i64; 4], before: &image::RgbImage, after: &image::RgbImage) -> ActionVerification {
     let total = (before.width() as u64 * before.height() as u64).max(1);
-    let changed = if before.dimensions() != after.dimensions() {
-        total
+    // Değişen piksellerin sınır kutusu da tutulur: yalnız ince bir çizgi değiştiyse (metin imlecinin
+    // yanıp sönmesi: genişlik < 3 px) bu eylemin sonucu sayılmaz. GTK4 imleci yumuşak söndürüp yaktığından
+    // durgunluk beklemesi dönüp duruyor, ıskalanan tıklama da "değişti" görünebiliyordu.
+    let (changed, thin) = if before.dimensions() != after.dimensions() {
+        (total, false)
     } else {
-        before
-            .pixels()
-            .zip(after.pixels())
-            .filter(|(a, b)| a.0.iter().zip(b.0.iter()).any(|(x, y)| x.abs_diff(*y) > PIXEL_DELTA))
-            .count() as u64
+        let w = before.width() as usize;
+        let (mut n, mut x0, mut y0, mut x1, mut y1) = (0u64, usize::MAX, usize::MAX, 0usize, 0usize);
+        for (i, (a, b)) in before.pixels().zip(after.pixels()).enumerate() {
+            if a.0.iter().zip(b.0.iter()).any(|(x, y)| x.abs_diff(*y) > PIXEL_DELTA) {
+                n += 1;
+                let (x, y) = (i % w, i / w);
+                x0 = x0.min(x);
+                y0 = y0.min(y);
+                x1 = x1.max(x);
+                y1 = y1.max(y);
+            }
+        }
+        // Dikey ince çizgi = metin imleci; yatay ince çizgi (odak alt çizgisi) gerçek geri bildirimdir.
+        (n, n > 0 && x1 - x0 < 3 && y1 - y0 >= 6)
     };
     ActionVerification {
         region,
         changed_pixels: changed,
         change_pct: (changed as f64 * 10000.0 / total as f64).round() / 100.0,
-        visible_change: changed >= MIN_CHANGED_PIXELS,
+        visible_change: changed >= MIN_CHANGED_PIXELS && !thin,
     }
 }
 
@@ -145,6 +157,10 @@ fn stable_frame(region: [i64; 4], max_ms: u64) -> Option<image::RgbImage> {
     if crate::wm_backend::active() {
         // Yalnız bölge durgun olmalı: pencerenin başka yerindeki animasyon (az önce işaretlenen
         // kutu) beklenmez. Her yeni karede bölgeye bakılır; iki ardışık karede aynıysa durgundur.
+        // Pencere bir süredir kare göndermiyorsa zaten durgundur: tek yakalama yeter.
+        if crate::wm_backend::idle_ms_at(region).map_or(false, |ms| ms >= 40) {
+            return crate::eyes::vision::grab_region_ppm(region).ok();
+        }
         let start = std::time::Instant::now();
         let mut prev = crate::eyes::vision::grab_region_ppm(region).ok()?;
         loop {
@@ -152,8 +168,8 @@ fn stable_frame(region: [i64; 4], max_ms: u64) -> Option<image::RgbImage> {
             if left == 0 {
                 return Some(prev);
             }
-            // Yeni kare yoksa (35 ms) pencere durgundur.
-            let r = crate::wm_backend::wait_idle(0, left.min(35), 35).ok()?;
+            // 20 ms içinde yeni kare yoksa pencere durgundur (animasyon 16 ms'de bir kare gönderir).
+            let r = crate::wm_backend::wait_idle(0, left.min(20), 20).ok()?;
             if r["idle"].as_bool() != Some(true) {
                 return Some(prev);
             }
@@ -1790,5 +1806,16 @@ mod click_ui_tests {
         assert_eq!(v.changed_pixels, 40);
         assert!(v.visible_change);
         assert_eq!(v.change_pct, 10.0);
+
+        // Metin imleci (2 px genişliğinde dikey çizgi) eylem sonucu sayılmaz.
+        let mut caret = before.clone();
+        for y in 2..18 {
+            for x in 5..7 {
+                caret.put_pixel(x, y, image::Rgb([255, 255, 255]));
+            }
+        }
+        let v = compare_frames([0, 0, 20, 20], &before, &caret);
+        assert_eq!(v.changed_pixels, 32);
+        assert!(!v.visible_change);
     }
 }

@@ -1043,13 +1043,36 @@ fn note_click_for_recipes(
         crate::director::recipes::break_trail();
         return;
     };
-    let Ok(ui) = inspect_window_ui(win, None, 80) else { return };
     let step = match set_text {
         Some(t) => json!({ "set": name, "text": t }),
         None => json!({ "click": name }),
     };
-    let names: Vec<String> = ui.elements.iter().map(|e| e.name.clone()).collect();
-    crate::director::recipes::record(&ui.window_address, &ui.window_class, &[step], &names);
+    // Tarif kaydı tıklamanın sonucunu beklemez: pencerenin yeniden okunması (~40 ms) ajanın
+    // yanıtını geciktirmesin. Sıra korunur: kayıtlar tek iş parçacığında, geliş sırasıyla işlenir.
+    let win = win.map(String::from);
+    let _ = recipe_worker().send(Box::new(move || {
+        let Ok(ui) = inspect_window_ui(win.as_deref(), None, 80) else { return };
+        let names: Vec<String> = ui.elements.iter().map(|e| e.name.clone()).collect();
+        crate::director::recipes::record(&ui.window_address, &ui.window_class, &[step], &names);
+    }));
+}
+
+type Job = Box<dyn FnOnce() + Send>;
+
+fn recipe_worker() -> std::sync::mpsc::Sender<Job> {
+    static TX: std::sync::OnceLock<std::sync::Mutex<std::sync::mpsc::Sender<Job>>> = std::sync::OnceLock::new();
+    TX.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<Job>();
+        std::thread::spawn(move || {
+            for job in rx {
+                job();
+            }
+        });
+        std::sync::Mutex::new(tx)
+    })
+    .lock()
+    .map(|g| g.clone())
+    .unwrap_or_else(|p| p.into_inner().clone())
 }
 
 /// Otomatik delta: ajanlar isteğe bağlı `since`'i kendiliğinden kullanmıyordu (ölçüm 045024). Bu

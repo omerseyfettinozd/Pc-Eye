@@ -270,8 +270,77 @@ pub fn ocr_region_lines(region: [i64; 4], max_lines: usize) -> Result<Vec<String
     let img = parse_ppm_p6(&grim_out.stdout)?;
     // Terminal satırları tesseract'ta kalır: sinir ağı küçük eş aralıklı yazıda karakter düşürüyordu
     // ("Dağıtım anahtarı: PVDYEG9L" → "Dağtm anahtar: PVDYEGL"); tesseract bu yazı tipinde kararlı.
-    let words = ocr_words_with(&img, 30.0, ocr_single_band)?;
+    terminal_lines_from_image(&img, max_lines)
+}
+
+/// Terminal kırpıntısından satırlar (grim'siz; `ocr-bench` çevrimdışı ölçümü de bunu kullanır).
+pub fn terminal_lines_from_image(img: &image::RgbImage, max_lines: usize) -> Result<Vec<String>> {
+    let mut words = ocr_words_with(img, 30.0, ocr_single_band)?;
+    reread_low_confidence(img, &mut words);
     Ok(reconstruct_lines(&words, max_lines))
+}
+
+/// Küçük (~10 px) eş aralıklı yazıda tesseract benzer glifleri ara sıra karıştırıyor (3→S, 9→O, G→6;
+/// ajan oturumunda terminal anahtarlarının ~%5'i). Hatalar ölçeğe göre farklı yerlerde çıktığı ve
+/// yanlış okuma çoğunlukla düşük güvenle geldiği için, güveni düşük kelimenin satırı 2 kat büyütülüp
+/// yeniden okunur ve aynı uzunluktaki daha güvenli okuma seçilir (150 örnekte 143 → 145; tek kelime
+/// kırpıntısı bağlamı kaybettirip 141'e düşürüyordu). Kalan hatalar yüksek güvenli yanlış okumadır.
+const REREAD_CONF: f64 = 90.0;
+/// Satır başına bir ek OCR; dolu bir terminalde gecikme sınırlı kalsın.
+const REREAD_MAX_ROWS: usize = 8;
+
+fn reread_low_confidence(img: &image::RgbImage, words: &mut [OcrWord]) {
+    let (iw, ih) = (img.width() as i64, img.height() as i64);
+    let scale: i64 = 2;
+    let thr = REREAD_CONF;
+    // Aynı satırdaki şüpheli kelimeler tek bir satır kırpıntısıyla yeniden okunur.
+    let mut done_rows: Vec<(i64, i64)> = Vec::new();
+    let mut budget = REREAD_MAX_ROWS;
+    let idx: Vec<usize> = (0..words.len())
+        .filter(|&i| words[i].conf < thr && words[i].text.chars().count() >= 2)
+        .collect();
+    for i in idx {
+        let (top, h) = (words[i].top, words[i].height);
+        if done_rows.iter().any(|&(y0, y1)| top >= y0 && top + h <= y1) || budget == 0 {
+            continue;
+        }
+        budget -= 1;
+        let pad_y = 4.max(h / 3);
+        let y0 = (top - pad_y).max(0);
+        let y1 = (top + h + pad_y).min(ih);
+        done_rows.push((y0, y1));
+        if y1 - y0 < 4 {
+            continue;
+        }
+        let crop = image::imageops::crop_imm(img, 0, y0 as u32, iw as u32, (y1 - y0) as u32).to_image();
+        let big = image::imageops::resize(
+            &crop,
+            crop.width() * scale as u32,
+            crop.height() * scale as u32,
+            image::imageops::FilterType::CatmullRom,
+        );
+        let Ok(alt) = ocr_single_band(&big) else { continue };
+        for w in words.iter_mut() {
+            if w.conf >= thr || w.top < y0 || w.top + w.height > y1 {
+                continue;
+            }
+            let (wl, wr) = (w.left, w.left + w.width);
+            let best = alt
+                .iter()
+                .filter(|a| {
+                    let (al, ar) = (a.left / scale, (a.left + a.width) / scale);
+                    let ov = wr.min(ar) - wl.max(al);
+                    ov * 2 > (wr - wl).max(ar - al)
+                })
+                .max_by(|a, b| a.conf.total_cmp(&b.conf));
+            if let Some(a) = best {
+                if a.conf > w.conf && a.text.chars().count() == w.text.chars().count() {
+                    w.text = a.text.clone();
+                    w.conf = a.conf;
+                }
+            }
+        }
+    }
 }
 
 fn tess_lang(tess_dir: &Path) -> String {

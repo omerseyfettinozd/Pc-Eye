@@ -839,6 +839,21 @@ fn run() -> Result<()> {
         }
         Commands::OcrBench { file } => {
             eyes::ocr_neural::set_long_lived();
+            // Geliştirme: PCEYE_OCR_DUMP=term → klasördeki her görüntünün terminal satırları (ad<TAB>satırlar).
+            if std::env::var("PCEYE_OCR_DUMP").as_deref() == Ok("term") {
+                let mut paths: Vec<_> = std::fs::read_dir(&file)?.flatten().map(|e| e.path()).collect();
+                paths.sort();
+                for p in paths {
+                    let img = if p.extension().is_some_and(|e| e == "ppm") {
+                        eyes::vision::parse_ppm_p6(&std::fs::read(&p)?)?
+                    } else {
+                        image::open(&p)?.to_rgb8()
+                    };
+                    let lines = eyes::ocr::terminal_lines_from_image(&img, 35)?;
+                    println!("{}\t{}", p.file_stem().unwrap_or_default().to_string_lossy(), lines.join(" | "));
+                }
+                return Ok(());
+            }
             let bytes = std::fs::read(&file)?;
             if std::env::var_os("PCEYE_OCR_DUMP").is_some() {
                 return eyes::ocr::dump(&bytes);

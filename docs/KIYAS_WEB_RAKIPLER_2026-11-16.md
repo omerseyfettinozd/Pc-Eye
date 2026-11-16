@@ -90,6 +90,65 @@ Sınırlar: görevler ve sayfalar bizim yazdığımız yerel test sayfalarıdır
 ve oturumu gerekir); agent-browser'ın kurulu 0.26.0 sürümü ölçüldü (güncel 0.43.0 değil); agent-browser
 Bash üzerinden CLI olarak, pc-eye yalnız `pc_eye_browser` aracıyla (web profili) koşuldu.
 
+## Dört araç setli kıyas: Claude in Chrome dahil (2026-11-16 gece, Haiku 5.5)
+
+24 görev: 13 yerel sayfa + 11 dış deneme sitesi (the-internet.herokuapp.com, yerel yansıdan; site
+yavaş ve dalgalı olduğu için süre ölçümü yansıdan yapılır, `PCEYE_EXT_LIVE=1` canlı). Her araç seti 3 tur.
+Claude in Chrome `claude --chrome` ile kullanıcının gerçek Chrome'unda koşuldu; sayfayı önceden açamaz,
+her görevde sekme grubu kurma/gezinme/kapatma için ~3 ek çağrı harcar. Eklenti bağlantısı kararsızdı:
+"extension is not connected" geçen 16 koşu tabloya alınmadı (aracın yeteneği değil, bağlantı).
+
+| Görev (başarı · medyan süre · koşu başı maliyet) | pc-eye (web) | Playwright MCP | agent-browser | Claude in Chrome |
+| --- | --- | --- | --- | --- |
+| `ext-add-remove` | 3/3 · 10.4 sn · $0.0015 | 3/3 · 13.5 sn · $0.0022 | 3/3 · 17.3 sn · $0.0013 | 1/1 · 26.7 sn · $0.0028 |
+| `ext-drag` | 3/3 · 10.6 sn · $0.0013 | 3/3 · 14.4 sn · $0.0017 | 3/3 · 14.7 sn · $0.0022 | 3/3 · 27.5 sn · $0.0029 |
+| `ext-dynamic-controls` | 3/3 · 13.2 sn · $0.0017 | 3/3 · 17.9 sn · $0.0019 | 1/3 · 14.6 sn · $0.0015 | 2/2 · 30.1 sn · $0.0028 |
+| `ext-dynamic-loading` | 3/3 · 18.6 sn · $0.0014 | 3/3 · 16.9 sn · $0.0017 | 3/3 · 17.2 sn · $0.0013 | 3/3 · 32.8 sn · $0.0029 |
+| `ext-hover` | 3/3 · 9.4 sn · $0.0012 | 3/3 · 14.0 sn · $0.0019 | 3/3 · 19.7 sn · $0.0027 | 3/3 · 22.5 sn · $0.0029 |
+| `ext-js-confirm` | 3/3 · 15.5 sn · $0.0012 | 3/3 · 13.4 sn · $0.0017 | 3/3 · 51.1 sn · $0.0024 | 0/2 · 96.9 sn · $0.0033 |
+| `ext-js-prompt` | 3/3 · 12.1 sn · $0.0013 | 3/3 · 21.8 sn · $0.0018 | 3/3 · 85.0 sn · $0.0027 | 0/3 · 80.9 sn · $0.0033 |
+| `ext-large` | 3/3 · 10.4 sn · $0.0016 | 3/3 · 18.8 sn · $0.0019 | 3/3 · 13.5 sn · $0.0021 | 2/2 · 40.0 sn · $0.0033 |
+| `ext-nested-frames` | 3/3 · 11.9 sn · $0.0015 | 3/3 · 11.0 sn · $0.0011 | 3/3 · 9.0 sn · $0.0011 | 3/3 · 20.9 sn · $0.0023 |
+| `ext-table` | 3/3 · 6.6 sn · $0.0010 | 3/3 · 10.8 sn · $0.0015 | 3/3 · 10.9 sn · $0.0014 | 2/2 · 31.9 sn · $0.0019 |
+| `ext-upload` | 3/3 · 13.5 sn · $0.0016 | 3/3 · 32.0 sn · $0.0027 | 3/3 · 14.3 sn · $0.0014 | 0/2 · 47.9 sn · $0.0029 |
+| `hard-web-long` | 3/3 · 9.4 sn · $0.0010 | 3/3 · 9.6 sn · $0.0029 | 3/3 · 10.2 sn · $0.0027 | 3/3 · 21.0 sn · $0.0022 |
+| `hard-web-validation` | 3/3 · 11.1 sn · $0.0016 | 3/3 · 18.0 sn · $0.0022 | 3/3 · 57.4 sn · $0.0018 | 3/3 · 41.4 sn · $0.0045 |
+| `web-console-network` | 3/3 · 10.7 sn · $0.0014 | 3/3 · 15.8 sn · $0.0025 | 3/3 · 10.8 sn · $0.0015 | 1/1 · 59.1 sn · $0.0029 |
+| `web-cross-frame` | 3/3 · 10.3 sn · $0.0013 | 3/3 · 20.3 sn · $0.0015 | 0/3 · 41.9 sn · $0.0054 | 2/2 · 31.7 sn · $0.0032 |
+| `web-dialog-accept` | 3/3 · 10.3 sn · $0.0012 | 3/3 · 15.4 sn · $0.0022 | 3/3 · 90.1 sn · $0.0034 | 1/3 · 138.7 sn · $0.0039 |
+| `web-dialog-policy` | 3/3 · 10.6 sn · $0.0014 | 3/3 · 23.0 sn · $0.0021 | 2/3 · 49.1 sn · $0.0018 | 2/3 · 85.7 sn · $0.0037 |
+| `web-drag-drop` | 3/3 · 14.0 sn · $0.0015 | 3/3 · 12.8 sn · $0.0019 | 2/3 · 26.0 sn · $0.0029 | 2/2 · 31.9 sn · $0.0030 |
+| `web-form-fill` | 3/3 · 9.8 sn · $0.0015 | 3/3 · 12.1 sn · $0.0019 | 2/3 · 16.1 sn · $0.0012 | 1/1 · 46.7 sn · $0.0040 |
+| `web-forms-extra` | 3/3 · 21.0 sn · $0.0026 | 3/3 · 16.1 sn · $0.0026 | 2/3 · 65.7 sn · $0.0043 | 2/2 · 51.6 sn · $0.0042 |
+| `web-snapshot-scope` | 3/3 · 7.3 sn · $0.0010 | 3/3 · 10.5 sn · $0.0014 | 2/3 · 15.8 sn · $0.0012 | 2/2 · 30.3 sn · $0.0027 |
+| `web-table-read` | 3/3 · 9.4 sn · $0.0010 | 3/3 · 9.3 sn · $0.0011 | 3/3 · 13.4 sn · $0.0012 | 3/3 · 20.4 sn · $0.0018 |
+| `web-upload` | 3/3 · 8.9 sn · $0.0012 | 3/3 · 17.9 sn · $0.0021 | 2/3 · 28.6 sn · $0.0010 | 0/2 · 27.0 sn · $0.0032 |
+| `web-upload-large` | 3/3 · 12.0 sn · $0.0012 | 3/3 · 16.1 sn · $0.0021 | 2/3 · 31.3 sn · $0.0011 | 0/3 · 36.1 sn · $0.0034 |
+
+| Toplam | pc-eye | Playwright MCP | agent-browser | Claude in Chrome |
+| --- | --- | --- | --- | --- |
+| Başarı | 72/72 | 72/72 | 60/72 | 41/56 |
+| Görev medyanlarının toplamı | 277 sn | 382 sn | 724 sn | 1080 sn |
+| Koşu başı ortalama maliyet | $0,0014 | $0,0020 | $0,0021 | $0,0031 |
+| En iyi olduğu görev (başarı / hız / maliyet, 24 üzerinden) | 24 / 18 / 16 | 24 / 5 / 1 | 15 / 1 / 7 | 17 / 0 / 0 |
+
+Claude in Chrome'un gerçek zayıflıkları: JS onay/istem kutusu açılınca sayfa donar ("renderer may be
+frozen"), tıklama ve okuma 30–45 sn zaman aşımına düşer (diyalog görevleri 0/8, 66–157 sn); dosya
+yükleme 0/7. agent-browser'ın 12 başarısızlığının 7'si son turdaki 180 sn zaman aşımı (nedeni doğrulanmadı).
+
+pc-eye'ın yavaş kaldığı 6 görev dökümlerden incelendi ve düzeltildi (commit 296d57e): eylem yükleme
+göstergesi başlatırsa sonucu bekler, düz metinli sayfa (çerçeve kümesi) boş özet vermez, kaydırıcıya
+ok tuşu/doğrudan değer, `wait` eşleşen satırı döndürür. Doğrulama 18/18; araç çağrısı iç içe çerçevede
+2–6 → 1, yüklemeli sayfada 3–4 → 1. **Bu düzeltmelerden sonra dörtlü kıyas yeniden koşulmadı**: o gece
+model API'si çok dalgalıydı (aynı görev 4–139 sn), süre karşılaştırması güvenilir olmazdı.
+
+### Claude in Chrome'dan alınanlar (REA ile `ShortcutExecutionService` ve `accessibility-tree.js` okundu)
+
+select hatasında mevcut seçenekler; checkbox karışık durum + doğrulama uyarısı; date/time/color/range
+alanlarına doğrudan değer; ref + dy ile en yakın kaydırılabilir kap; geniş ana içerik seçici listesi ve
+satır sonunda kesme; bağlantı adreslerinde gizli sorgu parametrelerini maskeleme (token=REDACTED);
+kutusu olmayan hedefe tıklamada uyarı (commit 5ac2245).
+
 ## Bilinen sınırlar (henüz kapatılmadı)
 
 - Yükleme toplam 32 MB ile sınırlı (parçalı aktarım).

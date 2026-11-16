@@ -42,7 +42,7 @@
   const INTERACTIVE_ROLES = new Set([
     "button", "link", "textbox", "searchbox", "combobox", "listbox", "option",
     "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox",
-    "menuitemradio", "slider", "spinbutton", "treeitem", "draggable", "file"
+    "menuitemradio", "slider", "spinbutton", "treeitem", "draggable", "file", "img"
   ]);
   const BLOCK_TEXT_TAGS = new Set(["P", "LI", "BLOCKQUOTE", "PRE", "FIGCAPTION", "DT", "DD"]);
   const LIVE_ROLES = new Set(["alert", "status", "dialog", "alertdialog"]);
@@ -79,6 +79,17 @@
 
   function resolveRef(ref) {
     if (typeof ref !== "string" || !ref) throw new Error("geçersiz ref: " + ref);
+    // Ref biçiminde değilse CSS seçici sayılır (ajanlar sık sık seçiciyle dener).
+    if (!/^e\d+$/.test(ref)) {
+      let found = null;
+      try {
+        found = document.querySelector(ref);
+      } catch (_) {
+        found = null;
+      }
+      if (!found) throw new Error("eleman bulunamadı: " + ref + " (ref ya da CSS seçici verin)");
+      return found;
+    }
     const wr = refToEl.get(ref);
     const el = wr ? wr.deref() : null;
     if (!isConnectedDeep(el)) {
@@ -298,6 +309,9 @@
     if (el.hasAttribute("onclick")) return "button";
     // Sürüklenebilir kartlar çoğu sitede rolsüzdür; ref alsınlar ki `drag` ile taşınabilsinler.
     if (el.getAttribute("draggable") === "true") return "draggable";
+    // Anlamlı resimler (alt metni olan ya da büyük) ref alır: üzerine gelinir, tıklanır.
+    if (tag === "IMG" && (norm(el.getAttribute("alt")) || (el.width >= 64 && el.height >= 64)) &&
+        !(el.closest && el.closest("a[href],button,[role=button],[role=link]"))) return "img";
     return "";
   }
 
@@ -432,6 +446,7 @@
     const lines = [];
     let truncated = false;
     let prev = null;
+    let prevNode = null;
 
     // Sorgu bir başlıkla eşleşirse o başlığın bölümündeki satırlar da gelir ("X bölümünde ne var" tek çağrı).
     // Bölüm: başlığın küçük bir kabı varsa o kap; yoksa aynı/üst düzey sonraki başlığa kadar olan satırlar.
@@ -458,10 +473,13 @@
         }
       }
       // Ardışık aynı rol+adlı satırlarda hedefsiz veya aynı hedefli yinelemeyi ele.
-      if (prev && entry.role && entry.name && prev.role === entry.role && prev.name === entry.name) {
+      // Yalnız iç içe elemanlar (bağlantı içindeki düğme vb.); aynı adlı kardeşler ayrı elemanlardır.
+      if (prev && entry.role && entry.name && prev.role === entry.role && prev.name === entry.name &&
+          prevNode && curNode && prevNode.contains(curNode)) {
         if (!prev.href && entry.href) {
           lines[lines.length - 1] = entry.line;
           prev = entry;
+          prevNode = curNode;
           return true;
         }
         if (!entry.href || prev.href === entry.href) return true;
@@ -472,6 +490,7 @@
       }
       lines.push(entry.line);
       prev = entry;
+      prevNode = curNode;
       return true;
     };
 
@@ -583,6 +602,7 @@
       lines
     };
     if (scope) res.scope = scope;
+    if (document.readyState !== "complete") res.ready = document.readyState;
     return res;
   }
 
@@ -863,6 +883,70 @@
     return res;
   }
 
+  // Yapay fare olayları CSS `:hover` kurallarını tetiklemez (açılır menü, üzerine gelince çıkan
+  // bilgi). Bu yüzden elemanla eşleşen `:hover` kurallarının bildirimleri hedeflere satır içi
+  // uygulanır; bir sonraki hover'da geri alınır. Dönüş: kaç hedefin stili değişti.
+  const hoverEmu = new Map();
+  function clearHoverEmulation() {
+    for (const [t, css] of hoverEmu) {
+      try {
+        t.style.cssText = css;
+      } catch (_) {}
+    }
+    hoverEmu.clear();
+  }
+  function emulateCssHover(el) {
+    clearHoverEmulation();
+    if (el.ownerDocument !== document) return 0;
+    let scanned = 0;
+    const apply = (rule) => {
+      for (const sel of rule.selectorText.split(",")) {
+        const i = sel.indexOf(":hover");
+        if (i < 0) continue;
+        let subject = null;
+        let targets = [];
+        try {
+          subject = el.closest(sel.slice(0, i).trim() || "*");
+          if (!subject) continue;
+          targets = Array.from(document.querySelectorAll(sel.replace(/:hover/g, "")))
+            .filter((t) => t === subject || subject.contains(t));
+        } catch (_) {
+          continue;
+        }
+        for (const t of targets.slice(0, 50)) {
+          if (!hoverEmu.has(t)) hoverEmu.set(t, t.style.cssText);
+          for (const prop of Array.from(rule.style)) {
+            t.style.setProperty(prop, rule.style.getPropertyValue(prop), "important");
+          }
+        }
+      }
+    };
+    const scan = (rules) => {
+      for (const rule of rules) {
+        if (++scanned > 20000) return;
+        if (rule.selectorText) {
+          if (rule.selectorText.includes(":hover")) apply(rule);
+        } else if (rule.cssRules) {
+          let ok = true;
+          try {
+            if (rule.media && rule.media.mediaText) ok = window.matchMedia(rule.media.mediaText).matches;
+          } catch (_) {}
+          if (ok) scan(rule.cssRules);
+        }
+      }
+    };
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules = null;
+      try {
+        rules = sheet.cssRules;
+      } catch (_) {
+        continue;  // çapraz kaynaklı stil sayfası okunamaz
+      }
+      if (rules) scan(rules);
+    }
+    return hoverEmu.size;
+  }
+
   async function opHover(args) {
     const el = resolveRef(args.ref);
     const v0 = version;
@@ -874,7 +958,10 @@
     fireMouse(el, "mouseenter", cx, cy, false, 0);
     fireMouse(el, "pointermove", cx, cy, true, 0);
     fireMouse(el, "mousemove", cx, cy, true, 0);
-    return finishAction(v0);
+    const revealed = emulateCssHover(el);
+    const res = await finishAction(v0);
+    if (revealed) res.changed = true;
+    return res;
   }
 
   // Görünen metni ya da aria-label'ı verilen dizeyle eşleşen elemanı bulur (tam eşleşme önce).
@@ -1007,7 +1094,23 @@
       const main = args.all ? null : document.querySelector("main, [role=main], article");
       el = main && safeInnerText(main).length >= 200 ? main : (document.body || document.documentElement);
     }
-    const raw = safeInnerText(el);
+    let raw = safeInnerText(el);
+    // Çerçeve kümesi (frameset) ya da içeriği tümüyle çerçevede olan sayfa: aynı kaynaklı çerçevelerin metni eklenir.
+    if (!args.ref) {
+      const collect = (doc, depth) => {
+        if (depth > 4) return;
+        for (const f of doc.querySelectorAll("frame, iframe")) {
+          try {
+            const idoc = f.contentDocument;
+            if (!idoc || !idoc.body) continue;
+            const t = safeInnerText(idoc.body).trim();
+            if (t) raw += (raw ? "\n" : "") + "[frame " + (f.name || f.id || "") + "] " + t;
+            collect(idoc, depth + 1);
+          } catch (_) {}
+        }
+      };
+      collect(el.ownerDocument || document, 0);
+    }
     const query = typeof args.query === "string" ? args.query.trim() : "";
     let full = raw;
     let matches = -1;
@@ -1015,7 +1118,7 @@
       // Eşleşen satırlar ile birer komşusu döner; yinelenen satır tek kez yazılır.
       // "a|b" birden çok seçenek demektir (ajanlar düzenli ifade gibi yazıyor).
       const qs = query.toLowerCase().split("|").map((x) => x.trim()).filter(Boolean);
-      const lines = raw.split("\n");
+      const lines = raw.split("\n").filter((l) => l.trim());
       const keep = new Set();
       matches = 0;
       for (let i = 0; i < lines.length; i++) {
@@ -1066,6 +1169,22 @@
     };
   }
 
+  // Yükleme göstergesi varken sayfa "durgun" sayılmaz (zamanlayıcıyla gelen içerik DOM'u değiştirmez).
+  function pageBusy() {
+    try {
+      if (document.querySelector('[aria-busy="true"], progress, [role="progressbar"]')) return true;
+      for (const el of document.querySelectorAll('img[src*="load" i], img[src*="spin" i], img[src*="ajax" i], [class*="loading" i], [class*="spinner" i], [id*="loading" i]')) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) return true;
+      }
+      if (typeof document.getAnimations === "function" &&
+          document.getAnimations().some((a) => a.playState === "running" && a.effect && a.effect.getTiming && a.effect.getTiming().iterations === Infinity)) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   function opWait(args) {
     const total = Math.max(0, numOr(args.timeout_ms, 5000));
     const wantText = typeof args.text === "string" && args.text ? args.text : "";
@@ -1107,7 +1226,7 @@
       };
       const idleCheck = () => {
         check();
-        if (done || !idleMs || document.readyState !== "complete") return;
+        if (done || !idleMs || document.readyState !== "complete" || pageBusy()) return;
         if (Date.now() - Math.max(t0, lastMutAt) < idleMs) return;
         done = true;
         mutWaiters.delete(check);
@@ -1159,12 +1278,26 @@
     return res;
   }
 
+  // Belge hâlâ ayrıştırılıyorsa (yavaş bir betik gövdeyi bekletiyor) özet boş çıkar: gövde gelene dek bekle.
+  function domReady(maxMs = 8000) {
+    if (document.readyState !== "loading") return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        document.removeEventListener("DOMContentLoaded", done);
+        resolve();
+      };
+      const timer = setTimeout(done, maxMs);
+      document.addEventListener("DOMContentLoaded", done);
+    });
+  }
+
   // ---- İleti yönlendirici ----
   async function dispatch(op, args) {
     switch (op) {
       case "version": return version;
       case "ver": return { version, url: location.href, title: document.title || "" };
-      case "snapshot": return opSnapshot(args);
+      case "snapshot": await domReady(); return opSnapshot(args);
       case "click": return opClick(args);
       case "type": return opType(args);
       case "select": return opSelect(args);
@@ -1174,7 +1307,7 @@
       case "focus": return opFocus(args);
       case "key": return opKey(args);
       case "scroll": return opScroll(args);
-      case "text": return opText(args);
+      case "text": await domReady(); return opText(args);
       case "upload": return opUpload(args);
       case "rect": return opRect(args);
       case "wait": return opWait(args);

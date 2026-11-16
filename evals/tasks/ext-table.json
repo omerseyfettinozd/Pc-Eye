@@ -1,0 +1,16 @@
+{
+  "id": "ext-table",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/tables",
+  "page": "https://the-internet.herokuapp.com/tables",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/tables sayfasında: Example 1 tablosunda soyadı (Last Name) Conway olan kişinin Due değeri nedir?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "$50.00"
+  }
+}

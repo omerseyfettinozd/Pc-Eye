@@ -831,7 +831,7 @@ pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json:
 }
 
 /// Sayfayı değiştiren tekil eylemler: sonuçlarına sayfada değişen satırlar eklenir.
-const DIFF_OPS: &[&str] = &["click", "type", "select", "check", "key", "upload", "drag"];
+const DIFF_OPS: &[&str] = &["click", "type", "select", "check", "key", "upload", "drag", "hover"];
 
 /// Tekil eylem + sayfadaki değişiklik: eylemden önce ve sonra özet alınır, sonuca yalnız değişen
 /// satırlar (`after.changed_lines`) eklenir; sayfa değiştiyse yeni sayfanın özeti. Ajan eylemin
@@ -842,14 +842,19 @@ pub fn command_with_diff(op: &str, args: &Value) -> Result<Value> {
         return command(op, args);
     }
     let tab = args.get("tab").filter(|v| !v.is_null()).cloned();
-    let before = if mode == "diff" { Some(run_after_snapshot(tab.as_ref())) } else { None };
+    // Fark, düz metni de kapsayan özetle alınır: eylemin ürettiği ileti çoğu zaman etkileşimsiz metindir.
+    let before = if mode == "diff" { Some(action_snapshot(tab.as_ref(), true)) } else { None };
     let mut out = command(op, args)?;
-    let after = run_after_snapshot(tab.as_ref());
+    let after = action_snapshot(tab.as_ref(), mode == "diff");
     if after.is_null() {
         return Ok(out);
     }
     let after = match before {
-        Some(b) if !b.is_null() => diff_snapshot(&b, after),
+        Some(b) if !b.is_null() => {
+            let d = diff_snapshot(&b, after);
+            // Sayfa değiştiyse (tam özet döner) düz metinsiz, kısa özet yeter.
+            if d.get("lines").is_some() { action_snapshot(tab.as_ref(), false) } else { d }
+        }
         _ => after,
     };
     // Hiçbir satır değişmediyse boş blok eklenmez.
@@ -952,6 +957,14 @@ fn compact_step_result(r: &Value) -> Value {
         }
     }
     Value::Object(out)
+}
+
+fn action_snapshot(tab: Option<&Value>, all: bool) -> Value {
+    let mut a = if all { json!({ "max": 150, "all": true }) } else { json!({ "max": 60 }) };
+    if let Some(t) = tab {
+        a["tab"] = t.clone();
+    }
+    request("snapshot", a, Duration::from_secs(12)).unwrap_or(Value::Null)
 }
 
 fn run_after_snapshot(tab: Option<&Value>) -> Value {

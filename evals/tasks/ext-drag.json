@@ -1,0 +1,16 @@
+{
+  "id": "ext-drag",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/drag_and_drop",
+  "page": "https://the-internet.herokuapp.com/drag_and_drop",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/drag_and_drop sayfasında: A kutusunu B kutusunun üzerine sürükleyip bırak. Bundan sonra soldaki (ilk) kutunun başlığında hangi harf yazıyor?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "B"
+  }
+}

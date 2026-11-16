@@ -508,7 +508,10 @@ def open_in_firefox(sb, work, url, ready_text, fullscreen=True):
     (profile / "user.js").write_text(prefs)
     window, pid = sb.launch_window(["firefox", "--new-instance", "--profile", str(profile), *extra, url],
                                    fullscreen=fullscreen)
-    pceye("wait", "ui_match", "--window", window, "--match", ready_text, "--timeout-ms", "8000")
+    if ready_text:
+        pceye("wait", "ui_match", "--window", window, "--match", ready_text, "--timeout-ms", "8000")
+    else:
+        time.sleep(2.5)  # dış site: AT-SPI eşleşmesi yerine yükleme payı
     if BROWSER == "bridge":
         attach_bridge(port)
     return window, pid
@@ -674,6 +677,22 @@ def scene_web_frame(sb, rng, work):
     return Scene({"title": title, "window": window, "pid": pid, "code": code}, out)
 
 
+CURRENT_TASK = None
+
+
+def scene_web_url(sb, rng, work):
+    """Dış (tarafsız) test sitesi: görev `url` alanındaki sayfa açılır; yerel sunucu yoktur.
+    Site bizim yazmadığımız, tarayıcı otomasyonu için yaygın kullanılan bir deneme sitesidir."""
+    global LAST_URL
+    url = CURRENT_TASK["url"]
+    up = work / f"not-{token(rng, 4)}.txt"
+    up.write_text(f"deneme {token(rng, 8)}", encoding="utf-8")
+    LAST_URL = url
+    window, pid = open_in_firefox(sb, work, url, None)
+    return Scene({"title": CURRENT_TASK.get("page", url), "url": url, "window": window, "pid": pid,
+                  "word": token(rng, 6), "upload_path": str(up), "upload_name": up.name})
+
+
 def scene_wizard(sb, rng, work):
     packages = rng.sample(["metin-editoru", "goruntu-araci", "yedekleme", "ag-izleyici", "ses-kaydedici",
                            "pdf-okuyucu", "takvim"], 5)
@@ -776,6 +795,7 @@ SCENES = {
     "web_long": scene_web_long,
     "web_hard": scene_web_hard,
     "web_frame": scene_web_frame,
+    "web_url": scene_web_url,
     "wizard": scene_wizard,
     "dolphin": scene_dolphin,
     "kate": scene_kate,
@@ -971,6 +991,8 @@ def prime(task, sb, rng, work):
     """
     pwork = work / "prime"
     pwork.mkdir(parents=True, exist_ok=True)
+    global CURRENT_TASK
+    CURRENT_TASK = task
     scene = SCENES[task["scene"]](sb, rng, pwork)
     try:
         r = run_probe({"probe": task["prime"], "check": {"type": "none"}}, scene)
@@ -1290,6 +1312,8 @@ def main():
                 try:
                     if task.get("prime"):
                         prime(task, sb, rng, work)
+                    global CURRENT_TASK
+                    CURRENT_TASK = task
                     scene = SCENES[task["scene"]](sb, rng, work)
                     record["vars"] = {k: v for k, v in scene.vars.items() if k != "window"}
                     if args.tier == "probe":

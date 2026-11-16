@@ -1,0 +1,19 @@
+{
+  "id": "ext-js-prompt",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/javascript_alerts",
+  "page": "https://the-internet.herokuapp.com/javascript_alerts",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/javascript_alerts sayfasında: \"Click for JS Prompt\" düğmesine bas, çıkan istem kutusuna {word} yaz ve onayla. Result satırında ne yazıyor?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": [
+      "You entered: {word}",
+      "Result: You entered: {word}"
+    ]
+  }
+}

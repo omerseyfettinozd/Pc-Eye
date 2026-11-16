@@ -1,0 +1,19 @@
+{
+  "id": "ext-hover",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/hovers",
+  "page": "https://the-internet.herokuapp.com/hovers",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/hovers sayfasında: İkinci kullanıcı resminin üzerine gel. Resmin altında görünen ad satırı nedir?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": [
+      "name: user2",
+      "user2"
+    ]
+  }
+}

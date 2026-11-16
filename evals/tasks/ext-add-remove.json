@@ -1,0 +1,16 @@
+{
+  "id": "ext-add-remove",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/add_remove_elements/",
+  "page": "https://the-internet.herokuapp.com/add_remove_elements/",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/add_remove_elements/ sayfasında: \"Add Element\" düğmesine 3 kez bas. Sayfada kaç tane Delete düğmesi var? Yalnız sayıyı yaz.",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "3"
+  }
+}

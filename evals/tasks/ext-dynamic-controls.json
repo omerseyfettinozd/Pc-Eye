@@ -1,0 +1,16 @@
+{
+  "id": "ext-dynamic-controls",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/dynamic_controls",
+  "page": "https://the-internet.herokuapp.com/dynamic_controls",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/dynamic_controls sayfasında: Remove düğmesine bas; işlem bitince sayfada çıkan ileti nedir?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "It's gone!"
+  }
+}

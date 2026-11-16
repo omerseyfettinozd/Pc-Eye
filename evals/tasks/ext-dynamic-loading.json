@@ -1,0 +1,16 @@
+{
+  "id": "ext-dynamic-loading",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/dynamic_loading/2",
+  "page": "https://the-internet.herokuapp.com/dynamic_loading/2",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/dynamic_loading/2 sayfasında: Start düğmesine bas; yükleme bitince sayfada çıkan metin nedir?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "Hello World!"
+  }
+}

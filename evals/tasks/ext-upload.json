@@ -1,0 +1,16 @@
+{
+  "id": "ext-upload",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/upload",
+  "page": "https://the-internet.herokuapp.com/upload",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/upload sayfasında: {upload_path} dosyasını sayfadaki dosya seçme alanına yükle ve Upload düğmesine bas. Açılan sayfanın içindeki büyük başlıkta (heading) ne yazıyor?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "File Uploaded!"
+  }
+}

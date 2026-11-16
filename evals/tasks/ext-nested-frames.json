@@ -1,0 +1,16 @@
+{
+  "id": "ext-nested-frames",
+  "scene": "web_url",
+  "url": "https://the-internet.herokuapp.com/nested_frames",
+  "page": "https://the-internet.herokuapp.com/nested_frames",
+  "tags": [
+    "browser",
+    "ext"
+  ],
+  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/nested_frames sayfasında: Sayfanın alt çerçevesinde (bottom) yazan metin nedir?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "BOTTOM"
+  }
+}

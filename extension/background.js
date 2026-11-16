@@ -118,7 +118,8 @@ function attachEvents(tabId, mark, result) {
     (e) => e.seq > mark.c && (e.level === "error" || e.level === "exception")
   );
   if (errs.length) {
-    result.errors = errs.slice(0, 3).map((e) => e.text.slice(0, 160));
+    // Düzey etiketi: console.error çıktısı ile yakalanmamış istisna karışmasın.
+    result.errors = errs.slice(0, 3).map((e) => "[" + (e.level === "error" ? "console.error" : e.level) + "] " + e.text.slice(0, 160));
     if (errs.length > 3) result.errors_more = errs.length - 3;
   }
   return result;

@@ -6,7 +6,7 @@
     "bridge",
     "web-hard"
   ],
-  "prompt": "Firefox'ta açık \"{title}\" sayfasında \"Hata üret\" düğmesine bas. Sayfanın konsoluna yazılan hata iletisi tam olarak nedir?",
+  "prompt": "Firefox'ta açık \"{title}\" sayfasında \"Hata üret\" düğmesine bas. Sayfanın console.error ile konsola yazdığı ileti tam olarak nedir?",
   "probe": [],
   "check": {
     "type": "answer",
@@ -22,7 +22,7 @@
       ],
       "expect_contains": [
         "errors",
-        "{errtoken} hatası"
+        "[console.error] {errtoken} hatası"
       ]
     },
     {

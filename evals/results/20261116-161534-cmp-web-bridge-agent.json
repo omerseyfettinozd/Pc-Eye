@@ -1,0 +1,63 @@
+{
+ "tier": "agent",
+ "started": "20261116-161534-cmp-web-bridge",
+ "seed": 957213687,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "1c6ddd8",
+ "summary": {
+  "tasks": [
+   {
+    "task": "web-console-network",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 8290.2,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 20993,
+    "median_output_tokens": 567,
+    "cost_usd": 0.0014
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0014
+ },
+ "session": "cmp",
+ "toolset": "web",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor 2CWL",
+    "pid": 663653,
+    "errtoken": "TWGGR2",
+    "inner": "İç düğme FDRG",
+    "pin": "929245",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-161534-cmp-web-bridge/web-console-network-0/belge-9TPM.txt",
+    "upload_name": "belge-9TPM.txt",
+    "upload_content": "içerik KHAHA3XR",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-161534-cmp-web-bridge/web-console-network-0/buyuk-ECX6.bin",
+    "big_name": "buyuk-ECX6.bin",
+    "big_size": 2451705
+   },
+   "ok": true,
+   "detail": "cevap='TWGGR2 hatası'",
+   "ms": 8290.2,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00144511,
+   "input_tokens": 20993,
+   "output_tokens": 567,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 4
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

@@ -1,0 +1,63 @@
+{
+ "tier": "agent",
+ "started": "20261116-161449-cmp-web-bridge",
+ "seed": 951864300,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "1c6ddd8",
+ "summary": {
+  "tasks": [
+   {
+    "task": "web-console-network",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 7476.4,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 20736,
+    "median_output_tokens": 578,
+    "cost_usd": 0.0019
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0019
+ },
+ "session": "cmp",
+ "toolset": "web",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor WRLT",
+    "pid": 658986,
+    "errtoken": "R87M7W",
+    "inner": "İç düğme WP6J",
+    "pin": "749617",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-161449-cmp-web-bridge/web-console-network-0/belge-VG68.txt",
+    "upload_name": "belge-VG68.txt",
+    "upload_content": "içerik YWE2TA88",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-161449-cmp-web-bridge/web-console-network-0/buyuk-PH32.bin",
+    "big_name": "buyuk-PH32.bin",
+    "big_size": 2554783
+   },
+   "ok": true,
+   "detail": "cevap='R87M7W hatası'",
+   "ms": 7476.4,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0019249400000000002,
+   "input_tokens": 20736,
+   "output_tokens": 578,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 5
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

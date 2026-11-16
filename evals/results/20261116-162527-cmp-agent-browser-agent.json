@@ -1,0 +1,63 @@
+{
+ "tier": "agent",
+ "started": "20261116-162527-cmp-agent-browser",
+ "seed": 605780908,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "1c6ddd8",
+ "summary": {
+  "tasks": [
+   {
+    "task": "web-console-network",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 11197.5,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 21380,
+    "median_output_tokens": 590,
+    "cost_usd": 0.0015
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0015
+ },
+ "session": "cmp",
+ "toolset": "agent-browser",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor UUNT",
+    "pid": 699655,
+    "errtoken": "XMA94V",
+    "inner": "İç düğme XYD6",
+    "pin": "529217",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-162527-cmp-agent-browser/web-console-network-0/belge-HMYW.txt",
+    "upload_name": "belge-HMYW.txt",
+    "upload_content": "içerik P3WRRLCH",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-162527-cmp-agent-browser/web-console-network-0/buyuk-DWXD.bin",
+    "big_name": "buyuk-DWXD.bin",
+    "big_size": 2567334
+   },
+   "ok": true,
+   "detail": "cevap='XMA94V hatası'",
+   "ms": 11197.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0015055099999999998,
+   "input_tokens": 21380,
+   "output_tokens": 590,
+   "tool_calls": 2,
+   "tools": {
+    "Bash": 2
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

@@ -1,0 +1,63 @@
+{
+ "tier": "agent",
+ "started": "20261116-161606-cmp-agent-browser",
+ "seed": 432790070,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "1c6ddd8",
+ "summary": {
+  "tasks": [
+   {
+    "task": "web-console-network",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 10089.5,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 21425,
+    "median_output_tokens": 566,
+    "cost_usd": 0.0015
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0015
+ },
+ "session": "cmp",
+ "toolset": "agent-browser",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor R77E",
+    "pid": 666594,
+    "errtoken": "4VWCJ9",
+    "inner": "İç düğme Y3RH",
+    "pin": "504859",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-161606-cmp-agent-browser/web-console-network-0/belge-YY76.txt",
+    "upload_name": "belge-YY76.txt",
+    "upload_content": "içerik PVDTF3PR",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-161606-cmp-agent-browser/web-console-network-0/buyuk-JTT3.bin",
+    "big_name": "buyuk-JTT3.bin",
+    "big_size": 2418104
+   },
+   "ok": true,
+   "detail": "cevap='4VWCJ9 hatası'",
+   "ms": 10089.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0015004200000000001,
+   "input_tokens": 21425,
+   "output_tokens": 566,
+   "tool_calls": 2,
+   "tools": {
+    "Bash": 2
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

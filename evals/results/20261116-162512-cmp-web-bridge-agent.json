@@ -1,0 +1,63 @@
+{
+ "tier": "agent",
+ "started": "20261116-162512-cmp-web-bridge",
+ "seed": 215293982,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "1c6ddd8",
+ "summary": {
+  "tasks": [
+   {
+    "task": "web-console-network",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 10535.1,
+    "median_turns": 2,
+    "median_tool_calls": 1,
+    "median_input_tokens": 13206,
+    "median_output_tokens": 653,
+    "cost_usd": 0.0018
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0018
+ },
+ "session": "cmp",
+ "toolset": "web",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor 49XE",
+    "pid": 698312,
+    "errtoken": "7G9CPX",
+    "inner": "İç düğme 8NL2",
+    "pin": "781282",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-162512-cmp-web-bridge/web-console-network-0/belge-CX8V.txt",
+    "upload_name": "belge-CX8V.txt",
+    "upload_content": "içerik 94LYK88D",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-162512-cmp-web-bridge/web-console-network-0/buyuk-YNH8.bin",
+    "big_name": "buyuk-YNH8.bin",
+    "big_size": 2400681
+   },
+   "ok": true,
+   "detail": "cevap='7G9CPX hatası'",
+   "ms": 10535.1,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.0017602300000000002,
+   "input_tokens": 13206,
+   "output_tokens": 653,
+   "tool_calls": 1,
+   "tools": {
+    "pc_eye_browser": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

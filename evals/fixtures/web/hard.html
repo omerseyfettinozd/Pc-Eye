@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>{title}</title>
+<style>
+body{font:18px sans-serif;margin:32px} label{display:block;margin:12px 0}
+#perde{position:fixed;left:0;right:0;bottom:0;height:90px;background:#222;color:#fff;padding:12px;z-index:10}
+#bolme{margin-top:24px;border:1px solid #999;padding:12px}
+</style>
+<h1>Zor sayfa</h1>
+<nav><a href="#a" aria-current="page">Özet</a> <a href="#b">Ayrıntı</a></nav>
+<main>
+  <p>Bu sayfa köprünün zor durumlarını sınar: diyaloglar, konsol hataları, ağ istekleri, dosya yükleme, örtülü düğme ve kapsamlı anlık görüntü. Ana içerik burada yer alır ve yeterince uzundur ki okunur metin kökü olarak seçilsin.</p>
+  <button id="sil">Kaydı sil</button>
+  <button id="sor">Kod sor</button>
+  <button id="hata">Hata üret</button>
+  <button id="istek">Veri çek</button>
+  <button id="acilir" aria-expanded="false" aria-haspopup="menu">Menü</button>
+  <button id="basili" aria-pressed="true">Kalın</button>
+  <label>Belge <input type="file" id="dosya"></label>
+  <label>Pin <input id="pin" style="-webkit-text-security:disc" value="{pin}"></label>
+  <label>Ülke <select id="ulke">{options}</select></label>
+  <div id="bolme"><h2>Kapsam</h2><button id="ic">{inner}</button></div>
+  <div role="tablist"><button role="tab" aria-selected="true">Genel</button><button role="tab" aria-selected="false">Gelişmiş</button></div>
+  <p id="durum" role="status"></p>
+</main>
+<div style="height:1400px"></div>
+<button id="alt">Alttaki düğme</button>
+<div id="perde">Çerez bildirimi</div>
+<script>
+const out = (o) => fetch("/submit", { method: "POST", body: JSON.stringify(o) });
+const durum = document.getElementById("durum");
+document.getElementById("sil").onclick = () => {
+  const ok = confirm("Kayıt silinsin mi?");
+  durum.textContent = ok ? "Silindi" : "Vazgeçildi";
+  out({ confirm: ok });
+};
+document.getElementById("sor").onclick = () => {
+  const v = prompt("Kod?", "0000");
+  durum.textContent = "Kod: " + v;
+  out({ prompt: v });
+};
+document.getElementById("hata").onclick = () => {
+  console.error("{errtoken} hatası");
+  setTimeout(() => { throw new Error("{errtoken} istisnası"); }, 0);
+  durum.textContent = "Hata üretildi";
+};
+document.getElementById("istek").onclick = async () => {
+  await fetch("/yok-{errtoken}").catch(() => {});
+  durum.textContent = "Çekildi";
+};
+document.getElementById("dosya").onchange = async (e) => {
+  const f = e.target.files[0];
+  const text = await f.text();
+  durum.textContent = "Yüklendi: " + f.name;
+  out({ upload: f.name, content: text });
+};
+document.getElementById("alt").onclick = () => { durum.textContent = "Alt tıklandı"; };
+</script>
+</html>

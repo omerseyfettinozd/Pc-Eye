@@ -1,0 +1,117 @@
+{
+  "id": "web-dialog-policy",
+  "scene": "web_hard",
+  "tags": [
+    "browser",
+    "bridge",
+    "web-hard"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasında \"Kaydı sil\" düğmesine bas; çıkan onay sorusunu REDDET. Sayfadaki durum ne yazıyor?",
+  "probe": [],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "confirm": false
+    }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kaydı sil"
+      ],
+      "expect_contains": [
+        "Kayıt silinsin mi?",
+        "-> true"
+      ],
+      "max_ms": 1500
+    },
+    {
+      "args": [
+        "browser",
+        "dialogs",
+        "--args",
+        "{\"accept\": false}"
+      ],
+      "expect_contains": [
+        "\"accept\": false"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kaydı sil"
+      ],
+      "expect_contains": [
+        "-> false"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "wait",
+        "--text",
+        "Vazgeçildi",
+        "--timeout-ms",
+        "3000"
+      ],
+      "expect_contains": [
+        "\"matched\": true"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "dialogs",
+        "--args",
+        "{\"accept\": true, \"text\": \"4821\"}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kod sor"
+      ],
+      "expect_contains": [
+        "Kod?",
+        "4821"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kaydı sil"
+      ],
+      "expect_contains": [
+        "-> true"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "dialogs",
+        "--args",
+        "{\"accept\": false}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kaydı sil"
+      ],
+      "expect_contains": [
+        "-> false"
+      ]
+    }
+  ]
+}

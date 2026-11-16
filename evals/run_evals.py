@@ -441,6 +441,10 @@ def serve_page(sb, page_html, out_path):
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
+            if self.path.startswith("/yok"):  # ağ kaydı görevleri için başarısız istek
+                self.send_response(404)
+                self.end_headers()
+                return
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
@@ -607,6 +611,28 @@ def scene_web_long(sb, rng, work):
     return Scene({"title": title, "window": window, "pid": pid, "code": target, "stock": stock[target]})
 
 
+def scene_web_hard(sb, rng, work):
+    """Köprünün zor durumları: JS diyalogları, konsol hatası, başarısız istek, dosya yükleme,
+    örtülü düğme, kapsamlı özet ve durum bayrakları."""
+    title = f"Eval Zor {token(rng, 4)}"
+    errtoken = token(rng, 6)
+    inner = f"İç düğme {token(rng, 4)}"
+    pin = str(rng.randint(100000, 999999))
+    countries = [f"Ülke {i:02d}" for i in range(1, 21)]
+    options = "".join(f"<option>{c}</option>" for c in countries)
+    page = (WEB_DIR / "hard.html").read_text(encoding="utf-8")
+    for k, v in (("{title}", title), ("{errtoken}", errtoken), ("{inner}", inner), ("{pin}", pin),
+                 ("{options}", options)):
+        page = page.replace(k, html.escape(v) if k != "{options}" else v)
+    up = work / f"belge-{token(rng, 4)}.txt"
+    content = f"içerik {token(rng, 8)}"
+    up.write_text(content, encoding="utf-8")
+    out = work / "out.json"
+    window, pid = open_in_firefox(sb, work, serve_page(sb, page, out), "Zor sayfa")
+    return Scene({"title": title, "window": window, "pid": pid, "errtoken": errtoken, "inner": inner,
+                  "pin": pin, "upload_path": str(up), "upload_name": up.name, "upload_content": content}, out)
+
+
 def scene_wizard(sb, rng, work):
     packages = rng.sample(["metin-editoru", "goruntu-araci", "yedekleme", "ag-izleyici", "ses-kaydedici",
                            "pdf-okuyucu", "takvim"], 5)
@@ -707,6 +733,7 @@ SCENES = {
     "settings": scene_settings,
     "web_validate": scene_web_validate,
     "web_long": scene_web_long,
+    "web_hard": scene_web_hard,
     "wizard": scene_wizard,
     "dolphin": scene_dolphin,
     "kate": scene_kate,
@@ -1094,7 +1121,8 @@ def select_tasks(tasks, args):
     if args.tag:
         tasks = [t for t in tasks if set(args.tag) & set(t.get("tags", []))]
     if args.tier == "probe":
-        tasks = [t for t in tasks if t.get("probe")]
+        # Yalnız köprüyle sınanabilen görevlerde `probe` boştur; `--browser bridge` ile seçilirler.
+        tasks = [t for t in tasks if t.get("probe") or (BROWSER == "bridge" and t.get("probe_bridge"))]
     elif args.tier == "agent":
         tasks = [t for t in tasks if t.get("prompt")]
     return tasks

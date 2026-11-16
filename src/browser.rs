@@ -37,6 +37,10 @@ const ACTION_LOG_ROTATE_BYTES: u64 = 2 * 1024 * 1024;
 const EXT_MANIFEST_JSON: &str = include_str!("../extension/manifest.json");
 const EXT_BACKGROUND_JS: &str = include_str!("../extension/background.js");
 const EXT_CONTENT_JS: &str = include_str!("../extension/content.js");
+const EXT_HOOKS_JS: &str = include_str!("../extension/hooks.js");
+
+/// `upload` için toplam ham dosya boyutu sınırı: base64 (×4/3) + JSON zarfı 1 MiB çerçeveye sığmalı.
+const MAX_UPLOAD_BYTES: usize = 700 * 1024;
 
 /// Eklentiyle aynı yerleşik yasak liste desenleri: finans, parola kasası ve kimlik sağlayıcıları.
 pub(crate) const BUILTIN_DENY_PATTERNS: &[&str] = &[
@@ -346,6 +350,13 @@ fn sanitize_args_for_log(op: &str, args: &Value) -> Value {
         "eval" => Some("code"),
         _ => None,
     };
+    // Yüklenen dosyanın içeriği deftere yazılmaz; yalnız adları kalır.
+    if op == "upload" {
+        if let Some(files) = obj.get("files").and_then(|v| v.as_array()) {
+            let names: Vec<Value> = files.iter().filter_map(|f| f.get("name").cloned()).collect();
+            obj.insert("files".to_string(), Value::Array(names));
+        }
+    }
     if let Some(key) = secret_key {
         if let Some(val_str) = obj.get(key).and_then(|v| v.as_str()) {
             let masked = format!("<gizli uzunluk={}>", val_str.chars().count());
@@ -785,6 +796,13 @@ pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json:
             } else {
                 args
             };
+            let uploaded;
+            let args = if other == "upload" {
+                uploaded = load_upload_files(args)?;
+                &uploaded
+            } else {
+                args
+            };
             if other == "click" && args.get("real").and_then(|v| v.as_bool()) == Some(true) {
                 return cmd_real_click(args);
             }
@@ -894,7 +912,7 @@ fn diff_snapshot(before: &Value, after: Value) -> Value {
 /// Adım sonucunun ajana gereken kısmı (tam özet yalnız en sonda bir kez döner).
 fn compact_step_result(r: &Value) -> Value {
     let mut out = serde_json::Map::new();
-    for k in ["changed", "navigated", "value", "matched", "url", "real"] {
+    for k in ["changed", "navigated", "value", "matched", "url", "real", "dialogs", "errors", "errors_more", "covered_by", "files"] {
         if let Some(v) = r.get(k) {
             out.insert(k.to_string(), v.clone());
         }
@@ -911,7 +929,61 @@ fn run_after_snapshot(tab: Option<&Value>) -> Value {
 }
 
 /// Ref ile çalışan sayfa op'ları (`name` ile de çağrılabilir).
-const REF_OPS: &[&str] = &["click", "type", "select", "check", "hover", "focus", "rect", "scroll", "text"];
+const REF_OPS: &[&str] = &["click", "type", "select", "check", "hover", "focus", "rect", "scroll", "text", "upload"];
+
+/// `upload`: `path` (dize) ya da `paths` (dizi) ile verilen yerel dosyaları okuyup eklentiye
+/// `files:[{name,type,b64}]` olarak iletir. Ajan dosya seçme penceresini (görünmez, yerel) açmak zorunda kalmaz.
+fn load_upload_files(args: &Value) -> Result<Value> {
+    use base64::Engine as _;
+    let mut paths: Vec<String> = Vec::new();
+    if let Some(p) = args.get("path").and_then(|v| v.as_str()) {
+        paths.push(p.to_string());
+    }
+    if let Some(arr) = args.get("paths").and_then(|v| v.as_array()) {
+        paths.extend(arr.iter().filter_map(|v| v.as_str().map(str::to_string)));
+    }
+    if paths.is_empty() {
+        bail!("upload: `path` ya da `paths` gerekli");
+    }
+    let mut files = Vec::new();
+    let mut total = 0usize;
+    for p in &paths {
+        let path = Path::new(p);
+        let bytes = fs::read(path).with_context(|| format!("upload: dosya okunamadı: {}", p))?;
+        total += bytes.len();
+        if total > MAX_UPLOAD_BYTES {
+            bail!("upload: toplam boyut {} KB sınırını aşıyor", MAX_UPLOAD_BYTES / 1024);
+        }
+        let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "dosya".to_string());
+        let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+        let mime = match ext.as_str() {
+            "txt" | "log" => "text/plain",
+            "csv" => "text/csv",
+            "html" | "htm" => "text/html",
+            "json" => "application/json",
+            "pdf" => "application/pdf",
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "gif" => "image/gif",
+            "webp" => "image/webp",
+            "svg" => "image/svg+xml",
+            "zip" => "application/zip",
+            _ => "application/octet-stream",
+        };
+        files.push(json!({
+            "name": name,
+            "type": mime,
+            "b64": base64::engine::general_purpose::STANDARD.encode(&bytes),
+        }));
+    }
+    let mut out = args.clone();
+    if let Some(obj) = out.as_object_mut() {
+        obj.remove("path");
+        obj.remove("paths");
+        obj.insert("files".to_string(), Value::Array(files));
+    }
+    Ok(out)
+}
 
 fn resolve_name_arg(op: &str, args: &Value) -> Result<Value> {
     let name = args.get("name").and_then(|v| v.as_str()).unwrap_or_default();
@@ -992,6 +1064,7 @@ fn cmd_install() -> Result<Value> {
         .context("background.js yazılamadı")?;
     fs::write(ext_dir.join("content.js"), EXT_CONTENT_JS)
         .context("content.js yazılamadı")?;
+    fs::write(ext_dir.join("hooks.js"), EXT_HOOKS_JS).context("hooks.js yazılamadı")?;
 
     let exe = std::env::current_exe().context("çalışan ikili yolu alınamadı")?;
     let exe = exe.canonicalize().unwrap_or(exe);
@@ -1589,6 +1662,7 @@ fn cmd_pack() -> Result<Value> {
         ("manifest.json", EXT_MANIFEST_JSON.as_bytes()),
         ("background.js", EXT_BACKGROUND_JS.as_bytes()),
         ("content.js", EXT_CONTENT_JS.as_bytes()),
+        ("hooks.js", EXT_HOOKS_JS.as_bytes()),
     ])?;
     fs::write(&path, &bytes).context("pc-eye-bridge.xpi yazılamadı")?;
 
@@ -2143,6 +2217,7 @@ mod tests {
             ("manifest.json", EXT_MANIFEST_JSON.as_bytes()),
             ("background.js", EXT_BACKGROUND_JS.as_bytes()),
             ("content.js", EXT_CONTENT_JS.as_bytes()),
+            ("hooks.js", EXT_HOOKS_JS.as_bytes()),
         ];
         let zip = build_stored_zip(&sources).expect("ZIP oluşturulmalı");
         assert!(zip.len() >= 22);
@@ -2151,8 +2226,8 @@ mod tests {
         assert_eq!(&eocd[0..4], &0x0605_4B50u32.to_le_bytes());
         let count_disk = u16::from_le_bytes([eocd[8], eocd[9]]);
         let count_total = u16::from_le_bytes([eocd[10], eocd[11]]);
-        assert_eq!(count_disk, 3);
-        assert_eq!(count_total, 3);
+        assert_eq!(count_disk, 4);
+        assert_eq!(count_total, 4);
 
         let cd_size = u32::from_le_bytes([eocd[12], eocd[13], eocd[14], eocd[15]]) as usize;
         let cd_offset = u32::from_le_bytes([eocd[16], eocd[17], eocd[18], eocd[19]]) as usize;

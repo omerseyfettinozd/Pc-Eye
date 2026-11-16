@@ -134,10 +134,21 @@
     if (!el || el.nodeType !== 1) return false;
     if (el.tagName === "INPUT" && (el.type || "").toLowerCase() === "password") return true;
     const ac = (el.getAttribute("autocomplete") || "").toLowerCase().trim();
-    if (!ac) return false;
-    return ac.split(/\s+/).some((t) =>
+    if (ac && ac.split(/\s+/).some((t) =>
       t.startsWith("cc-") || t === "current-password" || t === "new-password" || t === "one-time-code"
-    );
+    )) {
+      return true;
+    }
+    // CSS ile maskelenen alanlar da gizli sayılır; maliyet için yalnız INPUT/TEXTAREA'da denenir.
+    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+      try {
+        const cs = (el.ownerDocument.defaultView || window).getComputedStyle(el);
+        const ts = (cs.getPropertyValue("-webkit-text-security") || cs.webkitTextSecurity || "").trim();
+        if (ts && ts !== "none") return true;
+        if ((cs.fontFamily || "").toLowerCase().includes("text-security")) return true;
+      } catch (_) {}
+    }
+    return false;
   }
 
   function safeInnerText(el) {
@@ -287,6 +298,18 @@
         (el.tagName === "SUMMARY" && el.parentElement && el.parentElement.open)) {
       flags.push("[expanded]");
     }
+    // Seçim/basım/geçerli sayfa/açılır menü durumları ajanın sayfayı doğru okuması için eklenir.
+    if (el.getAttribute("aria-selected") === "true" ||
+        (el.tagName === "OPTION" && el.selected)) {
+      flags.push("[selected]");
+    }
+    if (el.getAttribute("aria-pressed") === "true") flags.push("[pressed]");
+    const ariaCurrent = el.getAttribute("aria-current");
+    if (ariaCurrent !== null && ariaCurrent !== "false") flags.push("[current]");
+    const ariaPopup = el.getAttribute("aria-haspopup");
+    if (ariaPopup !== null && ariaPopup !== "false") flags.push("[popup]");
+    // Kapalı menü açık sanılmasın diye ayrı bayrak verilir.
+    if (el.getAttribute("aria-expanded") === "false") flags.push("[collapsed]");
     if (el.required || el.getAttribute("aria-required") === "true") flags.push("[required]");
     if (el.getAttribute("aria-invalid") === "true" ||
         (el.validity && !el.validity.valid && !el.validity.valueMissing)) {
@@ -320,7 +343,10 @@
       if (el.tagName === "SELECT") {
         const sel = Array.from(el.selectedOptions || []).map((o) => clip(o.text, 40)).filter(Boolean);
         val = sel.join(", ");
-        const opts = Array.from(el.options || []).slice(0, 12).map((o) => clip(o.text, 30)).filter(Boolean);
+        const allOpts = Array.from(el.options || []);
+        const opts = allOpts.slice(0, 12).map((o) => clip(o.text, 30)).filter(Boolean);
+        // Kesilen seçenek sayısı yazılır ki liste eksik sanılmasın.
+        if (allOpts.length > 12) opts.push("+" + (allOpts.length - 12));
         if (opts.length) extra += " {" + opts.join("|") + "}";
       } else if (role === "textbox" || role === "searchbox" || role === "spinbutton" || role === "slider") {
         val = el.isContentEditable ? clip(el.innerText, 80) : clip(el.value, 80);
@@ -346,6 +372,25 @@
     const query = typeof args.query === "string" && args.query.trim() ? args.query.trim().toLowerCase() : "";
     const viewportOnly = Boolean(args.viewport);
     const all = Boolean(args.all);
+    // Kapsam verilirse yürüyüş o kökten başlar; ref (e12) ya da CSS seçici kabul edilir.
+    const scope = typeof args.scope === "string" && args.scope.trim() ? args.scope.trim() : "";
+    let scopeEl = null;
+    if (scope) {
+      if (/^e\d+$/.test(scope)) {
+        try {
+          scopeEl = resolveRef(scope);
+        } catch (_) {
+          throw new Error("scope bulunamadı: " + scope);
+        }
+      } else {
+        try {
+          scopeEl = document.querySelector(scope);
+        } catch (_) {
+          throw new Error("geçersiz scope seçicisi: " + scope);
+        }
+        if (!scopeEl) throw new Error("scope bulunamadı: " + scope);
+      }
+    }
     const lines = [];
     let truncated = false;
     let prev = null;
@@ -442,12 +487,12 @@
       }
     }
 
-    const root = document.body || document.documentElement;
+    const root = scopeEl || document.body || document.documentElement;
     if (root) walk(root, false);
 
     const active = deepActiveElement();
     const focused = active && elToRef.has(active) ? elToRef.get(active) : null;
-    return {
+    const res = {
       url: location.href,
       title: document.title || "",
       version,
@@ -457,6 +502,8 @@
       focused,
       lines
     };
+    if (scope) res.scope = scope;
+    return res;
   }
 
   // ---- Eylem ve olay yardımcıları ----
@@ -510,6 +557,35 @@
   function elemCenter(el) {
     const r = el.getBoundingClientRect();
     return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+  }
+
+  // Tıklama noktasını örten farklı bir eleman varsa kısa açıklamasını döndürür; örtülme yoksa null.
+  function coveringElement(el, cx, cy) {
+    if (!el || el.ownerDocument !== document) return null;
+    if (cx < 0 || cy < 0 || cx >= window.innerWidth || cy >= window.innerHeight) return null;
+    let hit = document.elementFromPoint(cx, cy);
+    let steps = 0;
+    // Gölge kökünde gerçek hedefe inmek için en fazla 10 adım ilerle.
+    while (hit && hit.shadowRoot && typeof hit.shadowRoot.elementFromPoint === "function" && steps < 10) {
+      const inner = hit.shadowRoot.elementFromPoint(cx, cy);
+      if (!inner || inner === hit) break;
+      hit = inner;
+      steps++;
+    }
+    if (!hit) return null;
+    if (hit === el || el.contains(hit) || hit.contains(el)) return null;
+    let root = hit.getRootNode ? hit.getRootNode() : null;
+    while (root && root !== document && root.host) {
+      if (root.host === el || el.contains(root.host)) return null;
+      root = root.host.getRootNode ? root.host.getRootNode() : null;
+    }
+    if (el.tagName === "INPUT") {
+      const lbl = hit.closest ? hit.closest("label") : null;
+      if (lbl && lbl.control === el) return null;
+    }
+    const tag = hit.tagName ? hit.tagName.toLowerCase() : "?";
+    const text = clip(safeInnerText(hit), 40);
+    return tag + (text ? ' "' + text + '"' : "");
   }
 
   function fireMouse(el, type, cx, cy, bubbles = true, buttons = 0) {
@@ -580,13 +656,17 @@
     const v0 = version;
     el.scrollIntoView({ block: "center", inline: "nearest" });
     const { cx, cy } = elemCenter(el);
+    // Örtülme denetimi tıklamadan önce yapılır; tıklama yine gönderilir, sonuca not düşülür.
+    const coveredBy = coveringElement(el, cx, cy);
     fireMouse(el, "pointerdown", cx, cy, true, 1);
     const mdOk = fireMouse(el, "mousedown", cx, cy, true, 1);
     if (mdOk && typeof el.focus === "function") el.focus({ preventScroll: true });
     fireMouse(el, "pointerup", cx, cy, true, 0);
     fireMouse(el, "mouseup", cx, cy, true, 0);
     fireMouse(el, "click", cx, cy, true, 0);
-    return finishAction(v0);
+    const res = await finishAction(v0);
+    if (coveredBy) res.covered_by = coveredBy;
+    return res;
   }
 
   // ref verilmezse odaktaki alana yazılır (ör. arama kutusuna tıkladıktan sonra `type`).
@@ -760,10 +840,44 @@
 
   function opText(args) {
     const max = Math.max(1, numOr(args.max, 8000));
-    const el = args.ref ? resolveRef(args.ref) : (document.body || document.documentElement);
+    let el;
+    if (args.ref) {
+      el = resolveRef(args.ref);
+    } else {
+      // Ana içerik kökü yeterince metin taşıyorsa gövde yerine onu okuyup gürültüyü azalt.
+      const main = args.all ? null : document.querySelector("main, [role=main], article");
+      el = main && safeInnerText(main).length >= 200 ? main : (document.body || document.documentElement);
+    }
     const raw = safeInnerText(el);
-    if (raw.length > max) return { text: raw.slice(0, max), truncated: true };
-    return { text: raw, truncated: false };
+    const query = typeof args.query === "string" ? args.query.trim() : "";
+    let full = raw;
+    let matches = -1;
+    if (query) {
+      // Eşleşen satırlar ile birer komşusu döner; yinelenen satır tek kez yazılır.
+      const q = query.toLowerCase();
+      const lines = raw.split("\n");
+      const keep = new Set();
+      matches = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].toLowerCase().includes(q)) continue;
+        matches++;
+        keep.add(i - 1);
+        keep.add(i);
+        keep.add(i + 1);
+      }
+      const out = [];
+      const seen = new Set();
+      for (const i of Array.from(keep).sort((a, b) => a - b)) {
+        if (i < 0 || i >= lines.length || seen.has(lines[i])) continue;
+        seen.add(lines[i]);
+        out.push(lines[i]);
+      }
+      full = out.join("\n");
+    }
+    const res = { text: full.length > max ? full.slice(0, max) : full, truncated: full.length > max };
+    if (res.truncated) res.total = full.length;
+    if (matches >= 0) res.matches = matches;
+    return res;
   }
 
   function opRect(args) {
@@ -834,6 +948,44 @@
     });
   }
 
+  // Dosya girişine DataTransfer ile dosya yerleştirip input/change olaylarını tetikler.
+  async function opUpload(args) {
+    const ref = args.ref;
+    let el = resolveRef(ref);
+    const isFileInput = (n) => Boolean(n) && n.tagName === "INPUT" && (n.type || "").toLowerCase() === "file";
+    if (!isFileInput(el)) {
+      // Ref bir sarmalayıcıya ya da etikete işaret ediyorsa içindeki dosya girişini bul.
+      const lbl = el.closest ? el.closest("label") : null;
+      const inner = (el.querySelector && el.querySelector('input[type="file"]')) ||
+        (lbl && lbl.control) || null;
+      if (!isFileInput(inner)) throw new Error("dosya girişi değil: " + ref);
+      el = inner;
+    }
+    const list = Array.isArray(args.files) ? args.files : [];
+    if (!list.length) throw new Error("dosya listesi boş: " + ref);
+    const win = el.ownerDocument.defaultView || window;
+    const dt = new win.DataTransfer();
+    const names = [];
+    for (const f of list) {
+      const bin = atob(String((f && f.b64) || ""));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const file = new win.File([bytes], String((f && f.name) || "dosya"), {
+        type: (f && f.type) || "application/octet-stream"
+      });
+      dt.items.add(file);
+      names.push(file.name);
+    }
+    if (!el.multiple && list.length > 1) throw new Error("bu giriş tek dosya kabul eder");
+    const v0 = version;
+    el.files = dt.files;
+    el.dispatchEvent(new win.Event("input", { bubbles: true }));
+    el.dispatchEvent(new win.Event("change", { bubbles: true }));
+    const res = await finishAction(v0);
+    res.files = names;
+    return res;
+  }
+
   // ---- İleti yönlendirici ----
   async function dispatch(op, args) {
     switch (op) {
@@ -849,6 +1001,7 @@
       case "key": return opKey(args);
       case "scroll": return opScroll(args);
       case "text": return opText(args);
+      case "upload": return opUpload(args);
       case "rect": return opRect(args);
       case "wait": return opWait(args);
       default: throw new Error("bilinmeyen sayfa op'u: " + op);

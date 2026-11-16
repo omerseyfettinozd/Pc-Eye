@@ -1,0 +1,77 @@
+{
+  "id": "web-console-network",
+  "scene": "web_hard",
+  "tags": [
+    "browser",
+    "bridge",
+    "web-hard"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasında \"Hata üret\" düğmesine bas. Sayfanın konsoluna yazılan hata iletisi tam olarak nedir?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "{errtoken}"
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Hata üret"
+      ],
+      "expect_contains": [
+        "errors",
+        "{errtoken} hatası"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "console",
+        "--pattern",
+        "{errtoken}"
+      ],
+      "expect_contains": [
+        "[error] {errtoken} hatası",
+        "[exception]",
+        "{errtoken} istisnası"
+      ],
+      "max_ms": 300
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Veri çek"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "wait",
+        "--text",
+        "Çekildi",
+        "--timeout-ms",
+        "3000"
+      ],
+      "expect_contains": [
+        "\"matched\": true"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "network",
+        "--args",
+        "{\"failed\": true}"
+      ],
+      "expect_contains": [
+        "GET 404",
+        "/yok-{errtoken}"
+      ],
+      "max_ms": 300
+    }
+  ]
+}

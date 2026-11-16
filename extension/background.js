@@ -7,6 +7,10 @@ const DEFAULT_TIMEOUT_MS = 10000;
 const NAVIGATE_TIMEOUT_MS = 20000;
 const NAV_WAIT_MS = 5000;
 const LOAD_WAIT_MS = 18000;
+const MAX_CONSOLE = 200;
+const MAX_DIALOGS = 50;
+const MAX_NETWORK = 300;
+const MAX_REQ_MAP = 1000;
 
 const BUILTIN_DENY = [
   "bank", "banka", "paypal", "wise.com", "binance", "coinbase", "1password",
@@ -16,10 +20,10 @@ const BUILTIN_DENY = [
 
 const PAGE_OPS = new Set([
   "snapshot", "click", "type", "select", "check", "hover", "focus", "key",
-  "scroll", "text", "rect", "wait"
+  "scroll", "text", "rect", "wait", "upload"
 ]);
 // Gezinme başlatabilen eylemler: yanıt kaybolursa background sonucu üretir.
-const ACTION_OPS = new Set(["click", "type", "select", "check", "hover", "focus", "key"]);
+const ACTION_OPS = new Set(["click", "type", "select", "check", "hover", "focus", "key", "upload"]);
 
 // ---- Durum ----
 let port = null;
@@ -28,6 +32,14 @@ let extraDeny = [];
 let allowList = [];
 const navSeq = new Map();      // sekme -> ana çerçeve gezinme sayacı
 const navPending = new Map();  // sekme -> gezinme sürüyor mu
+let eventSeq = 0;
+let dialogPolicy = { accept: true, text: null };
+const consoleBuf = new Map();  // sekme -> konsol olayları
+const dialogBuf = new Map();   // sekme -> diyalog olayları
+const networkBuf = new Map();  // sekme -> ağ istekleri
+const tabOrigins = new Map();  // sekme -> son ana çerçeve kaynağı
+const tabUrls = new Map();     // sekme -> bilinen son URL
+const reqMap = new Map();      // requestId -> { tabId, entry, t0 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -50,11 +62,93 @@ function post(p, obj) {
   }
 }
 
+function originOf(url) {
+  try {
+    const u = new URL(url);
+    if (u.origin && u.origin !== "null") return u.origin.toLowerCase();
+    return (u.protocol + "//" + u.host).toLowerCase();
+  } catch (e) {
+    return "";
+  }
+}
+
+function pushRing(map, tabId, entry, maxLen) {
+  let arr = map.get(tabId);
+  if (!arr) {
+    arr = [];
+    map.set(tabId, arr);
+  }
+  arr.push(entry);
+  if (arr.length > maxLen) arr.splice(0, arr.length - maxLen);
+}
+
+function lastSeqOf(map, tabId) {
+  const arr = map.get(tabId);
+  return arr && arr.length ? arr[arr.length - 1].seq : 0;
+}
+
+function formatDialog(d) {
+  const q = JSON.stringify(d.message || "");
+  if (d.type === "alert") return "alert " + q;
+  return d.type + " " + q + " -> " + JSON.stringify(d.answer === undefined ? null : d.answer);
+}
+
+function formatNet(e) {
+  const st = e.error ? ("ERR(" + e.error + ")") : (e.status !== null ? String(e.status) : "...");
+  const ms = e.ms !== null ? (" " + e.ms + "ms") : "";
+  return e.method + " " + st + " " + e.type + ms + " " + e.url;
+}
+
+function markEvents(tabId) {
+  return {
+    c: lastSeqOf(consoleBuf, tabId),
+    d: lastSeqOf(dialogBuf, tabId)
+  };
+}
+
+function attachEvents(tabId, mark, result) {
+  if (!result || typeof result !== "object") return result;
+  const dialogs = (dialogBuf.get(tabId) || []).filter((e) => e.seq > mark.d);
+  if (dialogs.length) {
+    result.dialogs = dialogs.slice(0, 5).map(formatDialog);
+  }
+  const errs = (consoleBuf.get(tabId) || []).filter(
+    (e) => e.seq > mark.c && (e.level === "error" || e.level === "exception")
+  );
+  if (errs.length) {
+    result.errors = errs.slice(0, 3).map((e) => e.text.slice(0, 160));
+    if (errs.length > 3) result.errors_more = errs.length - 3;
+  }
+  return result;
+}
+
 // ---- Gezinme izleme ----
 browser.webNavigation.onBeforeNavigate.addListener((d) => {
   if (d.frameId !== 0) return;
   navSeq.set(d.tabId, (navSeq.get(d.tabId) || 0) + 1);
   navPending.set(d.tabId, true);
+  if (d.url) tabUrls.set(d.tabId, d.url);
+  const nextOrig = originOf(d.url || "");
+  if (nextOrig) {
+    const prevOrig = tabOrigins.get(d.tabId);
+    if (prevOrig && prevOrig !== nextOrig) {
+      consoleBuf.delete(d.tabId);
+      networkBuf.delete(d.tabId);
+    }
+    tabOrigins.set(d.tabId, nextOrig);
+  }
+});
+browser.webNavigation.onCommitted.addListener((d) => {
+  if (d.frameId !== 0) return;
+  if (d.url) tabUrls.set(d.tabId, d.url);
+  const nextOrig = originOf(d.url || "");
+  if (nextOrig) {
+    const prevOrig = tabOrigins.get(d.tabId);
+    if (prevOrig && prevOrig !== nextOrig) {
+      consoleBuf.delete(d.tabId);
+    }
+    tabOrigins.set(d.tabId, nextOrig);
+  }
 });
 const navDone = (d) => {
   if (d.frameId === 0) navPending.set(d.tabId, false);
@@ -64,11 +158,20 @@ browser.webNavigation.onErrorOccurred.addListener(navDone);
 // Parça (#) gezinmesinde onCompleted gelmeyebilir; beklemeyi takılı bırakma.
 browser.webNavigation.onReferenceFragmentUpdated.addListener(navDone);
 browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.url) tabUrls.set(tabId, changeInfo.url);
   if (changeInfo.status === "complete") navPending.set(tabId, false);
-}, { properties: ["status"] });
+}, { properties: ["status", "url"] });
 browser.tabs.onRemoved.addListener((tabId) => {
   navSeq.delete(tabId);
   navPending.delete(tabId);
+  consoleBuf.delete(tabId);
+  dialogBuf.delete(tabId);
+  networkBuf.delete(tabId);
+  tabOrigins.delete(tabId);
+  tabUrls.delete(tabId);
+  for (const [reqId, info] of reqMap) {
+    if (info.tabId === tabId) reqMap.delete(reqId);
+  }
 });
 
 // Yeni gezinme görüldüyse ve sekme yüklenmişse sekmeyi döner; süre dolarsa da döner.
@@ -144,6 +247,104 @@ function assertScriptable(tab) {
   }
 }
 
+// ---- Kanca olayları ve ağ kaydı ----
+browser.runtime.onMessage.addListener((msg, sender) => {
+  if (!msg || typeof msg !== "object" || typeof msg.hook !== "string") return undefined;
+  if (msg.hook === "hello") {
+    return Promise.resolve({ accept: dialogPolicy.accept, text: dialogPolicy.text });
+  }
+  if (msg.hook !== "event") return undefined;
+  if (!sender || !sender.tab || typeof sender.tab.id !== "number" || sender.tab.id < 0) return undefined;
+
+  const tabUrl = sender.tab.url || "";
+  const frameUrl = typeof msg.url === "string" ? msg.url.slice(0, 200) : "";
+  if (deniedHost(tabUrl) || (frameUrl && deniedHost(frameUrl))) return undefined;
+
+  const tabId = sender.tab.id;
+  const t = Date.now();
+  const seq = ++eventSeq;
+  const frame = typeof msg.frame === "string" ? msg.frame : "top";
+
+  if (msg.kind === "dialog") {
+    const type = msg.type === "alert" || msg.type === "confirm" || msg.type === "prompt" ? msg.type : "alert";
+    const message = typeof msg.message === "string" ? msg.message.slice(0, 300) : "";
+    const answer = msg.answer === undefined ? undefined : msg.answer;
+    pushRing(dialogBuf, tabId, { seq, t, type, message, answer, frame, url: frameUrl }, MAX_DIALOGS);
+  } else if (msg.kind === "console") {
+    const level = (msg.level === "error" || msg.level === "warn" || msg.level === "exception" || msg.level === "resource")
+      ? msg.level
+      : "warn";
+    const text = typeof msg.text === "string" ? msg.text.slice(0, 500) : "";
+    pushRing(consoleBuf, tabId, { seq, t, level, text, frame, url: frameUrl }, MAX_CONSOLE);
+  }
+  return undefined;
+});
+
+function isDeniedRequest(details) {
+  if (deniedHost(details.url || "")) return true;
+  const tabUrl = tabUrls.get(details.tabId) || "";
+  if (tabUrl && deniedHost(tabUrl)) return true;
+  if (details.documentUrl && deniedHost(details.documentUrl)) return true;
+  if (details.originUrl && deniedHost(details.originUrl)) return true;
+  return false;
+}
+
+if (browser.webRequest) {
+  browser.webRequest.onBeforeRequest.addListener((details) => {
+    if (details.tabId < 0) return;
+    if (details.type === "main_frame" && details.url) {
+      tabUrls.set(details.tabId, details.url);
+    }
+    if (isDeniedRequest(details)) return;
+    const t = Date.now();
+    const entry = {
+      seq: ++eventSeq,
+      t,
+      method: details.method || "GET",
+      url: String(details.url || "").slice(0, 300),
+      type: details.type || "other",
+      status: null,
+      error: null,
+      ms: null,
+      from_cache: false
+    };
+    if (reqMap.size >= MAX_REQ_MAP) {
+      const oldest = reqMap.keys().next().value;
+      if (oldest !== undefined) reqMap.delete(oldest);
+    }
+    reqMap.set(details.requestId, { tabId: details.tabId, entry, t0: t });
+    pushRing(networkBuf, details.tabId, entry, MAX_NETWORK);
+  }, { urls: ["<all_urls>"] });
+
+  browser.webRequest.onCompleted.addListener((details) => {
+    const info = reqMap.get(details.requestId);
+    if (!info) return;
+    reqMap.delete(details.requestId);
+    info.entry.status = typeof details.statusCode === "number" ? details.statusCode : 0;
+    info.entry.from_cache = Boolean(details.fromCache);
+    info.entry.ms = Math.max(0, Date.now() - info.t0);
+  }, { urls: ["<all_urls>"] });
+
+  browser.webRequest.onErrorOccurred.addListener((details) => {
+    const info = reqMap.get(details.requestId);
+    if (!info) return;
+    reqMap.delete(details.requestId);
+    info.entry.error = details.error ? String(details.error) : "ERR";
+    info.entry.from_cache = Boolean(details.fromCache);
+    info.entry.ms = Math.max(0, Date.now() - info.t0);
+  }, { urls: ["<all_urls>"] });
+}
+
+browser.tabs.query({}).then((tabs) => {
+  for (const t of tabs) {
+    if (t.url) {
+      tabUrls.set(t.id, t.url);
+      const orig = originOf(t.url);
+      if (orig) tabOrigins.set(t.id, orig);
+    }
+  }
+}).catch(() => {});
+
 // ---- Sekme çözümleme ----
 async function resolveTab(args) {
   if (args.tab !== undefined && args.tab !== null) {
@@ -175,6 +376,8 @@ function tabInfo(t) {
 // ---- İçerik betiği çağrısı ----
 async function injectContent(tab) {
   await browser.tabs.executeScript(tab.id, { file: "content.js", runAt: "document_start" });
+  // Eklenti sayfadan sonra kurulduysa kancalar da (tüm çerçevelere) sonradan eklenir.
+  browser.tabs.executeScript(tab.id, { file: "hooks.js", allFrames: true, runAt: "document_start" }).catch(() => {});
 }
 
 // Dönüş: {lost:false,result,seq0} ya da gezinme yüzünden yanıt kaybolduysa {lost:true,seq0}.
@@ -315,20 +518,25 @@ async function opNavigate(args) {
   assertAllowed({ url });
   if (args.new_tab) {
     const t = await browser.tabs.create({ url, active: true });
+    const mark = { c: 0, d: 0 };
     // Yeni sekmenin kimliği benzersiz: sayaç 0'dan başlar.
     const done = await waitLoad(t.id, 0, LOAD_WAIT_MS);
-    return tabInfo(done || t);
+    const res = tabInfo(done || t);
+    return res.denied ? res : attachEvents(t.id, mark, res);
   }
   const tab = await resolveTab(args);
+  const mark = markEvents(tab.id);
   const seq0 = navSeq.get(tab.id) || 0;
   await browser.tabs.update(tab.id, { url });
   const t = await waitLoad(tab.id, seq0, LOAD_WAIT_MS);
   if (!t) throw new Error("sekme kapandı");
-  return tabInfo(t);
+  const res = tabInfo(t);
+  return res.denied ? res : attachEvents(tab.id, mark, res);
 }
 
 async function opHistory(kind, args) {
   const tab = await resolveTab(args);
+  const mark = markEvents(tab.id);
   // Yasak sekmeden çıkış/yenileme engellenmesin; varış kontrolü tabInfo'da yapılır.
   const seq0 = navSeq.get(tab.id) || 0;
   if (kind === "back") await browser.tabs.goBack(tab.id);
@@ -336,7 +544,8 @@ async function opHistory(kind, args) {
   else await browser.tabs.reload(tab.id);
   const t = await waitLoad(tab.id, seq0, LOAD_WAIT_MS);
   if (!t) throw new Error("sekme kapandı");
-  return tabInfo(t);
+  const res = tabInfo(t);
+  return res.denied ? res : attachEvents(tab.id, mark, res);
 }
 
 function requireTabId(args) {
@@ -396,6 +605,100 @@ async function opEval(args) {
   return { value };
 }
 
+async function opConsole(args) {
+  const tab = await resolveTab(args);
+  assertAllowed(tab);
+  const all = consoleBuf.get(tab.id) || [];
+  const total = all.length;
+  const since = args.since !== undefined && args.since !== null ? numOr(args.since, 0) : null;
+  const lvl = typeof args.level === "string" && args.level ? args.level.toLowerCase() : "";
+  const pat = typeof args.pattern === "string" && args.pattern ? args.pattern.toLowerCase() : "";
+  const limit = Math.max(0, Math.floor(numOr(args.limit, 50)));
+
+  const filtered = all.filter((e) => {
+    if (since !== null && e.seq <= since) return false;
+    if (lvl === "error") {
+      if (e.level !== "error" && e.level !== "exception" && e.level !== "resource") return false;
+    } else if (lvl && e.level !== lvl) {
+      return false;
+    }
+    if (pat && !e.text.toLowerCase().includes(pat)) return false;
+    return true;
+  });
+
+  const picked = limit > 0 ? filtered.slice(-limit) : [];
+  const lines = picked.map((e) => "[" + e.level + "] " + e.text + " (" + e.frame + ")");
+  const lastSeq = all.length ? all[all.length - 1].seq : 0;
+  if (args.clear) consoleBuf.delete(tab.id);
+  return { tab: tab.id, count: lines.length, total, last_seq: lastSeq, lines };
+}
+
+async function opNetwork(args) {
+  const tab = await resolveTab(args);
+  assertAllowed(tab);
+  const all = networkBuf.get(tab.id) || [];
+  const total = all.length;
+  const since = args.since !== undefined && args.since !== null ? numOr(args.since, 0) : null;
+  const pat = typeof args.pattern === "string" && args.pattern ? args.pattern.toLowerCase() : "";
+  const failedOnly = Boolean(args.failed);
+  const limit = Math.max(0, Math.floor(numOr(args.limit, 50)));
+
+  const filtered = all.filter((e) => {
+    if (since !== null && e.seq <= since) return false;
+    if (failedOnly && !e.error && !(typeof e.status === "number" && e.status >= 400)) return false;
+    if (pat && !e.url.toLowerCase().includes(pat)) return false;
+    return true;
+  });
+
+  const picked = limit > 0 ? filtered.slice(-limit) : [];
+  const lines = picked.map(formatNet);
+  const lastSeq = all.length ? all[all.length - 1].seq : 0;
+  if (args.clear) networkBuf.delete(tab.id);
+  return { tab: tab.id, count: lines.length, total, last_seq: lastSeq, lines };
+}
+
+async function opDialogs(args) {
+  const tab = await resolveTab(args);
+  assertAllowed(tab);
+
+  let changed = false;
+  if (typeof args.accept === "boolean") {
+    dialogPolicy = { accept: args.accept, text: dialogPolicy.text };
+    changed = true;
+  }
+  if (args.text !== undefined) {
+    const txt = args.text === null ? null : String(args.text);
+    dialogPolicy = { accept: dialogPolicy.accept, text: txt };
+    changed = true;
+  }
+  if (changed) {
+    try {
+      const p = browser.tabs.sendMessage(tab.id, {
+        hook: "policy",
+        accept: dialogPolicy.accept,
+        text: dialogPolicy.text
+      });
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch (e) {}
+  }
+
+  const all = dialogBuf.get(tab.id) || [];
+  const since = args.since !== undefined && args.since !== null ? numOr(args.since, 0) : null;
+  const limit = Math.max(0, Math.floor(numOr(args.limit, 20)));
+  const filtered = since !== null ? all.filter((e) => e.seq > since) : all;
+  const picked = limit > 0 ? filtered.slice(-limit) : [];
+  const lines = picked.map(formatDialog);
+  const lastSeq = all.length ? all[all.length - 1].seq : 0;
+  if (args.clear) dialogBuf.delete(tab.id);
+  return {
+    tab: tab.id,
+    policy: { accept: dialogPolicy.accept, text: dialogPolicy.text },
+    count: lines.length,
+    last_seq: lastSeq,
+    lines
+  };
+}
+
 async function opWait(tab, args) {
   const total = Math.max(0, numOr(args.timeout_ms, 5000));
   const t0 = Date.now();
@@ -428,13 +731,14 @@ async function opPage(op, args) {
   delete a.tab;
   if (op === "wait") return opWait(tab, a);
   const isAction = ACTION_OPS.has(op);
+  const mark = isAction ? markEvents(tab.id) : null;
   let r = await pageCall(tab, op, a);
   if (r.lost && !isAction) {
     await waitLoad(tab.id, r.seq0, NAV_WAIT_MS);
     r = await pageCall(tab, op, a);
     if (r.lost) throw new Error("sayfa gezindi, işlem tamamlanamadı: " + op);
   }
-  if (isAction) return afterAction(tab, r);
+  if (isAction) return attachEvents(tab.id, mark, await afterAction(tab, r));
   if (op === "snapshot") return Object.assign({ tab: tab.id }, r.result);
   return r.result;
 }
@@ -459,6 +763,12 @@ async function dispatch(op, args) {
       return opClose(args);
     case "eval":
       return opEval(args);
+    case "console":
+      return opConsole(args);
+    case "network":
+      return opNetwork(args);
+    case "dialogs":
+      return opDialogs(args);
     default:
       if (PAGE_OPS.has(op)) return opPage(op, args);
       throw new Error("bilinmeyen op: " + op);

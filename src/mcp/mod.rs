@@ -922,7 +922,7 @@ fn mcp_tools_schema() -> Value {
         },
         {
             "name": "pc_eye_browser",
-            "description": "Web pages through the Firefox bridge (reads the DOM in ~20 ms; PREFER this over snapshot/click_ui for anything inside a browser). First `launch` (opens the agent's own Firefox, optional url) unless `status` says connected. `snapshot` lists `[eN] role \"name\" = \"value\" [states]`; act by ref. op: launch | status | stop | tabs | snapshot (query, max, all=also plain text, viewport) | click | type (text, submit) | select (option) | check (on) | key | hover | scroll (ref | dy | to: top/bottom) | text (page or ref text) | wait (text | gone | url, timeout_ms) | navigate (url, new_tab) | back | forward | reload | activate | close | eval (code). Actions take `ref` or `name` (e.g. {op:\"click\",name:\"Gönder\"} in one call). Forms/multi-step: op run with steps:[{op:\"type\",name:\"Ad\",text:\"..\"},{op:\"select\",name:\"Şehir\",option:\"..\"},{op:\"click\",name:\"Gönder\"},{op:\"wait\",text:\"Kaydedildi\"}] — one call, stops at the first failure; on the same page it returns only the lines that changed (after:\"full\" for the whole page, \"none\" for nothing). Actions return url/title/changed/navigated. Password and card fields show as [secret]; banking and password-manager sites are refused.",
+            "description": "Web pages through the Firefox bridge (reads the DOM in ~20 ms; PREFER this over snapshot/click_ui for anything inside a browser). First `launch` (opens the agent's own Firefox, optional url) unless `status` says connected. `snapshot` lists `[eN] role \"name\" = \"value\" [states]`; act by ref. op: launch | status | stop | tabs | snapshot (query, max, all=also plain text, viewport, scope=ref or CSS selector to read only that subtree) | click | type (text, submit) | select (option) | check (on) | key | hover | scroll (ref | dy | to: top/bottom) | text (main content or ref text; query=only matching lines) | upload (ref|name of the file input, path or paths — never click a file button) | wait (text | gone | url, timeout_ms) | navigate (url, new_tab) | back | forward | reload | activate | close | eval (code) | console (page errors/warnings; pattern, level:\"error\", since, clear) | network (requests with status and ms; pattern, failed, since, clear) | dialogs (alert/confirm/prompt are auto-answered and logged; set accept:false or text to change the answer for the next ones). Actions take `ref` or `name` (e.g. {op:\"click\",name:\"Gönder\"} in one call). Forms/multi-step: op run with steps:[{op:\"type\",name:\"Ad\",text:\"..\"},{op:\"select\",name:\"Şehir\",option:\"..\"},{op:\"click\",name:\"Gönder\"},{op:\"wait\",text:\"Kaydedildi\"}] — one call, stops at the first failure; on the same page it returns only the lines that changed (after:\"full\" for the whole page, \"none\" for nothing). Actions return url/title/changed/navigated, plus — only when they happened during the action — dialogs (shown and how they were answered), errors (new JS errors) and covered_by (another element sits on top of the click target). Password and card fields show as [secret]; banking and password-manager sites are refused.",
             "annotations": { "readOnlyHint": false, "destructiveHint": true },
             "inputSchema": { "type": "object", "required": ["op"], "properties": {
                 "op": { "type": "string" },
@@ -947,7 +947,17 @@ fn mcp_tools_schema() -> Value {
                 "submit": { "type": "boolean" },
                 "timeout_ms": { "type": "integer" },
                 "steps": { "type": "array", "items": { "type": "object" } },
-                "after": { "type": "string", "enum": ["diff", "full", "none"] }
+                "after": { "type": "string", "enum": ["diff", "full", "none"] },
+                "scope": { "type": "string", "description": "snapshot: ref (e12) or CSS selector" },
+                "path": { "type": "string", "description": "upload: local file path" },
+                "paths": { "type": "array", "items": { "type": "string" } },
+                "pattern": { "type": "string" },
+                "level": { "type": "string" },
+                "failed": { "type": "boolean" },
+                "accept": { "type": "boolean" },
+                "since": { "type": "integer" },
+                "limit": { "type": "integer" },
+                "clear": { "type": "boolean" }
             } }
         },
         {

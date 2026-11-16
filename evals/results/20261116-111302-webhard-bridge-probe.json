@@ -1,0 +1,1841 @@
+{
+ "tier": "probe",
+ "started": "20261116-111302-webhard-bridge",
+ "seed": 616534285,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "3ce7b8c",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-web-long",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 28.4
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 1047.3
+   },
+   {
+    "task": "web-console-network",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 472.7
+   },
+   {
+    "task": "web-dialog-policy",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 1075.4
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 818.6
+   },
+   {
+    "task": "web-snapshot-scope",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 316.4
+   },
+   {
+    "task": "web-table-read",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 13.8
+   },
+   {
+    "task": "web-upload",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 256.1
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "webhard",
+ "toolset": "full",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok WVC4",
+    "pid": 30459,
+    "code": "J3-4790",
+    "stock": "676"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 33.8,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "J3-4790"
+     ],
+     "rc": 0,
+     "ms": 33.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Stok LY2W",
+    "pid": 31354,
+    "code": "ND-6678",
+    "stock": "761"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 28.2,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "ND-6678"
+     ],
+     "rc": 0,
+     "ms": 28.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Stok 44YH",
+    "pid": 32303,
+    "code": "LL-6636",
+    "stock": "194"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 28.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "LL-6636"
+     ],
+     "rc": 0,
+     "ms": 28.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim TVCA",
+    "pid": 33376,
+    "phone_pretty": "0511 874 46 45",
+    "phone": "5118744645",
+    "email": "can95@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1181.5,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "0511 874 46 45"
+     ],
+     "rc": 0,
+     "ms": 410.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "E-posta",
+      "--text",
+      "can95@ornek.com"
+     ],
+     "rc": 0,
+     "ms": 165.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 166.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hata:",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "5118744645"
+     ],
+     "rc": 0,
+     "ms": 164.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 194.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 71.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval İletişim JU4A",
+    "pid": 34393,
+    "phone_pretty": "0554 848 64 39",
+    "phone": "5548486439",
+    "email": "ali51@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 992.5,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "0554 848 64 39"
+     ],
+     "rc": 0,
+     "ms": 311.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "E-posta",
+      "--text",
+      "ali51@ornek.com"
+     ],
+     "rc": 0,
+     "ms": 164.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 171.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hata:",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "5548486439"
+     ],
+     "rc": 0,
+     "ms": 163.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 168.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval İletişim 86GW",
+    "pid": 35444,
+    "phone_pretty": "0517 933 87 70",
+    "phone": "5179338770",
+    "email": "can88@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1047.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "0517 933 87 70"
+     ],
+     "rc": 0,
+     "ms": 329.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "E-posta",
+      "--text",
+      "can88@ornek.com"
+     ],
+     "rc": 0,
+     "ms": 209.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 164.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hata:",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "5179338770"
+     ],
+     "rc": 0,
+     "ms": 165.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 166.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor NRNK",
+    "pid": 36481,
+    "errtoken": "NLKK7W",
+    "inner": "İç düğme 6MYR",
+    "pin": "697471",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-console-network-0/belge-PENX.txt",
+    "upload_name": "belge-PENX.txt",
+    "upload_content": "içerik TW3MAG47"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 541.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Hata üret"
+     ],
+     "rc": 0,
+     "ms": 328.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "console",
+      "--pattern",
+      "NLKK7W"
+     ],
+     "rc": 0,
+     "ms": 8.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Veri çek"
+     ],
+     "rc": 0,
+     "ms": 192.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Çekildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "network",
+      "--args",
+      "{\"failed\": true}"
+     ],
+     "rc": 0,
+     "ms": 4.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-console-network",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Zor JEFJ",
+    "pid": 37477,
+    "errtoken": "HWDEHY",
+    "inner": "İç düğme CFLD",
+    "pin": "232375",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-console-network-1/belge-MGNR.txt",
+    "upload_name": "belge-MGNR.txt",
+    "upload_content": "içerik 4WDT9FCN"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 423.9,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Hata üret"
+     ],
+     "rc": 0,
+     "ms": 194.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "console",
+      "--pattern",
+      "HWDEHY"
+     ],
+     "rc": 0,
+     "ms": 7.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Veri çek"
+     ],
+     "rc": 0,
+     "ms": 202.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Çekildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "network",
+      "--args",
+      "{\"failed\": true}"
+     ],
+     "rc": 0,
+     "ms": 11.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-console-network",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Zor X93L",
+    "pid": 38488,
+    "errtoken": "WL4JM8",
+    "inner": "İç düğme PGJT",
+    "pin": "754184",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-console-network-2/belge-7RGK.txt",
+    "upload_name": "belge-7RGK.txt",
+    "upload_content": "içerik D8LM2YFG"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 472.7,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Hata üret"
+     ],
+     "rc": 0,
+     "ms": 278.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "console",
+      "--pattern",
+      "WL4JM8"
+     ],
+     "rc": 0,
+     "ms": 10.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Veri çek"
+     ],
+     "rc": 0,
+     "ms": 172.0,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Çekildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "network",
+      "--args",
+      "{\"failed\": true}"
+     ],
+     "rc": 0,
+     "ms": 4.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor EPAR",
+    "pid": 39490,
+    "errtoken": "AF23JD",
+    "inner": "İç düğme KWYV",
+    "pin": "633231",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-dialog-policy-0/belge-YW7P.txt",
+    "upload_name": "belge-YW7P.txt",
+    "upload_content": "içerik HMT4RDTV"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 900.2,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 214.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": false}"
+     ],
+     "rc": 0,
+     "ms": 5.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 165.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Vazgeçildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": true, \"text\": \"4821\"}"
+     ],
+     "rc": 0,
+     "ms": 5.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kod sor"
+     ],
+     "rc": 0,
+     "ms": 165.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 165.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": false}"
+     ],
+     "rc": 0,
+     "ms": 6.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 164.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Zor W6HX",
+    "pid": 40579,
+    "errtoken": "YLGLLL",
+    "inner": "İç düğme Y386",
+    "pin": "295986",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-dialog-policy-1/belge-J8V3.txt",
+    "upload_name": "belge-J8V3.txt",
+    "upload_content": "içerik WDJTFH2C"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1125.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 225.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": false}"
+     ],
+     "rc": 0,
+     "ms": 6.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 253.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Vazgeçildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 8.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": true, \"text\": \"4821\"}"
+     ],
+     "rc": 0,
+     "ms": 5.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kod sor"
+     ],
+     "rc": 0,
+     "ms": 186.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 166.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": false}"
+     ],
+     "rc": 0,
+     "ms": 5.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 268.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Zor RLMH",
+    "pid": 41607,
+    "errtoken": "WEDK34",
+    "inner": "İç düğme WWRR",
+    "pin": "545480",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-dialog-policy-2/belge-NET8.txt",
+    "upload_name": "belge-NET8.txt",
+    "upload_content": "içerik 9E3XXXYE"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1075.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 311.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": false}"
+     ],
+     "rc": 0,
+     "ms": 54.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 177.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Vazgeçildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 8.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": true, \"text\": \"4821\"}"
+     ],
+     "rc": 0,
+     "ms": 5.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kod sor"
+     ],
+     "rc": 0,
+     "ms": 164.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 169.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs",
+      "--args",
+      "{\"accept\": false}"
+     ],
+     "rc": 0,
+     "ms": 5.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 177.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Şükrü Doğru",
+    "city": "Şanlıurfa",
+    "default_city": "İzmir",
+    "title": "Eval Web Form DKXL",
+    "pid": 42649
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 809.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 13.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Ad Soyad",
+      "--text",
+      "Şükrü Doğru"
+     ],
+     "rc": 0,
+     "ms": 280.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "check",
+      "--name",
+      "Bültene abone ol",
+      "--args",
+      "{\"on\": true}"
+     ],
+     "rc": 0,
+     "ms": 170.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Şehir",
+      "--option",
+      "Şanlıurfa"
+     ],
+     "rc": 0,
+     "ms": 170.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 168.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 1,
+   "vars": {
+    "name": "Çağrı Güneş",
+    "city": "İstanbul",
+    "default_city": "Çanakkale",
+    "title": "Eval Web Form VKTF",
+    "pid": 43672
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 818.6,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 12.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Ad Soyad",
+      "--text",
+      "Çağrı Güneş"
+     ],
+     "rc": 0,
+     "ms": 281.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "check",
+      "--name",
+      "Bültene abone ol",
+      "--args",
+      "{\"on\": true}"
+     ],
+     "rc": 0,
+     "ms": 183.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Şehir",
+      "--option",
+      "İstanbul"
+     ],
+     "rc": 0,
+     "ms": 164.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 168.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 2,
+   "vars": {
+    "name": "Doğan Ağaoğlu",
+    "city": "İzmir",
+    "default_city": "Ankara",
+    "title": "Eval Web Form A3DC",
+    "pid": 44689
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 915.2,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 12.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Ad Soyad",
+      "--text",
+      "Doğan Ağaoğlu"
+     ],
+     "rc": 0,
+     "ms": 384.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "check",
+      "--name",
+      "Bültene abone ol",
+      "--args",
+      "{\"on\": true}"
+     ],
+     "rc": 0,
+     "ms": 172.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Şehir",
+      "--option",
+      "İzmir"
+     ],
+     "rc": 0,
+     "ms": 170.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 168.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor YJ78",
+    "pid": 45720,
+    "errtoken": "FKLCX6",
+    "inner": "İç düğme 482G",
+    "pin": "701512",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-snapshot-scope-0/belge-L2X6.txt",
+    "upload_name": "belge-L2X6.txt",
+    "upload_content": "içerik VH2UTWT2"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 430.8,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--scope",
+      "#bolme"
+     ],
+     "rc": 0,
+     "ms": 12.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 12.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "text",
+      "--query",
+      "köprünün"
+     ],
+     "rc": 0,
+     "ms": 6.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Alttaki düğme"
+     ],
+     "rc": 0,
+     "ms": 398.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Zor AYPL",
+    "pid": 46711,
+    "errtoken": "M2PANF",
+    "inner": "İç düğme 44PA",
+    "pin": "867302",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-snapshot-scope-1/belge-6VPK.txt",
+    "upload_name": "belge-6VPK.txt",
+    "upload_content": "içerik CUWEKAT6"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 262.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--scope",
+      "#bolme"
+     ],
+     "rc": 0,
+     "ms": 55.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 12.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "text",
+      "--query",
+      "köprünün"
+     ],
+     "rc": 0,
+     "ms": 6.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Alttaki düğme"
+     ],
+     "rc": 0,
+     "ms": 186.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Zor GH2F",
+    "pid": 47784,
+    "errtoken": "4GRTWG",
+    "inner": "İç düğme LAKJ",
+    "pin": "706681",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-snapshot-scope-2/belge-Y236.txt",
+    "upload_name": "belge-Y236.txt",
+    "upload_content": "içerik D8AXLP7T"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 316.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--scope",
+      "#bolme"
+     ],
+     "rc": 0,
+     "ms": 12.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 11.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "text",
+      "--query",
+      "köprünün"
+     ],
+     "rc": 0,
+     "ms": 7.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Alttaki düğme"
+     ],
+     "rc": 0,
+     "ms": 284.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Cetvel",
+    "price": "107,62 TL",
+    "title": "Eval Fiyatlar GE7N",
+    "pid": 48779
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13.8,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Cetvel"
+     ],
+     "rc": 0,
+     "ms": 13.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 1,
+   "vars": {
+    "item": "Silgi",
+    "price": "22,02 TL",
+    "title": "Eval Fiyatlar LYHE",
+    "pid": 49761
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13.9,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Silgi"
+     ],
+     "rc": 0,
+     "ms": 13.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 2,
+   "vars": {
+    "item": "Silgi",
+    "price": "383,68 TL",
+    "title": "Eval Fiyatlar TTDH",
+    "pid": 50726
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13.8,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Silgi"
+     ],
+     "rc": 0,
+     "ms": 13.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor JRAA",
+    "pid": 51695,
+    "errtoken": "LUT2GP",
+    "inner": "İç düğme LYX6",
+    "pin": "129044",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-upload-0/belge-9F28.txt",
+    "upload_name": "belge-9F28.txt",
+    "upload_content": "içerik NPAWWPJ6"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 226.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "upload",
+      "--name",
+      "Belge",
+      "--path",
+      "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-upload-0/belge-9F28.txt"
+     ],
+     "rc": 0,
+     "ms": 219.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Yüklendi: belge-9F28.txt",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Zor UUPA",
+    "pid": 52699,
+    "errtoken": "3CVNCH",
+    "inner": "İç düğme 4Y3U",
+    "pin": "101514",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-upload-1/belge-YM8J.txt",
+    "upload_name": "belge-YM8J.txt",
+    "upload_content": "içerik RKEJN3F7"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 294.6,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "upload",
+      "--name",
+      "Belge",
+      "--path",
+      "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-upload-1/belge-YM8J.txt"
+     ],
+     "rc": 0,
+     "ms": 280.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Yüklendi: belge-YM8J.txt",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 13.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Zor 68DU",
+    "pid": 53706,
+    "errtoken": "EKVMX2",
+    "inner": "İç düğme HJYM",
+    "pin": "458926",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-upload-2/belge-XGTU.txt",
+    "upload_name": "belge-XGTU.txt",
+    "upload_content": "içerik YJNJV8VX"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 256.1,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "upload",
+      "--name",
+      "Belge",
+      "--path",
+      "/run/user/1000/pc-eye-eval/20261116-111302-webhard-bridge/web-upload-2/belge-XGTU.txt"
+     ],
+     "rc": 0,
+     "ms": 244.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Yüklendi: belge-XGTU.txt",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 11.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

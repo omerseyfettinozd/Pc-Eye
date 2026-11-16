@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Pc-Eye Bridge",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "pc-eye için Firefox köprü eklentisi: DOM özetini numaralı referanslarla sunar ve eylemleri yürütür.",
   "browser_specific_settings": {
     "gecko": {
@@ -16,6 +16,7 @@
     "nativeMessaging",
     "tabs",
     "webNavigation",
+    "webRequest",
     "<all_urls>"
   ],
   "background": {
@@ -27,6 +28,12 @@
       "matches": ["<all_urls>"],
       "js": ["content.js"],
       "all_frames": false,
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["hooks.js"],
+      "all_frames": true,
       "run_at": "document_start"
     }
   ]

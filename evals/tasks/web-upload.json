@@ -1,0 +1,47 @@
+{
+  "id": "web-upload",
+  "scene": "web_hard",
+  "tags": [
+    "browser",
+    "bridge",
+    "web-hard"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasındaki \"Belge\" alanına {upload_path} dosyasını yükle.",
+  "probe": [],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "upload": "{upload_name}",
+      "content": "{upload_content}"
+    }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "upload",
+        "--name",
+        "Belge",
+        "--path",
+        "{upload_path}"
+      ],
+      "expect_contains": [
+        "{upload_name}"
+      ],
+      "max_ms": 1500
+    },
+    {
+      "args": [
+        "browser",
+        "wait",
+        "--text",
+        "Yüklendi: {upload_name}",
+        "--timeout-ms",
+        "3000"
+      ],
+      "expect_contains": [
+        "\"matched\": true"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "id": "web-snapshot-scope",
+  "scene": "web_hard",
+  "tags": [
+    "browser",
+    "bridge",
+    "web-hard"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasında \"Kapsam\" başlıklı bölmedeki düğmenin adı nedir?",
+  "probe": [],
+  "check": {
+    "type": "answer",
+    "expect": "{inner}"
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "snapshot",
+        "--scope",
+        "#bolme"
+      ],
+      "expect_contains": [
+        "{inner}",
+        "Kapsam"
+      ],
+      "expect_absent": [
+        "Kaydı sil",
+        "Alttaki"
+      ],
+      "max_ms": 300
+    },
+    {
+      "args": [
+        "browser",
+        "snapshot"
+      ],
+      "expect_contains": [
+        "[pressed]",
+        "[collapsed]",
+        "[popup]",
+        "[current]",
+        "[selected]",
+        "[secret]",
+        "+8}"
+      ],
+      "expect_absent": [
+        "{pin}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "text",
+        "--query",
+        "köprünün"
+      ],
+      "expect_contains": [
+        "\"matches\": 1"
+      ],
+      "expect_absent": [
+        "Çerez bildirimi"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Alttaki düğme"
+      ],
+      "expect_contains": [
+        "covered_by",
+        "Çerez"
+      ]
+    }
+  ]
+}

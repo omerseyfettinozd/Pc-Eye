@@ -309,7 +309,7 @@ enum Commands {
     /// Tarayıcı köprüsü (Firefox eklentisi): sayfayı DOM'dan okur, `ref` ile tıklar/yazar.
     /// Yerel: install | launch | attach | status. Köprü: tabs | snapshot | click | type | select |
     /// check | hover | focus | key | scroll | text | rect | wait | navigate | back | forward |
-    /// reload | activate | close | eval | ping
+    /// reload | activate | close | eval | ping | upload | console | network | dialogs
     Browser {
         op: String,
         #[arg(long)]
@@ -347,6 +347,15 @@ enum Commands {
         new_tab: bool,
         #[arg(long)]
         submit: bool,
+        /// snapshot kapsamı: ref (e12) ya da CSS seçici
+        #[arg(long)]
+        scope: Option<String>,
+        /// upload: yerel dosya yolu
+        #[arg(long)]
+        path: Option<String>,
+        /// console/network süzgeci
+        #[arg(long)]
+        pattern: Option<String>,
         /// Ek argümanlar JSON nesnesi olarak (bayraklarla birleştirilir; bayraklar önceliklidir)
         #[arg(long)]
         args: Option<String>,
@@ -797,7 +806,7 @@ fn run() -> Result<()> {
         }
         Commands::Browser {
             op, tab, r#ref, name, text, url, query, option, key, code, max, port, timeout_ms,
-            all, viewport, new_tab, submit, args,
+            all, viewport, new_tab, submit, scope, path, pattern, args,
         } => {
             let mut a = match args {
                 Some(raw) => serde_json::from_str::<serde_json::Value>(&raw)
@@ -826,6 +835,9 @@ fn run() -> Result<()> {
             put("viewport", viewport.then(|| json!(true)));
             put("new_tab", new_tab.then(|| json!(true)));
             put("submit", submit.then(|| json!(true)));
+            put("scope", scope.map(|v| json!(v)));
+            put("path", path.map(|v| json!(v)));
+            put("pattern", pattern.map(|v| json!(v)));
             let out = browser::command(&op, &a)?;
             println!("{}", serde_json::to_string_pretty(&out)?);
         }

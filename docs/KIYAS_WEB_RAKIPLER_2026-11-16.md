@@ -12,7 +12,7 @@ Yöntem: diskteki rakip paketleri REA ile açıldı (çalıştırılmadan, stati
 
 | Yetenek | Claude in Chrome | agent-browser | pc-eye önce | pc-eye şimdi |
 | --- | --- | --- | --- | --- |
-| JS diyalogları (alert/confirm/prompt) | CDP `Page.handleJavaScriptDialog` | `dialog accept/dismiss` | yok, sayfa kilitlenirdi | otomatik yanıt + kayıt, `dialogs` ile politika; eylem sonucunda kendiliğinden görünür |
+| JS diyalogları (alert/confirm/prompt) | CDP `Page.handleJavaScriptDialog` | `dialog accept/dismiss` | yok, sayfa kilitlenirdi | varsayılan ret + kayıt; kabul için eyleme `dialog: "accept"` / `dialog_text`; eylem sonucunda kendiliğinden görünür |
 | Konsol ve JS hataları | `read_console_messages` | `console`, `errors` | yok | `console` (pattern, level, since); eylem sırasında çıkan hata eylem sonucuna eklenir |
 | Ağ istekleri | `read_network_requests` | `network requests` | yok | `network` (pattern, failed, since); gövde ve başlık kaydedilmez |
 | Dosya yükleme | `file_upload` | `upload` | yok | `upload` (ref ya da ad, `path`/`paths`; toplam 700 KB) |
@@ -33,11 +33,22 @@ Rakiplerde olmayıp bizde olan: diyalog ve JS hatasının ajan sormadan eylem so
 9 görev, 27/27. Yeni görevler: `web-dialog-policy`, `web-console-network`, `web-upload`,
 `web-snapshot-scope`, `web-cross-frame`. Sonuç: `evals/results/20261116-114315-webhard-bridge-probe.json`.
 
+### Ajan katmanı (Haiku, 6 görev × 3, yalıtılmış oturum)
+
+| Koşu | Başarı | Not |
+| --- | --- | --- |
+| İlk (`20261116-115354-webag-bridge-agent.json`) | 10/15 | Diyalog görevi 1/3: varsayılan "kabul" yüzünden ajan politikayı ayarlamadan tıklayınca silme onaylandı. Konsol görevi 0/3: görev beklentisi yanlıştı (ajan doğru yanıtlamıştı) |
+| Düzeltme sonrası (`20261116-115923-webag-bridge-agent.json`) | 18/18, toplam $0,034 | Varsayılan ret, eyleme özel `dialog: "accept"`; `web-dialog-accept` görevi eklendi |
+
+Ölçümün bulduğu hatalar: yıkıcı onayın görülmeden kabul edilmesi (varsayılan değişti) ve
+`dialogs`/`console`/`network` çıktısının başındaki boş `url: | title:` satırı.
+Probe tekrarında `hard-web-long` bir kez 340 ms ile süre bütçesini aştı (makine kullanıcı
+etkinliğiyle meşguldü); ardışık 5 tekrarda 27,5 ms medyanla 5/5.
+
 ## Bilinen sınırlar (henüz kapatılmadı)
 
 - Yükleme 700 KB ile sınırlı (native messaging çerçevesi 1 MiB); parçalı aktarım yok.
 - Çerçeve içi elemanlarda `real` (gerçek işaretçi) tıklaması, `text` ve `wait` yalnız üst çerçevede.
 - Kancalar sayfa yüklendikten sonra kurulursa (geçici kurulum) daha önceki konsol kayıtları yoktur.
 - Çerez/depolama okuma, sürükle-bırak, indirme takibi (agent-browser'da var) eklenmedi.
-- Ajan katmanı (model ile uçtan uca) bu değişikliklerle ölçülmedi; yalnız probe katmanı koşuldu.
 - Chrome'da çalışmaz: kancalar Firefox'a özgü `wrappedJSObject`/`exportFunction` kullanır.

@@ -10,7 +10,7 @@
   "probe": [],
   "check": {
     "type": "answer",
-    "expect": "{errtoken}"
+    "expect": "{errtoken} hatası"
   },
   "probe_bridge": [
     {

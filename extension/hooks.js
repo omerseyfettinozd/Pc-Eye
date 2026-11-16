@@ -7,7 +7,8 @@
   const RATE_LIMIT = 20;
   const RATE_WINDOW_MS = 1000;
 
-  let policy = { accept: true, text: null };
+  // Varsayılan ret: ajan görmeden "silinsin mi?" gibi bir soru onaylanmasın.
+  let policy = { accept: false, text: null };
   let winStart = 0;
   let winCount = 0;
   let dropped = 0;

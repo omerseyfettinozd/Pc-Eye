@@ -1,0 +1,541 @@
+{
+ "tier": "agent",
+ "started": "20261116-115354-webag-bridge",
+ "seed": 998117431,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "4026560",
+ "summary": {
+  "tasks": [
+   {
+    "task": "web-console-network",
+    "runs": 3,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 10477.7,
+    "median_turns": 7,
+    "median_tool_calls": 6,
+    "median_input_tokens": 42646,
+    "median_output_tokens": 883,
+    "cost_usd": 0.0068
+   },
+   {
+    "task": "web-cross-frame",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 8396.2,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 42312,
+    "median_output_tokens": 525,
+    "cost_usd": 0.005
+   },
+   {
+    "task": "web-dialog-policy",
+    "runs": 3,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 9982.4,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 53896,
+    "median_output_tokens": 718,
+    "cost_usd": 0.0058
+   },
+   {
+    "task": "web-snapshot-scope",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 9190.1,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 43458,
+    "median_output_tokens": 942,
+    "cost_usd": 0.0059
+   },
+   {
+    "task": "web-upload",
+    "runs": 3,
+    "passed": 3,
+    "setup_errors": 0,
+    "median_ms": 9672.5,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 53671,
+    "median_output_tokens": 679,
+    "cost_usd": 0.006
+   }
+  ],
+  "pass_rate": 0.667,
+  "total_cost_usd": 0.0295
+ },
+ "session": "webag",
+ "toolset": "full",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor 6XH3",
+    "pid": 130177,
+    "errtoken": "83XL6U",
+    "inner": "İç düğme XKJV",
+    "pin": "203221",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-console-network-0/belge-24GV.txt",
+    "upload_name": "belge-24GV.txt",
+    "upload_content": "içerik 9LVHLKLL"
+   },
+   "ok": false,
+   "detail": "cevap='83XL6U hatası'",
+   "ms": 10637.4,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.00295972,
+   "input_tokens": 41743,
+   "output_tokens": 883,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 5
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 631,
+      "y": 1288
+     },
+     {
+      "x": 1541,
+      "y": 1204
+     }
+    ],
+    "active_class": "Spotify",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-console-network",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Zor NKAU",
+    "pid": 131503,
+    "errtoken": "C4KCVK",
+    "inner": "İç düğme D2DG",
+    "pin": "109127",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-console-network-1/belge-6RT3.txt",
+    "upload_name": "belge-6RT3.txt",
+    "upload_content": "içerik 27C98H8M"
+   },
+   "ok": false,
+   "detail": "cevap='C4KCVK hatası'",
+   "ms": 8288.7,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.0018231100000000002,
+   "input_tokens": 42646,
+   "output_tokens": 836,
+   "tool_calls": 6,
+   "tools": {
+    "pc_eye_browser": 6
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1541,
+      "y": 1204
+     },
+     {
+      "x": 1856,
+      "y": 1332
+     }
+    ],
+    "active_class": "Spotify",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-console-network",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Zor AUNM",
+    "pid": 132773,
+    "errtoken": "8VTECR",
+    "inner": "İç düğme 3FVV",
+    "pin": "912446",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-console-network-2/belge-C3E3.txt",
+    "upload_name": "belge-C3E3.txt",
+    "upload_content": "içerik DF38AFU9"
+   },
+   "ok": false,
+   "detail": "cevap='8VTECR hatası'",
+   "ms": 10477.7,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.00204226,
+   "input_tokens": 54335,
+   "output_tokens": 914,
+   "tool_calls": 7,
+   "tools": {
+    "pc_eye_browser": 7
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1856,
+      "y": 1332
+     },
+     {
+      "x": 2426,
+      "y": 309
+     }
+    ],
+    "active_class": "Spotify",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-cross-frame",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Çerçeve ETXF",
+    "pid": 134107,
+    "code": "KUPON-FCWLH"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 8396.2,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0015459,
+   "input_tokens": 41424,
+   "output_tokens": 447,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_browser": 3
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2426,
+      "y": 309
+     },
+     {
+      "x": 2037,
+      "y": 839
+     }
+    ],
+    "active_class": "Spotify",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-cross-frame",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Çerçeve 8PR3",
+    "pid": 135424,
+    "code": "KUPON-LW26V"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 7859.2,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00164546,
+   "input_tokens": 42312,
+   "output_tokens": 525,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 4
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1972,
+      "y": 899
+     },
+     {
+      "x": 1919,
+      "y": 1083
+     }
+    ],
+    "active_class": "Spotify",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "web-cross-frame",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Çerçeve ANWK",
+    "pid": 136646,
+    "code": "KUPON-2K7YV"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10560.0,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.00184792,
+   "input_tokens": 52792,
+   "output_tokens": 685,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 5
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor LP94",
+    "pid": 137996,
+    "errtoken": "8DNHVL",
+    "inner": "İç düğme 6W7M",
+    "pin": "294595",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-dialog-policy-0/belge-7M3N.txt",
+    "upload_name": "belge-7M3N.txt",
+    "upload_content": "içerik HUYH9WCD"
+   },
+   "ok": false,
+   "detail": "beklenmeyen alanlar: {'confirm': True}",
+   "ms": 9104.8,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0017150099999999999,
+   "input_tokens": 42510,
+   "output_tokens": 659,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_browser": 3
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Zor HFNY",
+    "pid": 139224,
+    "errtoken": "GLF2WE",
+    "inner": "İç düğme WLEF",
+    "pin": "993720",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-dialog-policy-1/belge-XGJ6.txt",
+    "upload_name": "belge-XGJ6.txt",
+    "upload_content": "içerik MA6KULF7"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 9982.4,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0019374000000000001,
+   "input_tokens": 53896,
+   "output_tokens": 718,
+   "tool_calls": 5,
+   "tools": {
+    "pc_eye_browser": 5
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Zor KLD6",
+    "pid": 140506,
+    "errtoken": "3C6XAE",
+    "inner": "İç düğme 2V7P",
+    "pin": "305903",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-dialog-policy-2/belge-6UT6.txt",
+    "upload_name": "belge-6UT6.txt",
+    "upload_content": "içerik PME4FKP4"
+   },
+   "ok": false,
+   "detail": "beklenmeyen alanlar: {'confirm': True}",
+   "ms": 14200.4,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.00217137,
+   "input_tokens": 55033,
+   "output_tokens": 996,
+   "tool_calls": 6,
+   "tools": {
+    "pc_eye_browser": 6
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor JY4R",
+    "pid": 141906,
+    "errtoken": "CFXPK2",
+    "inner": "İç düğme 8MW2",
+    "pin": "172028",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-snapshot-scope-0/belge-UHNT.txt",
+    "upload_name": "belge-UHNT.txt",
+    "upload_content": "içerik 7XWU4V6W"
+   },
+   "ok": true,
+   "detail": "cevap='İç düğme 8MW2'",
+   "ms": 9138.1,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00195674,
+   "input_tokens": 43379,
+   "output_tokens": 948,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 4
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Zor AL2C",
+    "pid": 143181,
+    "errtoken": "LJV6UT",
+    "inner": "İç düğme YYVH",
+    "pin": "283175",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-snapshot-scope-1/belge-2AJC.txt",
+    "upload_name": "belge-2AJC.txt",
+    "upload_content": "içerik 8W6DD2LM"
+   },
+   "ok": true,
+   "detail": "cevap='İç düğme YYVH'",
+   "ms": 9190.1,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0019253599999999999,
+   "input_tokens": 43458,
+   "output_tokens": 862,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 4
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Zor ENY9",
+    "pid": 144456,
+    "errtoken": "7JDXF4",
+    "inner": "İç düğme 4FA4",
+    "pin": "419014",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-snapshot-scope-2/belge-J3KJ.txt",
+    "upload_name": "belge-J3KJ.txt",
+    "upload_content": "içerik UJCVH6VN"
+   },
+   "ok": true,
+   "detail": "cevap='İç düğme 4FA4'",
+   "ms": 9607.6,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0019735200000000003,
+   "input_tokens": 43533,
+   "output_tokens": 942,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 4
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor LNG6",
+    "pid": 145821,
+    "errtoken": "A28X7P",
+    "inner": "İç düğme DC29",
+    "pin": "960248",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-upload-0/belge-VCC6.txt",
+    "upload_name": "belge-VCC6.txt",
+    "upload_content": "içerik EU9MKRJP"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 9672.5,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00187252,
+   "input_tokens": 53671,
+   "output_tokens": 679,
+   "tool_calls": 4,
+   "tools": {
+    "pc_eye_browser": 4
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 1,
+   "vars": {
+    "title": "Eval Zor XEGY",
+    "pid": 147124,
+    "errtoken": "T9JGCR",
+    "inner": "İç düğme XH97",
+    "pin": "698767",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-upload-1/belge-92TK.txt",
+    "upload_name": "belge-92TK.txt",
+    "upload_content": "içerik YC326WKA"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 11817.9,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.00240041,
+   "input_tokens": 67657,
+   "output_tokens": 1145,
+   "tool_calls": 6,
+   "tools": {
+    "pc_eye_browser": 6
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 2,
+   "vars": {
+    "title": "Eval Zor 2CEC",
+    "pid": 148471,
+    "errtoken": "JXXPTG",
+    "inner": "İç düğme 8JUM",
+    "pin": "387394",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-115354-webag-bridge/web-upload-2/belge-4PDM.txt",
+    "upload_name": "belge-4PDM.txt",
+    "upload_content": "içerik GR63GMV4"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 8660.4,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0016812200000000002,
+   "input_tokens": 41927,
+   "output_tokens": 597,
+   "tool_calls": 3,
+   "tools": {
+    "pc_eye_browser": 3
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 5,
+ "agent_leak_runs": 0
+}

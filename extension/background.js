@@ -33,7 +33,8 @@ let allowList = [];
 const navSeq = new Map();      // sekme -> ana çerçeve gezinme sayacı
 const navPending = new Map();  // sekme -> gezinme sürüyor mu
 let eventSeq = 0;
-let dialogPolicy = { accept: true, text: null };
+// Varsayılan ret: ajan görmeden yıkıcı bir onay sorusu kabul edilmesin.
+let dialogPolicy = { accept: false, text: null };
 const consoleBuf = new Map();  // sekme -> konsol olayları
 const dialogBuf = new Map();   // sekme -> diyalog olayları
 const networkBuf = new Map();  // sekme -> ağ istekleri
@@ -777,11 +778,37 @@ async function collectFrameSnapshots(tab, a, result) {
   }
 }
 
+async function broadcastPolicy(tabId, policy) {
+  try {
+    await browser.tabs.sendMessage(tabId, { hook: "policy", accept: policy.accept, text: policy.text });
+  } catch (e) {
+    // Kancasız sayfada alıcı yoktur; yok sayılır.
+  }
+}
+
+// Eyleme özel diyalog yanıtı (`dialog: "accept"|"dismiss"`, `dialog_text`): yalnız bu eylem boyunca geçerlidir.
 async function opPage(op, args) {
   const tab = await resolveTab(args);
   assertAllowed(tab);
   const a = Object.assign({}, args);
   delete a.tab;
+  const hasDialog = a.dialog !== undefined || a.dialog_text !== undefined;
+  const temp = {
+    accept: a.dialog_text !== undefined ? a.dialog !== "dismiss" : a.dialog === "accept",
+    text: a.dialog_text !== undefined && a.dialog_text !== null ? String(a.dialog_text) : null
+  };
+  delete a.dialog;
+  delete a.dialog_text;
+  if (!hasDialog || !ACTION_OPS.has(op)) return opPageInner(tab, op, a);
+  await broadcastPolicy(tab.id, temp);
+  try {
+    return await opPageInner(tab, op, a);
+  } finally {
+    await broadcastPolicy(tab.id, dialogPolicy);
+  }
+}
+
+async function opPageInner(tab, op, a) {
   if (op === "wait") return opWait(tab, a);
   const isAction = ACTION_OPS.has(op);
   const mark = isAction ? markEvents(tab.id) : null;

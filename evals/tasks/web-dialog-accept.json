@@ -1,0 +1,32 @@
+{
+  "id": "web-dialog-accept",
+  "scene": "web_hard",
+  "tags": [
+    "browser",
+    "bridge",
+    "web-hard"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasında \"Kaydı sil\" düğmesine bas ve çıkan onay sorusunu ONAYLA; kayıt silinmeli.",
+  "probe": [],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "confirm": true
+    }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kaydı sil",
+        "--args",
+        "{\"dialog\": \"accept\"}"
+      ],
+      "expect_contains": [
+        "-> true"
+      ]
+    }
+  ]
+}

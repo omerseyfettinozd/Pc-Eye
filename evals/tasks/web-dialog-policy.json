@@ -24,16 +24,54 @@
       ],
       "expect_contains": [
         "Kayıt silinsin mi?",
-        "-> true"
+        "-> false"
       ],
       "max_ms": 1500
     },
     {
       "args": [
         "browser",
-        "dialogs",
+        "click",
+        "--name",
+        "Kaydı sil",
         "--args",
-        "{\"accept\": false}"
+        "{\"dialog\": \"accept\"}"
+      ],
+      "expect_contains": [
+        "-> true"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "wait",
+        "--text",
+        "Silindi",
+        "--timeout-ms",
+        "3000"
+      ],
+      "expect_contains": [
+        "\"matched\": true"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Kod sor",
+        "--args",
+        "{\"dialog_text\": \"4821\"}"
+      ],
+      "expect_contains": [
+        "Kod?",
+        "4821"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "dialogs"
       ],
       "expect_contains": [
         "\"accept\": false"
@@ -61,56 +99,6 @@
       ],
       "expect_contains": [
         "\"matched\": true"
-      ]
-    },
-    {
-      "args": [
-        "browser",
-        "dialogs",
-        "--args",
-        "{\"accept\": true, \"text\": \"4821\"}"
-      ]
-    },
-    {
-      "args": [
-        "browser",
-        "click",
-        "--name",
-        "Kod sor"
-      ],
-      "expect_contains": [
-        "Kod?",
-        "4821"
-      ]
-    },
-    {
-      "args": [
-        "browser",
-        "click",
-        "--name",
-        "Kaydı sil"
-      ],
-      "expect_contains": [
-        "-> true"
-      ]
-    },
-    {
-      "args": [
-        "browser",
-        "dialogs",
-        "--args",
-        "{\"accept\": false}"
-      ]
-    },
-    {
-      "args": [
-        "browser",
-        "click",
-        "--name",
-        "Kaydı sil"
-      ],
-      "expect_contains": [
-        "-> false"
       ]
     }
   ]

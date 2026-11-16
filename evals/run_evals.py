@@ -29,6 +29,7 @@ import statistics
 import subprocess
 import sys
 import threading
+import urllib.request
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -75,6 +76,27 @@ RIVAL_SYSTEM = (
     "Görevi bitirince yanıtının son satırına `CEVAP: <değer>` yaz; sorulan bir değer yoksa `CEVAP: tamam` yaz."
 )
 SCENE_WAYLAND = None
+
+# Web rakipleri (2026-11-16): aynı model, aynı sayfalar. Sayfa, pc-eye'da olduğu gibi ÖNCEDEN açıktır:
+# harness başsız Chrome'u görev adresiyle başlatır, rakip CDP ile ona bağlanır (gezinme turu harcamaz).
+WEB_RIVAL_DIR = Path.home() / ".local/share/pc-eye/rivals/web"
+AGENT_BROWSER_BIN = Path.home() / ".npm/_npx/ad6c181e5b604bdb/node_modules/agent-browser/bin/agent-browser-linux-x64"
+WEB_RIVALS = ("playwright-mcp", "agent-browser")
+WEB_RIVAL_SYSTEM = (
+    "Bir web otomasyon ölçüm görevindesin. Yalnız sana verilen tarayıcı araçlarını kullan. "
+    "Görev sayfası ({url}) tarayıcında ŞU AN açık ve bağlı; görev metnindeki \"Firefox'ta açık sayfa\" budur, "
+    "yeniden açma. Görevi bitirince yanıtının son satırına `CEVAP: <değer>` yaz; sorulan bir değer yoksa "
+    "`CEVAP: tamam` yaz."
+)
+AGENT_BROWSER_SYSTEM = (
+    " Araç: Bash ile `agent-browser` CLI (tarayıcıya zaten bağlı). Akış: `agent-browser snapshot -i` "
+    "(etkileşimli elemanlar, ref'ler @e1…), `agent-browser snapshot` (tüm ağaç), `click @e2`, "
+    "`fill @e3 \"metin\"`, `select @e4 \"değer\"`, `check @e5`, `upload @e6 /yol`, `drag @e1 @e2`, "
+    "`get text @e1`, `wait --text \"..\"`, `dialog accept|dismiss`, `console`, `errors`, "
+    "`network requests`, `frame <seçici>`. Komutlar `&&` ile tek çağrıda zincirlenebilir; "
+    "ayrıntı için `agent-browser --help`."
+)
+LAST_URL = None
 
 # Tarayıcı algısı: "atspi" masaüstü erişilebilirlik ağacı (önceki ölçümlerle kıyaslanabilir taban),
 # "bridge" Firefox'a Pc-Eye Bridge eklentisi bağlanır ve ajan pc_eye_browser aracını da kullanabilir.
@@ -464,7 +486,9 @@ def serve_page(sb, page_html, out_path, extra=None):
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     sb.cleanups.append(server.shutdown)
-    return f"http://127.0.0.1:{server.server_address[1]}/"
+    global LAST_URL
+    LAST_URL = f"http://127.0.0.1:{server.server_address[1]}/"
+    return LAST_URL
 
 
 def open_in_firefox(sb, work, url, ready_text, fullscreen=True):
@@ -629,10 +653,14 @@ def scene_web_hard(sb, rng, work):
     up = work / f"belge-{token(rng, 4)}.txt"
     content = f"içerik {token(rng, 8)}"
     up.write_text(content, encoding="utf-8")
+    big = work / f"buyuk-{token(rng, 4)}.bin"
+    big_size = rng.randint(2_400_000, 2_600_000)
+    big.write_bytes(rng.randbytes(big_size))
     out = work / "out.json"
     window, pid = open_in_firefox(sb, work, serve_page(sb, page, out), "Zor sayfa")
     return Scene({"title": title, "window": window, "pid": pid, "errtoken": errtoken, "inner": inner,
-                  "pin": pin, "upload_path": str(up), "upload_name": up.name, "upload_content": content}, out)
+                  "pin": pin, "upload_path": str(up), "upload_name": up.name, "upload_content": content,
+                  "big_path": str(big), "big_name": big.name, "big_size": big_size}, out)
 
 
 def scene_web_frame(sb, rng, work):
@@ -802,7 +830,9 @@ def check_out_json(out, expect):
         data = json.loads(Path(out).read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
         return False, "uygulama çıktısı yok"
-    wrong = {k: data.get(k) for k, v in expect.items() if data.get(k) != v}
+    # Şablondan gelen sayılar dizedir ({big_size}); sayısal alanla dize karşılaştırması da kabul edilir.
+    wrong = {k: data.get(k) for k, v in expect.items()
+             if data.get(k) != v and not (isinstance(v, str) and not isinstance(data.get(k), bool) and str(data.get(k)) == v)}
     return (not wrong), (f"beklenmeyen alanlar: {wrong}" if wrong else "ok")
 
 
@@ -986,6 +1016,36 @@ class ApiUnavailable(RuntimeError):
     pass
 
 
+def start_rival_chrome(sb, work, url):
+    """Başsız Chrome'u görev sayfasıyla açar; CDP portunu döner (sayfa yüklenene dek bekler)."""
+    port = free_port(random.Random())
+    proc = subprocess.Popen(
+        ["google-chrome-stable", "--headless=new", f"--remote-debugging-port={port}",
+         f"--user-data-dir={work / 'chrome'}", "--no-first-run", "--no-default-browser-check",
+         "--window-size=1600,900", url],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def stop():
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    sb.cleanups.append(stop)
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/list", timeout=1) as r:
+                pages = json.loads(r.read())
+            if any(pg.get("url", "").startswith(url) for pg in pages):
+                time.sleep(0.5)
+                return port
+        except (OSError, ValueError):
+            pass
+        time.sleep(0.2)
+    raise RuntimeError("rakip Chrome'u açılmadı")
+
+
 def run_agent(task, scene, sb, work, args, transcript):
     mcp = work / "mcp.json"
     # PCEYE_WATCH: MCP sunucusu daemon'u yeniden başlatırsa (yeni build) izlenen klasör kaybolmasın.
@@ -1003,11 +1063,44 @@ def run_agent(task, scene, sb, work, args, transcript):
         renv = {"WAYLAND_DISPLAY": SCENE_WAYLAND}
         mcp.write_text(json.dumps({"mcpServers": {"rival": {"command": RIVAL_BIN[args.toolset], "args": [], "env": renv}}}))
         system, allowed, disallowed = RIVAL_SYSTEM, ["mcp__rival"], []
-    if BROWSER == "bridge":
+    tools_flag = ""
+    run_env = None
+    if args.toolset in WEB_RIVALS:
+        if not LAST_URL:
+            raise RuntimeError("web rakibi yalnız web sahnelerinde koşar")
+        port = start_rival_chrome(sb, work, LAST_URL)
+        system = WEB_RIVAL_SYSTEM.format(url=LAST_URL)
+        disallowed = []
+        if args.toolset == "playwright-mcp":
+            mcp.write_text(json.dumps({"mcpServers": {"rival": {
+                "command": "node",
+                "args": [str(WEB_RIVAL_DIR / "node_modules/@playwright/mcp/cli.js"),
+                         "--cdp-endpoint", f"http://127.0.0.1:{port}"]}}}))
+            allowed = ["mcp__rival"]
+        else:
+            bindir = work / "bin"
+            bindir.mkdir(exist_ok=True)
+            (bindir / "agent-browser").unlink(missing_ok=True)
+            (bindir / "agent-browser").symlink_to(AGENT_BROWSER_BIN)
+            run_env = {**os.environ, "PATH": f"{bindir}:{os.environ['PATH']}",
+                       "AGENT_BROWSER_SESSION": f"eval-{port}"}
+            subprocess.run(["agent-browser", "connect", str(port)], env=run_env, capture_output=True, timeout=20)
+            sb.cleanups.append(lambda: subprocess.run(["agent-browser", "close"], env=run_env,
+                                                      capture_output=True, timeout=20))
+            mcp.write_text(json.dumps({"mcpServers": {}}))
+            system += AGENT_BROWSER_SYSTEM
+            allowed, tools_flag = ["Bash(agent-browser:*)"], "Bash"
+    if args.toolset in WEB_RIVALS:
+        pass
+    elif BROWSER == "bridge":
         system += BRIDGE_SYSTEM
     else:
         # Taban ölçüm: köprü yokken ajan kendi Firefox'unu açıp sahnenin dışına çıkmasın.
         disallowed = ["mcp__pc-eye__pc_eye_browser"]
+    if args.toolset == "web":
+        # Web profili: yalnız pc_eye_browser (web rakipleriyle aynı kapsam; araç şeması küçülür).
+        allowed = ["mcp__pc-eye__pc_eye_browser"]
+        disallowed = [f"mcp__pc-eye__pc_eye_{t}" for t in ALL_TOOLS if t != "browser"]
     if args.toolset == "pixels":
         system += PIXEL_SYSTEM
         allowed = PIXEL_TOOLS
@@ -1017,7 +1110,7 @@ def run_agent(task, scene, sb, work, args, transcript):
         "claude", "-p", fill(task["prompt"], scene.vars),
         "--output-format", "stream-json", "--verbose",
         "--mcp-config", str(mcp), "--strict-mcp-config",
-        "--tools", "",
+        "--tools", tools_flag,
         "--allowedTools", ",".join(allowed),
         "--setting-sources", "project,local",
         "--no-session-persistence",
@@ -1030,7 +1123,7 @@ def run_agent(task, scene, sb, work, args, transcript):
         cmd += ["--model", args.model]
     start = time.perf_counter()
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=args.timeout, cwd=work)
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=args.timeout, cwd=work, env=run_env)
         out, timed_out = p.stdout, False
     except subprocess.TimeoutExpired as e:
         out = e.stdout.decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
@@ -1153,7 +1246,7 @@ def main():
     ap.add_argument("--timeout", type=int, default=300, help="agent görev süresi sınırı (sn)")
     ap.add_argument("--budget", type=float, default=1.0, help="agent görev başı $ sınırı")
     ap.add_argument("--no-save", action="store_true")
-    ap.add_argument("--toolset", choices=["full", "pixels", "wayland-mcp"], default="full",
+    ap.add_argument("--toolset", choices=["full", "web", "pixels", "wayland-mcp", "playwright-mcp", "agent-browser"], default="full",
                     help="pixels: yalnız ekran görüntüsü + fare/klavye (rakip mimarisi kıyası)")
     ap.add_argument("--browser", choices=["atspi", "bridge"], default="atspi",
                     help="bridge: Firefox sahnelerine Pc-Eye Bridge eklentisi bağlanır (pc_eye_browser)")

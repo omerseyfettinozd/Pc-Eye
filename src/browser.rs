@@ -39,8 +39,10 @@ const EXT_BACKGROUND_JS: &str = include_str!("../extension/background.js");
 const EXT_CONTENT_JS: &str = include_str!("../extension/content.js");
 const EXT_HOOKS_JS: &str = include_str!("../extension/hooks.js");
 
-/// `upload` için toplam ham dosya boyutu sınırı: base64 (×4/3) + JSON zarfı 1 MiB çerçeveye sığmalı.
-const MAX_UPLOAD_BYTES: usize = 700 * 1024;
+/// `upload` için toplam ham dosya boyutu sınırı (eklenti tarafı 48 MiB base64 tutar).
+const MAX_UPLOAD_BYTES: usize = 32 * 1024 * 1024;
+/// Tek iletide taşınan base64 parçası: 1 MiB çerçeveye sığar ve 4'ün katıdır (düz birleştirme geçerli kalır).
+const UPLOAD_CHUNK_CHARS: usize = 600_000;
 
 /// Eklentiyle aynı yerleşik yasak liste desenleri: finans, parola kasası ve kimlik sağlayıcıları.
 pub(crate) const BUILTIN_DENY_PATTERNS: &[&str] = &[
@@ -348,6 +350,7 @@ fn sanitize_args_for_log(op: &str, args: &Value) -> Value {
     let secret_key = match op {
         "type" => Some("text"),
         "eval" => Some("code"),
+        "upload_chunk" => Some("data"),
         _ => None,
     };
     // Yüklenen dosyanın içeriği deftere yazılmaz; yalnız adları kalır.
@@ -827,6 +830,37 @@ pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json:
     }
 }
 
+/// Sayfayı değiştiren tekil eylemler: sonuçlarına sayfada değişen satırlar eklenir.
+const DIFF_OPS: &[&str] = &["click", "type", "select", "check", "key", "upload", "drag"];
+
+/// Tekil eylem + sayfadaki değişiklik: eylemden önce ve sonra özet alınır, sonuca yalnız değişen
+/// satırlar (`after.changed_lines`) eklenir; sayfa değiştiyse yeni sayfanın özeti. Ajan eylemin
+/// etkisini görmek için ayrıca `snapshot`/`text` çağırmaz (tur ve token tasarrufu, ~40 ms ek süre).
+pub fn command_with_diff(op: &str, args: &Value) -> Result<Value> {
+    let mode = args.get("after").and_then(|v| v.as_str()).unwrap_or("diff");
+    if !DIFF_OPS.contains(&op) || mode == "none" {
+        return command(op, args);
+    }
+    let tab = args.get("tab").filter(|v| !v.is_null()).cloned();
+    let before = if mode == "diff" { Some(run_after_snapshot(tab.as_ref())) } else { None };
+    let mut out = command(op, args)?;
+    let after = run_after_snapshot(tab.as_ref());
+    if after.is_null() {
+        return Ok(out);
+    }
+    let after = match before {
+        Some(b) if !b.is_null() => diff_snapshot(&b, after),
+        _ => after,
+    };
+    // Hiçbir satır değişmediyse boş blok eklenmez.
+    let nothing = after.get("changed_lines").and_then(|l| l.as_array()).is_some_and(|l| l.is_empty())
+        && after.get("removed_lines").and_then(|v| v.as_u64()) == Some(0);
+    if let (Some(obj), false) = (out.as_object_mut(), nothing) {
+        obj.insert("after".to_string(), after);
+    }
+    Ok(out)
+}
+
 /// Çok adımlı program: `steps` dizisindeki her adım (`{"op":"type","name":"Ad","text":".."}`) sırayla
 /// yürütülür, ilk hatada durulur; sonunda isteğe bağlı `wait` ve sayfanın son özeti döner. Ajan formu
 /// adım adım ayrı çağrılarla doldurunca tur ve token harcıyordu (masaüstündeki `pc_eye_run` karşılığı).
@@ -929,7 +963,7 @@ fn run_after_snapshot(tab: Option<&Value>) -> Value {
 }
 
 /// Ref ile çalışan sayfa op'ları (`name` ile de çağrılabilir).
-const REF_OPS: &[&str] = &["click", "type", "select", "check", "hover", "focus", "rect", "scroll", "text", "upload"];
+const REF_OPS: &[&str] = &["click", "type", "select", "check", "hover", "focus", "rect", "scroll", "text", "upload", "drag"];
 
 /// `upload`: `path` (dize) ya da `paths` (dizi) ile verilen yerel dosyaları okuyup eklentiye
 /// `files:[{name,type,b64}]` olarak iletir. Ajan dosya seçme penceresini (görünmez, yerel) açmak zorunda kalmaz.
@@ -952,7 +986,7 @@ fn load_upload_files(args: &Value) -> Result<Value> {
         let bytes = fs::read(path).with_context(|| format!("upload: dosya okunamadı: {}", p))?;
         total += bytes.len();
         if total > MAX_UPLOAD_BYTES {
-            bail!("upload: toplam boyut {} KB sınırını aşıyor", MAX_UPLOAD_BYTES / 1024);
+            bail!("upload: toplam boyut {} MB sınırını aşıyor", MAX_UPLOAD_BYTES / (1024 * 1024));
         }
         let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "dosya".to_string());
         let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
@@ -970,11 +1004,18 @@ fn load_upload_files(args: &Value) -> Result<Value> {
             "zip" => "application/zip",
             _ => "application/octet-stream",
         };
-        files.push(json!({
-            "name": name,
-            "type": mime,
-            "b64": base64::engine::general_purpose::STANDARD.encode(&bytes),
-        }));
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        if b64.len() <= UPLOAD_CHUNK_CHARS && paths.len() == 1 {
+            files.push(json!({ "name": name, "type": mime, "b64": b64 }));
+            continue;
+        }
+        // Büyük dosya (ya da çoklu dosya): parçalar önce eklentiye yığılır, `upload` yalnız anahtarı taşır.
+        let key = format!("u{}-{}-{}", std::process::id(), now_unix_ms(), files.len());
+        for chunk in b64.as_bytes().chunks(UPLOAD_CHUNK_CHARS) {
+            let data = std::str::from_utf8(chunk).unwrap_or_default();
+            request("upload_chunk", json!({ "key": key, "data": data }), Duration::from_secs(12))?;
+        }
+        files.push(json!({ "name": name, "type": mime, "key": key }));
     }
     let mut out = args.clone();
     if let Some(obj) = out.as_object_mut() {

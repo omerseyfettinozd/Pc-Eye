@@ -20,6 +20,8 @@ body{font:18px sans-serif;margin:32px} label{display:block;margin:12px 0}
   <label>Belge <input type="file" id="dosya"></label>
   <label>Pin <input id="pin" style="-webkit-text-security:disc" value="{pin}"></label>
   <label>Ülke <select id="ulke">{options}</select></label>
+  <div id="kart" draggable="true" style="display:inline-block;padding:8px;border:1px solid #333">Kart {inner}</div>
+  <div id="hedef" role="region" aria-label="Bitti sütunu" tabindex="0" style="display:inline-block;width:200px;height:60px;border:2px dashed #999">Bitti</div>
   <div id="bolme"><h2>Kapsam</h2><button id="ic">{inner}</button></div>
   <div role="tablist"><button role="tab" aria-selected="true">Genel</button><button role="tab" aria-selected="false">Gelişmiş</button></div>
   <p id="durum" role="status"></p>
@@ -51,10 +53,19 @@ document.getElementById("istek").onclick = async () => {
 };
 document.getElementById("dosya").onchange = async (e) => {
   const f = e.target.files[0];
-  const text = await f.text();
+  const text = f.size < 2000 ? await f.text() : "";
   durum.textContent = "Yüklendi: " + f.name;
-  out({ upload: f.name, content: text });
+  out({ upload: f.name, size: f.size, content: text });
 };
+document.getElementById("kart").addEventListener("dragstart", (e) => e.dataTransfer.setData("text/plain", "kart"));
+const hedef = document.getElementById("hedef");
+hedef.addEventListener("dragover", (e) => e.preventDefault());
+hedef.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const v = e.dataTransfer.getData("text/plain");
+  durum.textContent = "Bırakıldı: " + v;
+  out({ drop: v });
+});
 document.getElementById("alt").onclick = () => { durum.textContent = "Alt tıklandı"; };
 </script>
 </html>

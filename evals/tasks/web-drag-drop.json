@@ -1,0 +1,55 @@
+{
+  "id": "web-drag-drop",
+  "scene": "web_hard",
+  "tags": [
+    "browser",
+    "bridge",
+    "web-hard"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasındaki \"Kart {inner}\" kartını \"Bitti\" kutusuna sürükleyip bırak.",
+  "probe": [],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "drop": "kart"
+    }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "snapshot",
+        "--query",
+        "Kart"
+      ],
+      "expect_contains": [
+        "draggable",
+        "Kart {inner}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "drag",
+        "--name",
+        "Kart {inner}",
+        "--args",
+        "{\"to\": \"#hedef\"}"
+      ],
+      "max_ms": 1500
+    },
+    {
+      "args": [
+        "browser",
+        "wait",
+        "--text",
+        "Bırakıldı: kart",
+        "--timeout-ms",
+        "3000"
+      ],
+      "expect_contains": [
+        "\"matched\": true"
+      ]
+    }
+  ]
+}

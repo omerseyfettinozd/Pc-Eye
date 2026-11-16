@@ -20,10 +20,10 @@ const BUILTIN_DENY = [
 
 const PAGE_OPS = new Set([
   "snapshot", "click", "type", "select", "check", "hover", "focus", "key",
-  "scroll", "text", "rect", "wait", "upload"
+  "scroll", "text", "rect", "wait", "upload", "drag"
 ]);
 // Gezinme başlatabilen eylemler: yanıt kaybolursa background sonucu üretir.
-const ACTION_OPS = new Set(["click", "type", "select", "check", "hover", "focus", "key", "upload"]);
+const ACTION_OPS = new Set(["click", "type", "select", "check", "hover", "focus", "key", "upload", "drag"]);
 
 // ---- Durum ----
 let port = null;
@@ -41,6 +41,7 @@ const networkBuf = new Map();  // sekme -> ağ istekleri
 const tabOrigins = new Map();  // sekme -> son ana çerçeve kaynağı
 const tabUrls = new Map();     // sekme -> bilinen son URL
 const reqMap = new Map();      // requestId -> { tabId, entry, t0 }
+const uploadParts = new Map(); // key -> { parts: [], bytes, t }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -591,6 +592,33 @@ async function opClose(args) {
   return { ok: true };
 }
 
+// Native ileti sınırı 1 MiB olduğundan büyük dosyalar parça parça toplanır.
+function opUploadChunk(args) {
+  const key = typeof args.key === "string" && args.key ? args.key : "";
+  if (!key) throw new Error("key gerekli");
+  const data = typeof args.data === "string" ? args.data : "";
+  const t = Date.now();
+  // Yarım kalan yüklemeler birikmesin diye 5 dakikayı geçen key'ler atılır.
+  for (const [k, v] of uploadParts) {
+    if (t - v.t > 300000) uploadParts.delete(k);
+  }
+  let rec = uploadParts.get(key);
+  if (!rec) {
+    rec = { parts: [], bytes: 0, t };
+    uploadParts.set(key, rec);
+  }
+  rec.parts.push(data);
+  rec.bytes += data.length;
+  rec.t = t;
+  let total = 0;
+  for (const v of uploadParts.values()) total += v.bytes;
+  if (total > 48 * 1024 * 1024) {
+    uploadParts.delete(key);
+    throw new Error("yükleme çok büyük");
+  }
+  return { ok: true, key, parts: rec.parts.length, bytes: rec.bytes };
+}
+
 async function opEval(args) {
   if (typeof args.code !== "string" || !args.code) throw new Error("code gerekli");
   const tab = await resolveTab(args);
@@ -799,6 +827,18 @@ async function opPage(op, args) {
   };
   delete a.dialog;
   delete a.dialog_text;
+  if (op === "upload" && Array.isArray(a.files)) {
+    // Parçalar Rust tarafında 3 bayt sınırında kesildiğinden düz birleştirme geçerlidir.
+    a.files = a.files.map((f) => {
+      const key = f && f.key;
+      // Küçük dosya tek iletide gömülü gelir.
+      if (!key && f && typeof f.b64 === "string") return f;
+      const rec = key ? uploadParts.get(key) : null;
+      if (!rec) throw new Error("yükleme parçaları bulunamadı: " + key);
+      uploadParts.delete(key);
+      return { name: f.name, type: f.type, b64: rec.parts.join("") };
+    });
+  }
   if (!hasDialog || !ACTION_OPS.has(op)) return opPageInner(tab, op, a);
   await broadcastPolicy(tab.id, temp);
   try {
@@ -813,6 +853,10 @@ async function opPageInner(tab, op, a) {
   const isAction = ACTION_OPS.has(op);
   const mark = isAction ? markEvents(tab.id) : null;
   const fr = splitFrameRef(a.ref);
+  // Sürükle-bırakta hedef de çerçeve ref'i olabilir; kaynakla aynı belgede olmalı.
+  const ft = op === "drag" && typeof a.to === "string" && /^e\d+(f\d+)?$/.test(a.to) ? splitFrameRef(a.to) : null;
+  if (ft && ft.frameId !== fr.frameId) throw new Error("kaynak ve hedef farklı çerçevede");
+  if (ft && ft.frameId !== 0) a.to = ft.ref;
   if (fr.frameId !== 0) {
     if (op === "rect") throw new Error("çerçeve içi eleman için gerçek işaretçi (real) desteklenmez: " + a.ref);
     a.ref = fr.ref;
@@ -879,6 +923,8 @@ async function dispatch(op, args) {
       return opNetwork(args);
     case "dialogs":
       return opDialogs(args);
+    case "upload_chunk":
+      return opUploadChunk(args);
     default:
       if (PAGE_OPS.has(op)) return opPage(op, args);
       throw new Error("bilinmeyen op: " + op);

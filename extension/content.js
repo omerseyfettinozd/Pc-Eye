@@ -42,7 +42,7 @@
   const INTERACTIVE_ROLES = new Set([
     "button", "link", "textbox", "searchbox", "combobox", "listbox", "option",
     "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox",
-    "menuitemradio", "slider", "spinbutton", "treeitem"
+    "menuitemradio", "slider", "spinbutton", "treeitem", "draggable"
   ]);
   const BLOCK_TEXT_TAGS = new Set(["P", "LI", "BLOCKQUOTE", "PRE", "FIGCAPTION", "DT", "DD"]);
   const LIVE_ROLES = new Set(["alert", "status", "dialog", "alertdialog"]);
@@ -294,6 +294,8 @@
     if (/^H[1-6]$/.test(tag)) return "heading";
     if (tag === "TR") return "row";
     if (el.hasAttribute("onclick")) return "button";
+    // Sürüklenebilir kartlar çoğu sitede rolsüzdür; ref alsınlar ki `drag` ile taşınabilsinler.
+    if (el.getAttribute("draggable") === "true") return "draggable";
     return "";
   }
 
@@ -809,6 +811,85 @@
     return finishAction(v0);
   }
 
+  // Görünen metni ya da aria-label'ı verilen dizeyle eşleşen elemanı bulur (tam eşleşme önce).
+  function findByLabel(text) {
+    const want = norm(text).toLowerCase();
+    if (!want || !document.body) return null;
+    let best = null;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (SKIP_TAGS.has(n.tagName)) continue;
+      const al = norm(n.getAttribute("aria-label") || "").toLowerCase();
+      let own = "";
+      for (const c of n.childNodes) if (c.nodeType === 3) own += c.nodeValue;
+      own = norm(own).toLowerCase();
+      if (al === want || own === want) return n;
+      if (!best && (al.includes(want) || own.includes(want))) best = n;
+    }
+    return best;
+  }
+
+  async function opDrag(args) {
+    const src = resolveRef(args.ref);
+    if (!args.to) throw new Error("to gerekli (hedef ref)");
+    // Bırakma hedefi çoğu zaman rolsüz bir kaptır: ref yoksa CSS seçici de kabul edilir.
+    let dst;
+    if (/^e\d+$/.test(String(args.to))) {
+      dst = resolveRef(args.to);
+    } else {
+      try {
+        dst = document.querySelector(String(args.to));
+      } catch (_) {
+        dst = null;
+      }
+      if (!dst) dst = findByLabel(String(args.to));
+      if (!dst) throw new Error("hedef bulunamadı: " + args.to);
+    }
+    if (src.ownerDocument !== dst.ownerDocument) throw new Error("kaynak ve hedef farklı çerçevede");
+    const v0 = version;
+    src.scrollIntoView({ block: "center", inline: "nearest" });
+    if (isOffscreen(topViewportRect(dst))) dst.scrollIntoView({ block: "center", inline: "nearest" });
+    // Kaydırma iki elemanın konumunu da değiştirebilir; merkezler en son ölçülür.
+    const { cx: sx, cy: sy } = elemCenter(src);
+    const { cx: tx, cy: ty } = elemCenter(dst);
+    fireMouse(src, "pointerdown", sx, sy, true, 1);
+    fireMouse(src, "mousedown", sx, sy, true, 1);
+    const win = src.ownerDocument.defaultView || window;
+    const dt = new win.DataTransfer();
+    const fireDrag = (el, type, x, y) => {
+      try {
+        const ev = new win.DragEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          view: win,
+          clientX: x,
+          clientY: y,
+          dataTransfer: dt
+        });
+        return el.dispatchEvent(ev);
+      } catch (_) {
+        return true;
+      }
+    };
+    fireDrag(src, "dragstart", sx, sy);
+    // İşaretçi tabanlı kitaplıklar ara hareket bekler; 5 adımda hedefe yaklaşılır.
+    for (let i = 1; i <= 5; i++) {
+      const rx = sx + ((tx - sx) * i) / 6;
+      const ry = sy + ((ty - sy) * i) / 6;
+      fireMouse(dst, "pointermove", rx, ry, true, 1);
+      fireMouse(dst, "mousemove", rx, ry, true, 1);
+      await new Promise((r) => setTimeout(r, 16));
+    }
+    fireDrag(dst, "dragenter", tx, ty);
+    fireDrag(dst, "dragover", tx, ty);
+    fireDrag(dst, "drop", tx, ty);
+    fireDrag(src, "dragend", tx, ty);
+    fireMouse(dst, "pointerup", tx, ty, true, 0);
+    fireMouse(dst, "mouseup", tx, ty, true, 0);
+    return finishAction(v0);
+  }
+
   async function opFocus(args) {
     const el = resolveRef(args.ref);
     const v0 = version;
@@ -1009,6 +1090,7 @@
       case "select": return opSelect(args);
       case "check": return opCheck(args);
       case "hover": return opHover(args);
+      case "drag": return opDrag(args);
       case "focus": return opFocus(args);
       case "key": return opKey(args);
       case "scroll": return opScroll(args);

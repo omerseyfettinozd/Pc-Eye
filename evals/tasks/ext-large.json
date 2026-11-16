@@ -7,10 +7,23 @@
     "browser",
     "ext"
   ],
-  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/large sayfasında: Sayfadaki büyük tabloda 37. satırın 12. sütunundaki hücrede ne yazıyor?",
+  "prompt": "Firefox'ta açık {url} sayfasında: Sayfadaki büyük tabloda 37. satırın 12. sütunundaki hücrede ne yazıyor?",
   "probe": [],
   "check": {
     "type": "answer",
     "expect": "37.12"
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "text",
+        "--query",
+        "37.12"
+      ],
+      "expect_contains": [
+        "37.12"
+      ]
+    }
+  ]
 }

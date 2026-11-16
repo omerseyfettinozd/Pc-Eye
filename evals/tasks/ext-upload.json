@@ -7,10 +7,36 @@
     "browser",
     "ext"
   ],
-  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/upload sayfasında: {upload_path} dosyasını sayfadaki dosya seçme alanına yükle ve Upload düğmesine bas. Açılan sayfanın içindeki büyük başlıkta (heading) ne yazıyor?",
+  "prompt": "Firefox'ta açık {url} sayfasında: {upload_path} dosyasını sayfadaki dosya seçme alanına yükle ve Upload düğmesine bas. Açılan sayfanın içindeki büyük başlıkta (heading) ne yazıyor?",
   "probe": [],
   "check": {
     "type": "answer",
     "expect": "File Uploaded!"
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "upload",
+        "--name",
+        "file",
+        "--path",
+        "{upload_path}"
+      ],
+      "expect_contains": [
+        "{upload_name}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Upload"
+      ],
+      "expect_contains": [
+        "File Uploaded!"
+      ]
+    }
+  ]
 }

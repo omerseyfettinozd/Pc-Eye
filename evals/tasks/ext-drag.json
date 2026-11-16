@@ -7,10 +7,33 @@
     "browser",
     "ext"
   ],
-  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/drag_and_drop sayfasında: A kutusunu B kutusunun üzerine sürükleyip bırak. Bundan sonra soldaki (ilk) kutunun başlığında hangi harf yazıyor?",
+  "prompt": "Firefox'ta açık {url} sayfasında: A kutusunu B kutusunun üzerine sürükleyip bırak. Bundan sonra soldaki (ilk) kutunun başlığında hangi harf yazıyor?",
   "probe": [],
   "check": {
     "type": "answer",
     "expect": "B"
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "drag",
+        "--name",
+        "A",
+        "--args",
+        "{\"to\": \"#column-b\"}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "text",
+        "--ref",
+        "#column-a"
+      ],
+      "expect_contains": [
+        "\"text\": \"B\""
+      ]
+    }
+  ]
 }

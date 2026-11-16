@@ -7,10 +7,24 @@
     "browser",
     "ext"
   ],
-  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/tables sayfasında: Example 1 tablosunda soyadı (Last Name) Conway olan kişinin Due değeri nedir?",
+  "prompt": "Firefox'ta açık {url} sayfasında: Example 1 tablosunda soyadı (Last Name) Conway olan kişinin Due değeri nedir?",
   "probe": [],
   "check": {
     "type": "answer",
     "expect": "$50.00"
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "snapshot",
+        "--query",
+        "Conway"
+      ],
+      "expect_contains": [
+        "Due: $50.00"
+      ],
+      "max_ms": 400
+    }
+  ]
 }

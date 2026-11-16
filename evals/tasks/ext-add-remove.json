@@ -7,10 +7,40 @@
     "browser",
     "ext"
   ],
-  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/add_remove_elements/ sayfasında: \"Add Element\" düğmesine 3 kez bas. Sayfada kaç tane Delete düğmesi var? Yalnız sayıyı yaz.",
+  "prompt": "Firefox'ta açık {url} sayfasında: \"Add Element\" düğmesine 3 kez bas. Sayfada kaç tane Delete düğmesi var? Yalnız sayıyı yaz.",
   "probe": [],
   "check": {
     "type": "answer",
     "expect": "3"
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Add Element"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Add Element"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "snapshot",
+        "--query",
+        "Delete"
+      ],
+      "expect_contains": [
+        "[e6] button",
+        "[e7] button"
+      ]
+    }
+  ]
 }

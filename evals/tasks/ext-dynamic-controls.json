@@ -7,10 +7,33 @@
     "browser",
     "ext"
   ],
-  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/dynamic_controls sayfasında: Remove düğmesine bas; işlem bitince sayfada çıkan ileti nedir?",
+  "prompt": "Firefox'ta açık {url} sayfasında: Remove düğmesine bas; işlem bitince sayfada çıkan ileti nedir?",
   "probe": [],
   "check": {
     "type": "answer",
     "expect": "It's gone!"
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Remove"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "wait",
+        "--text",
+        "It's gone!",
+        "--timeout-ms",
+        "10000"
+      ],
+      "expect_contains": [
+        "\"matched\": true"
+      ]
+    }
+  ]
 }

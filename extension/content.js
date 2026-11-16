@@ -1194,7 +1194,10 @@
     const idleMs = Math.max(0, numOr(args.idle_ms, 0));
     const t0 = Date.now();
 
+    // Koşulsuz bekleme = sayfanın yüklenmesini bekle (yavaş sitede "hâlâ yükleniyor" durumunun çıkışı).
+    const unconditional = !wantText && !wantGone && !wantUrl;
     const isMatched = () => {
+      if (unconditional) return document.readyState === "complete";
       if (wantUrl && !location.href.includes(wantUrl)) return false;
       if (wantText || wantGone) {
         const body = document.body || document.documentElement;
@@ -1226,7 +1229,7 @@
       };
       const idleCheck = () => {
         check();
-        if (done || !idleMs || document.readyState !== "complete" || pageBusy()) return;
+        if (done || !idleMs || unconditional || document.readyState !== "complete" || pageBusy()) return;
         if (Date.now() - Math.max(t0, lastMutAt) < idleMs) return;
         done = true;
         mutWaiters.delete(check);

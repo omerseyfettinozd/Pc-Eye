@@ -1,0 +1,607 @@
+{
+ "tier": "agent",
+ "started": "20261116-170445-cmp-playwright-mcp",
+ "seed": 595001731,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "605f7ca",
+ "summary": {
+  "tasks": [
+   {
+    "task": "ext-add-remove",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 19555.8,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 50546,
+    "median_output_tokens": 362,
+    "cost_usd": 0.0017
+   },
+   {
+    "task": "ext-drag",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 26670.0,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 37065,
+    "median_output_tokens": 345,
+    "cost_usd": 0.0015
+   },
+   {
+    "task": "ext-dynamic-controls",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 29498.5,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 50766,
+    "median_output_tokens": 367,
+    "cost_usd": 0.0017
+   },
+   {
+    "task": "ext-dynamic-loading",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 19449.1,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 50062,
+    "median_output_tokens": 341,
+    "cost_usd": 0.0017
+   },
+   {
+    "task": "ext-hover",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 46483.8,
+    "median_turns": 7,
+    "median_tool_calls": 6,
+    "median_input_tokens": 64078,
+    "median_output_tokens": 447,
+    "cost_usd": 0.0022
+   },
+   {
+    "task": "ext-js-confirm",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 46407.7,
+    "median_turns": 7,
+    "median_tool_calls": 6,
+    "median_input_tokens": 88341,
+    "median_output_tokens": 487,
+    "cost_usd": 0.0022
+   },
+   {
+    "task": "ext-js-prompt",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 27812.4,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 63366,
+    "median_output_tokens": 400,
+    "cost_usd": 0.0019
+   },
+   {
+    "task": "ext-large",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 21144.5,
+    "median_turns": 3,
+    "median_tool_calls": 2,
+    "median_input_tokens": 37856,
+    "median_output_tokens": 885,
+    "cost_usd": 0.002
+   },
+   {
+    "task": "ext-nested-frames",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 8728.1,
+    "median_turns": 2,
+    "median_tool_calls": 1,
+    "median_input_tokens": 23685,
+    "median_output_tokens": 76,
+    "cost_usd": 0.0011
+   },
+   {
+    "task": "ext-table",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 133814.1,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 48908,
+    "median_output_tokens": 723,
+    "cost_usd": 0.0018
+   },
+   {
+    "task": "ext-upload",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 14091.1,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 64632,
+    "median_output_tokens": 537,
+    "cost_usd": 0.0021
+   }
+  ],
+  "pass_rate": 0.909,
+  "total_cost_usd": 0.0199
+ },
+ "session": "cmp",
+ "toolset": "playwright-mcp",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "ext-add-remove",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/add_remove_elements/",
+    "url": "https://the-internet.herokuapp.com/add_remove_elements/",
+    "pid": 861458,
+    "word": "KV7FYM",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-add-remove-0/not-FEH2.txt",
+    "upload_name": "not-FEH2.txt"
+   },
+   "ok": true,
+   "detail": "cevap='3'",
+   "ms": 19555.8,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.00174225,
+   "input_tokens": 50546,
+   "output_tokens": 362,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_click": 3,
+    "mcp__rival__browser_find": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2512,
+      "y": 1341
+     },
+     {
+      "x": 2294,
+      "y": 1539
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-drag",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/drag_and_drop",
+    "url": "https://the-internet.herokuapp.com/drag_and_drop",
+    "pid": 863400,
+    "word": "XK7L9E",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-drag-0/not-U8T4.txt",
+    "upload_name": "not-U8T4.txt"
+   },
+   "ok": true,
+   "detail": "cevap='B'",
+   "ms": 26670.0,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00153644,
+   "input_tokens": 37065,
+   "output_tokens": 345,
+   "tool_calls": 3,
+   "tools": {
+    "mcp__rival__browser_snapshot": 2,
+    "mcp__rival__browser_drag": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2294,
+      "y": 1539
+     },
+     {
+      "x": 2246,
+      "y": 888
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-dynamic-controls",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/dynamic_controls",
+    "url": "https://the-internet.herokuapp.com/dynamic_controls",
+    "pid": 866254,
+    "word": "CMTV46",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-dynamic-controls-0/not-6TG9.txt",
+    "upload_name": "not-6TG9.txt"
+   },
+   "ok": true,
+   "detail": "cevap=\"It's gone!\"",
+   "ms": 29498.5,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0017460000000000002,
+   "input_tokens": 50766,
+   "output_tokens": 367,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_wait_for": 1,
+    "mcp__rival__browser_find": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2246,
+      "y": 888
+     },
+     {
+      "x": 2272,
+      "y": 721
+     }
+    ],
+    "active_class": "ai.storyteller.artcraft-launcher",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-dynamic-loading",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/dynamic_loading/2",
+    "url": "https://the-internet.herokuapp.com/dynamic_loading/2",
+    "pid": 868757,
+    "word": "KC3LNP",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-dynamic-loading-0/not-YTNK.txt",
+    "upload_name": "not-YTNK.txt"
+   },
+   "ok": true,
+   "detail": "cevap='Hello World!'",
+   "ms": 19449.1,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00167713,
+   "input_tokens": 50062,
+   "output_tokens": 341,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_wait_for": 1,
+    "mcp__rival__browser_find": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 2272,
+      "y": 721
+     },
+     {
+      "x": 1436,
+      "y": 359
+     }
+    ],
+    "active_class": "ai.storyteller.artcraft-launcher",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-hover",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/hovers",
+    "url": "https://the-internet.herokuapp.com/hovers",
+    "pid": 870495,
+    "word": "8VXRYY",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-hover-0/not-LR8T.txt",
+    "upload_name": "not-LR8T.txt"
+   },
+   "ok": true,
+   "detail": "cevap='name: user2'",
+   "ms": 46483.8,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.0022487600000000003,
+   "input_tokens": 64078,
+   "output_tokens": 447,
+   "tool_calls": 6,
+   "tools": {
+    "mcp__rival__browser_snapshot": 2,
+    "mcp__rival__browser_tabs": 1,
+    "mcp__rival__browser_hover": 1,
+    "mcp__rival__browser_find": 1,
+    "mcp__rival__browser_take_screenshot": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1436,
+      "y": 359
+     },
+     {
+      "x": 1669,
+      "y": 1395
+     }
+    ],
+    "active_class": "ai.storyteller.artcraft-launcher",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-js-confirm",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/javascript_alerts",
+    "url": "https://the-internet.herokuapp.com/javascript_alerts",
+    "pid": 872673,
+    "word": "8CFNWE",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-js-confirm-0/not-K2N8.txt",
+    "upload_name": "not-K2N8.txt"
+   },
+   "ok": true,
+   "detail": "cevap='You clicked: Ok'",
+   "ms": 46407.7,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.00221953,
+   "input_tokens": 88341,
+   "output_tokens": 487,
+   "tool_calls": 6,
+   "tools": {
+    "mcp__rival__browser_snapshot": 2,
+    "mcp__rival__browser_tabs": 1,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_handle_dialog": 1,
+    "mcp__rival__browser_find": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1669,
+      "y": 1395
+     },
+     {
+      "x": 1208,
+      "y": 1497
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-js-prompt",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/javascript_alerts",
+    "url": "https://the-internet.herokuapp.com/javascript_alerts",
+    "pid": 875298,
+    "word": "XNP7FR",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-js-prompt-0/not-RD3D.txt",
+    "upload_name": "not-RD3D.txt"
+   },
+   "ok": true,
+   "detail": "cevap='You entered: XNP7FR'",
+   "ms": 27812.4,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00187367,
+   "input_tokens": 63366,
+   "output_tokens": 400,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_handle_dialog": 1,
+    "mcp__rival__browser_find": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1208,
+      "y": 1497
+     },
+     {
+      "x": 1392,
+      "y": 1451
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-large",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/large",
+    "url": "https://the-internet.herokuapp.com/large",
+    "pid": 877211,
+    "word": "7JEPUV",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-large-0/not-83K2.txt",
+    "upload_name": "not-83K2.txt"
+   },
+   "ok": true,
+   "detail": "cevap='37.12'",
+   "ms": 21144.5,
+   "is_error": false,
+   "turns": 3,
+   "cost_usd": 0.0019578000000000004,
+   "input_tokens": 37856,
+   "output_tokens": 885,
+   "tool_calls": 2,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_evaluate": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1396,
+      "y": 1470
+     },
+     {
+      "x": 952,
+      "y": 1463
+     }
+    ],
+    "active_class": "firefox",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-nested-frames",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/nested_frames",
+    "url": "https://the-internet.herokuapp.com/nested_frames",
+    "pid": 879030,
+    "word": "6LMDL9",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-nested-frames-0/not-RJPK.txt",
+    "upload_name": "not-RJPK.txt"
+   },
+   "ok": true,
+   "detail": "cevap='BOTTOM'",
+   "ms": 8728.1,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.0010547800000000002,
+   "input_tokens": 23685,
+   "output_tokens": 76,
+   "tool_calls": 1,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 952,
+      "y": 1463
+     },
+     {
+      "x": 717,
+      "y": 429
+     }
+    ],
+    "active_class": "Chatgpt",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-table",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/tables",
+    "url": "https://the-internet.herokuapp.com/tables",
+    "pid": 881011,
+    "word": "A3FDA4",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-table-0/not-TLL2.txt",
+    "upload_name": "not-TLL2.txt"
+   },
+   "ok": false,
+   "detail": "cevap='belirlenemedi (tarayıcı bağlantısı zaman aşımına uğradı)'",
+   "ms": 133814.1,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0017861,
+   "input_tokens": 48908,
+   "output_tokens": 723,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__rival__browser_snapshot": 2,
+    "mcp__rival__browser_tabs": 1,
+    "mcp__rival__browser_navigate": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 722,
+      "y": 408
+     },
+     {
+      "x": 214,
+      "y": 457
+     }
+    ],
+    "active_class": "ai.storyteller.artcraft-launcher",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-upload",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/upload",
+    "url": "https://the-internet.herokuapp.com/upload",
+    "pid": 886504,
+    "word": "JLPAET",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-170445-cmp-playwright-mcp/ext-upload-0/not-892J.txt",
+    "upload_name": "not-892J.txt"
+   },
+   "ok": true,
+   "detail": "cevap='File Uploaded!'",
+   "ms": 14091.1,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0020637,
+   "input_tokens": 64632,
+   "output_tokens": 537,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__rival__browser_snapshot": 2,
+    "mcp__rival__browser_click": 2,
+    "mcp__rival__browser_file_upload": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 214,
+      "y": 457
+     },
+     {
+      "x": 508,
+      "y": 499
+     }
+    ],
+    "active_class": "ai.storyteller.gridcraft",
+    "active_changed": true,
+    "agent_leak": false
+   }
+  }
+ ],
+ "user_disturbed_runs": 11,
+ "agent_leak_runs": 0
+}

@@ -806,6 +806,21 @@ pub fn command(op: &str, args: &serde_json::Value) -> anyhow::Result<serde_json:
             } else {
                 args
             };
+            // Koşulsuz `wait` sayfa yüklenmesini bekler; yavaş sitelere göre varsayılan süre uzundur.
+            let waited;
+            let args = if other == "wait"
+                && args.get("timeout_ms").is_none()
+                && ["text", "gone", "url"].iter().all(|k| args.get(*k).map_or(true, |v| v.is_null()))
+            {
+                let mut a = args.clone();
+                if let Some(o) = a.as_object_mut() {
+                    o.insert("timeout_ms".to_string(), json!(15_000));
+                }
+                waited = a;
+                &waited
+            } else {
+                args
+            };
             if other == "click" && args.get("real").and_then(|v| v.as_bool()) == Some(true) {
                 return cmd_real_click(args);
             }
@@ -1051,8 +1066,13 @@ fn resolve_name_arg(op: &str, args: &Value) -> Result<Value> {
         .and_then(|v| v.as_array())
         .map(|a| a.iter().filter_map(|l| l.as_str()).collect())
         .unwrap_or_default();
-    let r = pick_ref_by_name(&lines, name, op)
-        .ok_or_else(|| anyhow!("`{}` adlı eleman bulunamadı (snapshot ile adları görün)", name))?;
+    let r = pick_ref_by_name(&lines, name, op).ok_or_else(|| {
+        if snap.get("ready").and_then(|v| v.as_str()) == Some("loading") {
+            anyhow!("sayfa hâlâ yükleniyor (henüz içerik yok): önce {{op:\"wait\"}} ile yüklenmesini bekleyin")
+        } else {
+            anyhow!("`{}` adlı eleman bulunamadı (snapshot ile adları görün)", name)
+        }
+    })?;
     let mut out = args.clone();
     if let Some(obj) = out.as_object_mut() {
         obj.remove("name");

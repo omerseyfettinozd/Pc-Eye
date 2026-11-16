@@ -7,7 +7,7 @@
     "browser",
     "ext"
   ],
-  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/javascript_alerts sayfasında: \"Click for JS Prompt\" düğmesine bas, çıkan istem kutusuna {word} yaz ve onayla. Result satırında ne yazıyor?",
+  "prompt": "Firefox'ta açık {url} sayfasında: \"Click for JS Prompt\" düğmesine bas, çıkan istem kutusuna {word} yaz ve onayla. Result satırında ne yazıyor?",
   "probe": [],
   "check": {
     "type": "answer",
@@ -15,5 +15,20 @@
       "You entered: {word}",
       "Result: You entered: {word}"
     ]
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Click for JS Prompt",
+        "--args",
+        "{\"dialog_text\": \"{word}\"}"
+      ],
+      "expect_contains": [
+        "You entered: {word}"
+      ]
+    }
+  ]
 }

@@ -838,7 +838,8 @@ fn run() -> Result<()> {
             put("scope", scope.map(|v| json!(v)));
             put("path", path.map(|v| json!(v)));
             put("pattern", pattern.map(|v| json!(v)));
-            let out = browser::command(&op, &a)?;
+            // MCP ile aynı yol: eylemler sayfada değişen satırları da döndürür.
+            let out = browser::command_with_diff(&op, &a)?;
             println!("{}", serde_json::to_string_pretty(&out)?);
         }
         Commands::Events { since, kind, limit, follow } => {

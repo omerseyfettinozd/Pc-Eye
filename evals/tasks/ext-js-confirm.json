@@ -7,7 +7,7 @@
     "browser",
     "ext"
   ],
-  "prompt": "Firefox'ta açık https://the-internet.herokuapp.com/javascript_alerts sayfasında: \"Click for JS Confirm\" düğmesine bas ve çıkan onay sorusunu KABUL et. Result satırında ne yazıyor?",
+  "prompt": "Firefox'ta açık {url} sayfasında: \"Click for JS Confirm\" düğmesine bas ve çıkan onay sorusunu KABUL et. Result satırında ne yazıyor?",
   "probe": [],
   "check": {
     "type": "answer",
@@ -15,5 +15,22 @@
       "You clicked: Ok",
       "Result: You clicked: Ok"
     ]
-  }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Click for JS Confirm",
+        "--args",
+        "{\"dialog\": \"accept\"}"
+      ],
+      "expect_contains": [
+        "I am a JS Confirm",
+        "-> true",
+        "You clicked: Ok"
+      ]
+    }
+  ]
 }

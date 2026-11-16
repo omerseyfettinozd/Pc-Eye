@@ -82,6 +82,14 @@ SCENE_WAYLAND = None
 WEB_RIVAL_DIR = Path.home() / ".local/share/pc-eye/rivals/web"
 AGENT_BROWSER_BIN = Path.home() / ".npm/_npx/ad6c181e5b604bdb/node_modules/agent-browser/bin/agent-browser-linux-x64"
 WEB_RIVALS = ("playwright-mcp", "agent-browser")
+# Claude in Chrome: `claude --chrome` kullanıcının GERÇEK Chrome'unda (eklenti + oturum) çalışır; sayfa
+# önceden açılamaz (araç yalnız kendi sekme grubundaki sekmeleri kullanır), ajan sekmeyi kendi açar.
+CIC_SYSTEM = (
+    "Bir web otomasyon ölçüm görevindesin. Yalnız Claude in Chrome tarayıcı araçlarını kullan. "
+    "Görev sayfası: {url} — görev metnindeki \"Firefox'ta açık sayfa\" budur; yeni bir sekme açıp bu adrese git. "
+    "Görevi bitirince sekmeyi kapat ve yanıtının son satırına `CEVAP: <değer>` yaz; sorulan bir değer yoksa "
+    "`CEVAP: tamam` yaz."
+)
 WEB_RIVAL_SYSTEM = (
     "Bir web otomasyon ölçüm görevindesin. Yalnız sana verilen tarayıcı araçlarını kullan. "
     "Görev sayfası ({url}) tarayıcında ŞU AN açık ve bağlı; görev metnindeki \"Firefox'ta açık sayfa\" budur, "
@@ -678,6 +686,42 @@ def scene_web_frame(sb, rng, work):
 
 
 CURRENT_TASK = None
+# Dış deneme sitesinin yerel yansısı (wget -p -k ile alınmış; depoya girmez). Site çok yavaş ve dalgalı
+# olduğundan süre ölçümü yansıdan yapılır; `PCEYE_EXT_LIVE=1` canlı siteyi kullanır.
+EXT_MIRROR = Path.home() / ".local/share/pc-eye/rivals/the-internet"
+EXT_HOST = "https://the-internet.herokuapp.com"
+
+
+def serve_mirror(sb):
+    """Yansı klasörünü 127.0.0.1'de sunar; POST (dosya yükleme) sitenin gerçek yanıt sayfasını döndürür."""
+    import functools
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            body = (EXT_MIRROR / "uploaded.html").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0), functools.partial(Handler, directory=str(EXT_MIRROR)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    sb.cleanups.append(server.shutdown)
+    return f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def mirror_path(url):
+    path = url[len(EXT_HOST):]
+    if path.endswith("/"):
+        return path + "index.html"
+    return path + ".html"
+
 
 
 def scene_web_url(sb, rng, work):
@@ -685,6 +729,8 @@ def scene_web_url(sb, rng, work):
     Site bizim yazmadığımız, tarayıcı otomasyonu için yaygın kullanılan bir deneme sitesidir."""
     global LAST_URL
     url = CURRENT_TASK["url"]
+    if EXT_MIRROR.is_dir() and url.startswith(EXT_HOST) and not os.environ.get("PCEYE_EXT_LIVE"):
+        url = serve_mirror(sb) + mirror_path(url)
     up = work / f"not-{token(rng, 4)}.txt"
     up.write_text(f"deneme {token(rng, 8)}", encoding="utf-8")
     LAST_URL = url
@@ -1087,6 +1133,13 @@ def run_agent(task, scene, sb, work, args, transcript):
         system, allowed, disallowed = RIVAL_SYSTEM, ["mcp__rival"], []
     tools_flag = ""
     run_env = None
+    extra_flags = []
+    if args.toolset == "claude-in-chrome":
+        if not LAST_URL:
+            raise RuntimeError("Claude in Chrome yalnız web sahnelerinde koşar")
+        mcp.write_text(json.dumps({"mcpServers": {}}))
+        system, allowed, disallowed = CIC_SYSTEM.format(url=LAST_URL), ["mcp__claude-in-chrome"], []
+        extra_flags = ["--chrome"]
     if args.toolset in WEB_RIVALS:
         if not LAST_URL:
             raise RuntimeError("web rakibi yalnız web sahnelerinde koşar")
@@ -1112,7 +1165,7 @@ def run_agent(task, scene, sb, work, args, transcript):
             mcp.write_text(json.dumps({"mcpServers": {}}))
             system += AGENT_BROWSER_SYSTEM
             allowed, tools_flag = ["Bash(agent-browser:*)"], "Bash"
-    if args.toolset in WEB_RIVALS:
+    if args.toolset in WEB_RIVALS or args.toolset == "claude-in-chrome":
         pass
     elif BROWSER == "bridge":
         system += BRIDGE_SYSTEM
@@ -1139,6 +1192,7 @@ def run_agent(task, scene, sb, work, args, transcript):
         "--max-budget-usd", str(args.budget),
         "--append-system-prompt", system,
     ]
+    cmd += extra_flags
     if disallowed:
         cmd += ["--disallowedTools", ",".join(disallowed)]
     if args.model:
@@ -1154,6 +1208,9 @@ def run_agent(task, scene, sb, work, args, transcript):
     transcript.write_text(out, encoding="utf-8")
     m = parse_stream(out.splitlines())
     # API hatası (kullanım sınırı, aşırı yük) ajanın başarısızlığı değildir: ölçüme sayılmaz.
+    # Oturum süresi dolmuş CLI da ajanın başarısızlığı değildir.
+    if "Failed to authenticate" in (m.get("final_text") or ""):
+        raise ApiUnavailable("claude CLI oturumu geçersiz: `claude auth login` gerekli")
     if m.get("api_error"):
         raise ApiUnavailable(f"API hatası: {m['api_error']}: {m['final_text'][:120]}")
     m.pop("api_error", None)
@@ -1268,7 +1325,7 @@ def main():
     ap.add_argument("--timeout", type=int, default=300, help="agent görev süresi sınırı (sn)")
     ap.add_argument("--budget", type=float, default=1.0, help="agent görev başı $ sınırı")
     ap.add_argument("--no-save", action="store_true")
-    ap.add_argument("--toolset", choices=["full", "web", "pixels", "wayland-mcp", "playwright-mcp", "agent-browser"], default="full",
+    ap.add_argument("--toolset", choices=["full", "web", "pixels", "wayland-mcp", "playwright-mcp", "agent-browser", "claude-in-chrome"], default="full",
                     help="pixels: yalnız ekran görüntüsü + fare/klavye (rakip mimarisi kıyası)")
     ap.add_argument("--browser", choices=["atspi", "bridge"], default="atspi",
                     help="bridge: Firefox sahnelerine Pc-Eye Bridge eklentisi bağlanır (pc_eye_browser)")

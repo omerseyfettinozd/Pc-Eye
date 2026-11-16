@@ -1,0 +1,90 @@
+{
+  "id": "web-forms-extra",
+  "scene": "web_hard",
+  "tags": [
+    "browser",
+    "bridge",
+    "web-hard"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasında Tarih alanını 2027-03-15, Düzey kaydırıcısını 7, Ülke'yi \"Ülke 17\" yap ve \"Ek alanları gönder\" düğmesine bas.",
+  "probe": [],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "date": "2027-03-15",
+      "level": "7",
+      "country": "Ülke 17"
+    }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "type",
+        "--name",
+        "Tarih",
+        "--text",
+        "2027-03-15"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "type",
+        "--name",
+        "Düzey",
+        "--text",
+        "7"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "snapshot",
+        "--query",
+        "Rapor indir"
+      ],
+      "expect_contains": [
+        "token=REDACTED",
+        "sayfa=2"
+      ],
+      "expect_absent": [
+        "abc123SECRETxyz"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "scroll",
+        "--ref",
+        "#kutualt",
+        "--args",
+        "{\"dy\": 150}"
+      ],
+      "expect_contains": [
+        "container"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "select",
+        "--name",
+        "Ülke",
+        "--option",
+        "Ülke 17"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Ek alanları gönder"
+      ],
+      "expect_contains": [
+        "Ek alanlar gönderildi"
+      ]
+    }
+  ]
+}

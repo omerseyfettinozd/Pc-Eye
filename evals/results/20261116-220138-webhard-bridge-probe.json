@@ -1,0 +1,1508 @@
+{
+ "tier": "probe",
+ "started": "20261116-220138-webhard-bridge",
+ "seed": 1051216596,
+ "model": null,
+ "pceye_version": "0.3.0",
+ "git_commit": "c072ba4",
+ "summary": {
+  "tasks": [
+   {
+    "task": "ext-add-remove",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 382.4
+   },
+   {
+    "task": "ext-drag",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 271.4
+   },
+   {
+    "task": "ext-dynamic-controls",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 3040.8
+   },
+   {
+    "task": "ext-dynamic-loading",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 5039.1
+   },
+   {
+    "task": "ext-hover",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 199.4
+   },
+   {
+    "task": "ext-js-confirm",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 200.3
+   },
+   {
+    "task": "ext-js-prompt",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 210.7
+   },
+   {
+    "task": "ext-large",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 21.7
+   },
+   {
+    "task": "ext-nested-frames",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 10.1
+   },
+   {
+    "task": "ext-table",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 16.6
+   },
+   {
+    "task": "ext-upload",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 357.8
+   },
+   {
+    "task": "hard-web-long",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 31.4
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 1286.6
+   },
+   {
+    "task": "web-console-network",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 560.3
+   },
+   {
+    "task": "web-cross-frame",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 438.5
+   },
+   {
+    "task": "web-dialog-accept",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 344.8
+   },
+   {
+    "task": "web-dialog-policy",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 849.6
+   },
+   {
+    "task": "web-drag-drop",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 635.5
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 896.7
+   },
+   {
+    "task": "web-forms-extra",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 997.5
+   },
+   {
+    "task": "web-snapshot-scope",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 569.2
+   },
+   {
+    "task": "web-table-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 15.9
+   },
+   {
+    "task": "web-upload-large",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 681.4
+   },
+   {
+    "task": "web-upload",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 382.5
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0
+ },
+ "session": "webhard",
+ "toolset": "full",
+ "browser": "bridge",
+ "runs": [
+  {
+   "task": "ext-add-remove",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/add_remove_elements/",
+    "url": "http://127.0.0.1:42071/add_remove_elements/index.html",
+    "pid": 96911,
+    "word": "PLEHTG",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-add-remove-0/not-ENK3.txt",
+    "upload_name": "not-ENK3.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 382.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Add Element"
+     ],
+     "rc": 0,
+     "ms": 196.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Add Element"
+     ],
+     "rc": 0,
+     "ms": 175.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Delete"
+     ],
+     "rc": 0,
+     "ms": 10.0,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-drag",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/drag_and_drop",
+    "url": "http://127.0.0.1:42921/drag_and_drop.html",
+    "pid": 97938,
+    "word": "67EXPM",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-drag-0/not-J22A.txt",
+    "upload_name": "not-J22A.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 271.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "drag",
+      "--name",
+      "A",
+      "--args",
+      "{\"to\": \"#column-b\"}"
+     ],
+     "rc": 0,
+     "ms": 265.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "text",
+      "--ref",
+      "#column-a"
+     ],
+     "rc": 0,
+     "ms": 6.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-dynamic-controls",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/dynamic_controls",
+    "url": "http://127.0.0.1:41363/dynamic_controls.html",
+    "pid": 98976,
+    "word": "K2VJ33",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-dynamic-controls-0/not-U3WE.txt",
+    "upload_name": "not-U3WE.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 3040.8,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Remove"
+     ],
+     "rc": 0,
+     "ms": 198.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "It's gone!",
+      "--timeout-ms",
+      "10000"
+     ],
+     "rc": 0,
+     "ms": 2842.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-dynamic-loading",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/dynamic_loading/2",
+    "url": "http://127.0.0.1:44043/dynamic_loading/2.html",
+    "pid": 100033,
+    "word": "KNJLMY",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-dynamic-loading-0/not-LC7W.txt",
+    "upload_name": "not-LC7W.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 5039.1,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Start"
+     ],
+     "rc": 0,
+     "ms": 197.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hello World!",
+      "--timeout-ms",
+      "10000"
+     ],
+     "rc": 0,
+     "ms": 4841.5,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-hover",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/hovers",
+    "url": "http://127.0.0.1:34603/hovers.html",
+    "pid": 101151,
+    "word": "G6FCLY",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-hover-0/not-KGCG.txt",
+    "upload_name": "not-KGCG.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 199.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 13.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "hover",
+      "--ref",
+      ".figure:nth-of-type(2) img"
+     ],
+     "rc": 0,
+     "ms": 186.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-js-confirm",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/javascript_alerts",
+    "url": "http://127.0.0.1:38073/javascript_alerts.html",
+    "pid": 102168,
+    "word": "726J4T",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-js-confirm-0/not-6H8C.txt",
+    "upload_name": "not-6H8C.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 200.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Click for JS Confirm",
+      "--args",
+      "{\"dialog\": \"accept\"}"
+     ],
+     "rc": 0,
+     "ms": 200.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-js-prompt",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/javascript_alerts",
+    "url": "http://127.0.0.1:42799/javascript_alerts.html",
+    "pid": 103188,
+    "word": "XD7MAN",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-js-prompt-0/not-NCKM.txt",
+    "upload_name": "not-NCKM.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 210.7,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Click for JS Prompt",
+      "--args",
+      "{\"dialog_text\": \"XD7MAN\"}"
+     ],
+     "rc": 0,
+     "ms": 210.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-large",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/large",
+    "url": "http://127.0.0.1:34289/large.html",
+    "pid": 104191,
+    "word": "WAV7WC",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-large-0/not-8KTP.txt",
+    "upload_name": "not-8KTP.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 21.7,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "text",
+      "--query",
+      "37.12"
+     ],
+     "rc": 0,
+     "ms": 21.7,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-nested-frames",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/nested_frames",
+    "url": "http://127.0.0.1:42557/nested_frames.html",
+    "pid": 105202,
+    "word": "83WRYG",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-nested-frames-0/not-Y9U3.txt",
+    "upload_name": "not-Y9U3.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 10.1,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "text"
+     ],
+     "rc": 0,
+     "ms": 10.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-table",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/tables",
+    "url": "http://127.0.0.1:36141/tables.html",
+    "pid": 106183,
+    "word": "787YUY",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-table-0/not-U96M.txt",
+    "upload_name": "not-U96M.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 16.6,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Conway"
+     ],
+     "rc": 0,
+     "ms": 16.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-upload",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/upload",
+    "url": "http://127.0.0.1:43195/upload.html",
+    "pid": 107197,
+    "word": "P2N4YU",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-upload-0/not-42CC.txt",
+    "upload_name": "not-42CC.txt"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 357.8,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "upload",
+      "--name",
+      "file",
+      "--path",
+      "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/ext-upload-0/not-42CC.txt"
+     ],
+     "rc": 0,
+     "ms": 181.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Upload"
+     ],
+     "rc": 0,
+     "ms": 176.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok J6K9",
+    "pid": 108218,
+    "code": "H2-2228",
+    "stock": "882"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 31.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "H2-2228"
+     ],
+     "rc": 0,
+     "ms": 31.4,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim Y69X",
+    "pid": 109186,
+    "phone_pretty": "0534 146 12 74",
+    "phone": "5341461274",
+    "email": "ece64@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 1286.6,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "0534 146 12 74"
+     ],
+     "rc": 0,
+     "ms": 574.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "E-posta",
+      "--text",
+      "ece64@ornek.com"
+     ],
+     "rc": 0,
+     "ms": 174.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 177.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Hata:",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 5.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Telefon",
+      "--text",
+      "5341461274"
+     ],
+     "rc": 0,
+     "ms": 172.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydet"
+     ],
+     "rc": 0,
+     "ms": 175.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 5.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor VM24",
+    "pid": 110204,
+    "errtoken": "MWPE37",
+    "inner": "İç düğme E8X8",
+    "pin": "709718",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-console-network-0/belge-JNNP.txt",
+    "upload_name": "belge-JNNP.txt",
+    "upload_content": "içerik 6CD6ADLT",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-console-network-0/buyuk-MLFY.bin",
+    "big_name": "buyuk-MLFY.bin",
+    "big_size": 2491478
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 560.3,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Hata üret"
+     ],
+     "rc": 0,
+     "ms": 355.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "console",
+      "--pattern",
+      "MWPE37"
+     ],
+     "rc": 0,
+     "ms": 5.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Veri çek"
+     ],
+     "rc": 0,
+     "ms": 185.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Çekildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 8.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "network",
+      "--args",
+      "{\"failed\": true}"
+     ],
+     "rc": 0,
+     "ms": 4.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-cross-frame",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Çerçeve MCU6",
+    "pid": 111193,
+    "code": "KUPON-GTHG4"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 438.5,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 19.4,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Kupon kodu",
+      "--text",
+      "KUPON-GTHG4"
+     ],
+     "rc": 0,
+     "ms": 227.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Uygula"
+     ],
+     "rc": 0,
+     "ms": 183.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Uygulandı"
+     ],
+     "rc": 0,
+     "ms": 8.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-accept",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor CGWA",
+    "pid": 112221,
+    "errtoken": "F9RURR",
+    "inner": "İç düğme LA3K",
+    "pin": "759056",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-dialog-accept-0/belge-XADT.txt",
+    "upload_name": "belge-XADT.txt",
+    "upload_content": "içerik 8VVYY7FH",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-dialog-accept-0/buyuk-KAVM.bin",
+    "big_name": "buyuk-KAVM.bin",
+    "big_size": 2449890
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 344.8,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil",
+      "--args",
+      "{\"dialog\": \"accept\"}"
+     ],
+     "rc": 0,
+     "ms": 344.8,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor CVG2",
+    "pid": 113214,
+    "errtoken": "RW3M92",
+    "inner": "İç düğme PVC8",
+    "pin": "968494",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-dialog-policy-0/belge-JWKC.txt",
+    "upload_name": "belge-JWKC.txt",
+    "upload_content": "içerik JXYJKM8K",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-dialog-policy-0/buyuk-9U3H.bin",
+    "big_name": "buyuk-9U3H.bin",
+    "big_size": 2536373
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 849.6,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 264.3,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil",
+      "--args",
+      "{\"dialog\": \"accept\"}"
+     ],
+     "rc": 0,
+     "ms": 193.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Silindi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kod sor",
+      "--args",
+      "{\"dialog_text\": \"4821\"}"
+     ],
+     "rc": 0,
+     "ms": 191.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "dialogs"
+     ],
+     "rc": 0,
+     "ms": 4.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Kaydı sil"
+     ],
+     "rc": 0,
+     "ms": 184.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Vazgeçildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 5.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-drag-drop",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor Y29N",
+    "pid": 114217,
+    "errtoken": "AVKDWV",
+    "inner": "İç düğme 77VY",
+    "pin": "378041",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-drag-drop-0/belge-E4G2.txt",
+    "upload_name": "belge-E4G2.txt",
+    "upload_content": "içerik Y3TLP3W2",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-drag-drop-0/buyuk-7V93.bin",
+    "big_name": "buyuk-7V93.bin",
+    "big_size": 2532795
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 635.5,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Kart"
+     ],
+     "rc": 0,
+     "ms": 18.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "drag",
+      "--name",
+      "Kart İç düğme 77VY",
+      "--args",
+      "{\"to\": \"#hedef\"}"
+     ],
+     "rc": 0,
+     "ms": 602.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Bırakıldı: kart",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 14.1,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Gülşen Şahin",
+    "city": "İzmir",
+    "default_city": "Muğla",
+    "title": "Eval Web Form 2J6L",
+    "pid": 115208
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 896.7,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 13.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Ad Soyad",
+      "--text",
+      "Gülşen Şahin"
+     ],
+     "rc": 0,
+     "ms": 328.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "check",
+      "--name",
+      "Bültene abone ol",
+      "--args",
+      "{\"on\": true}"
+     ],
+     "rc": 0,
+     "ms": 196.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Şehir",
+      "--option",
+      "İzmir"
+     ],
+     "rc": 0,
+     "ms": 173.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Gönder"
+     ],
+     "rc": 0,
+     "ms": 177.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Kaydedildi",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 6.2,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-forms-extra",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor FV3A",
+    "pid": 116229,
+    "errtoken": "2PCMF2",
+    "inner": "İç düğme XHJG",
+    "pin": "452480",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-forms-extra-0/belge-FD3A.txt",
+    "upload_name": "belge-FD3A.txt",
+    "upload_content": "içerik 9TVD8FC2",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-forms-extra-0/buyuk-DNVM.bin",
+    "big_name": "buyuk-DNVM.bin",
+    "big_size": 2492464
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 997.5,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Tarih",
+      "--text",
+      "2027-03-15"
+     ],
+     "rc": 0,
+     "ms": 216.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "type",
+      "--name",
+      "Düzey",
+      "--text",
+      "7"
+     ],
+     "rc": 0,
+     "ms": 330.6,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Rapor indir"
+     ],
+     "rc": 0,
+     "ms": 10.7,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "scroll",
+      "--ref",
+      "#kutualt",
+      "--args",
+      "{\"dy\": 150}"
+     ],
+     "rc": 0,
+     "ms": 37.1,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "select",
+      "--name",
+      "Ülke",
+      "--option",
+      "Ülke 17"
+     ],
+     "rc": 0,
+     "ms": 220.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Ek alanları gönder"
+     ],
+     "rc": 0,
+     "ms": 181.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor HCKC",
+    "pid": 117243,
+    "errtoken": "RXJAJE",
+    "inner": "İç düğme 33R8",
+    "pin": "818509",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-snapshot-scope-0/belge-PW39.txt",
+    "upload_name": "belge-PW39.txt",
+    "upload_content": "içerik XR3FRHPA",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-snapshot-scope-0/buyuk-7D7W.bin",
+    "big_name": "buyuk-7D7W.bin",
+    "big_size": 2581816
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 569.2,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--scope",
+      "#bolme"
+     ],
+     "rc": 0,
+     "ms": 11.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "snapshot"
+     ],
+     "rc": 0,
+     "ms": 15.8,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "text",
+      "--query",
+      "köprünün"
+     ],
+     "rc": 0,
+     "ms": 7.9,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "click",
+      "--name",
+      "Alttaki düğme"
+     ],
+     "rc": 0,
+     "ms": 533.6,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Cetvel",
+    "price": "370,21 TL",
+    "title": "Eval Fiyatlar 9U28",
+    "pid": 118230
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 15.9,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "snapshot",
+      "--query",
+      "Cetvel"
+     ],
+     "rc": 0,
+     "ms": 15.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload-large",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor K6WF",
+    "pid": 119150,
+    "errtoken": "DLN3ER",
+    "inner": "İç düğme CV2R",
+    "pin": "875587",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-upload-large-0/belge-9J47.txt",
+    "upload_name": "belge-9J47.txt",
+    "upload_content": "içerik 24V9FU93",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-upload-large-0/buyuk-JXVC.bin",
+    "big_name": "buyuk-JXVC.bin",
+    "big_size": 2525400
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 681.4,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "upload",
+      "--name",
+      "Belge",
+      "--path",
+      "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-upload-large-0/buyuk-JXVC.bin"
+     ],
+     "rc": 0,
+     "ms": 672.5,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Yüklendi: buyuk-JXVC.bin",
+      "--timeout-ms",
+      "5000"
+     ],
+     "rc": 0,
+     "ms": 8.9,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor NDCL",
+    "pid": 120156,
+    "errtoken": "EEATPF",
+    "inner": "İç düğme VVRK",
+    "pin": "948951",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-upload-0/belge-2HX2.txt",
+    "upload_name": "belge-2HX2.txt",
+    "upload_content": "içerik ERFEJJ3H",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-upload-0/buyuk-CCPK.bin",
+    "big_name": "buyuk-CCPK.bin",
+    "big_size": 2529851
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 382.5,
+   "steps": [
+    {
+     "args": [
+      "browser",
+      "upload",
+      "--name",
+      "Belge",
+      "--path",
+      "/run/user/1000/pc-eye-eval/20261116-220138-webhard-bridge/web-upload-0/belge-2HX2.txt"
+     ],
+     "rc": 0,
+     "ms": 375.2,
+     "ok": true,
+     "note": "ok"
+    },
+    {
+     "args": [
+      "browser",
+      "wait",
+      "--text",
+      "Yüklendi: belge-2HX2.txt",
+      "--timeout-ms",
+      "3000"
+     ],
+     "rc": 0,
+     "ms": 7.3,
+     "ok": true,
+     "note": "ok"
+    }
+   ],
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}

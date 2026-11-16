@@ -22,6 +22,11 @@ body{font:18px sans-serif;margin:32px} label{display:block;margin:12px 0}
   <label>Ülke <select id="ulke">{options}</select></label>
   <div id="kart" draggable="true" style="display:inline-block;padding:8px;border:1px solid #333">Kart {inner}</div>
   <div id="hedef" role="region" aria-label="Bitti sütunu" tabindex="0" style="display:inline-block;width:200px;height:60px;border:2px dashed #999">Bitti</div>
+  <label>Tarih <input type="date" id="tarih"></label>
+  <label>Düzey <input type="range" id="duzey" min="0" max="10" value="2"></label>
+  <a id="gizli" href="/indir?file=rapor.pdf&token=abc123SECRETxyz&sayfa=2">Rapor indir</a>
+  <div id="kutu" style="height:80px;overflow-y:auto;border:1px solid #999"><div style="height:400px"><button id="kutuust">Kutu üstü</button><div style="height:300px"></div><button id="kutualt">Kutu altı</button></div></div>
+  <button id="gonder2">Ek alanları gönder</button>
   <div id="bolme"><h2>Kapsam</h2><button id="ic">{inner}</button></div>
   <div role="tablist"><button role="tab" aria-selected="true">Genel</button><button role="tab" aria-selected="false">Gelişmiş</button></div>
   <p id="durum" role="status"></p>
@@ -67,6 +72,11 @@ hedef.addEventListener("drop", (e) => {
   durum.textContent = "Bırakıldı: " + v;
   out({ drop: v });
 });
+document.getElementById("gonder2").onclick = () => {
+  out({ date: document.getElementById("tarih").value, level: document.getElementById("duzey").value,
+        country: document.getElementById("ulke").value, box: Math.round(document.getElementById("kutu").scrollTop) });
+  durum.textContent = "Ek alanlar gönderildi";
+};
 document.getElementById("alt").onclick = () => { durum.textContent = "Alt tıklandı"; };
 </script>
 </html>

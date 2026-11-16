@@ -186,6 +186,32 @@
     return txt;
   }
 
+  // Bağlantı sorgu dizelerindeki belirteç, anahtar ve yüksek entropili gizli değerleri maskeler.
+  function redactUrl(u) {
+    try {
+      if (!u || typeof u !== "string") return u;
+      const q = u.indexOf("?");
+      if (q < 0) return u;
+      const hash = u.indexOf("#", q);
+      const query = hash < 0 ? u.slice(q + 1) : u.slice(q + 1, hash);
+      const masked = query.split("&").map((part) => {
+        const eq = part.indexOf("=");
+        if (eq < 0) return part;
+        const name = part.slice(0, eq);
+        const val = part.slice(eq + 1);
+        const low = name.toLowerCase();
+        const hitName = /(token|secret|passw|apikey|api_key|auth|session|sessid|signature|jwt|otp)/.test(low) ||
+          low === "code" || low === "key" || low === "sig" || low.endsWith("_key");
+        const hitVal = val.length >= 24 && /^[A-Za-z0-9_\-.%]+$/.test(val) &&
+          /[A-Za-z]/.test(val) && /\d/.test(val);
+        return hitName || hitVal ? name + "=REDACTED" : part;
+      }).join("&");
+      return u.slice(0, q + 1) + masked + (hash < 0 ? "" : u.slice(hash));
+    } catch (_) {
+      return u;
+    }
+  }
+
   function labelNodeText(label) {
     let out = "";
     const w = label.ownerDocument.createTreeWalker(label, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
@@ -406,7 +432,7 @@
     }
     let href = "";
     if (role === "link") {
-      href = clip(el.getAttribute("href") || "", 80);
+      href = clip(redactUrl(el.getAttribute("href") || ""), 80);
       if (href) extra += " -> " + href;
     }
     const flags = statusFlags(el, role, tr);
@@ -755,6 +781,8 @@
     const el = resolveRef(args.ref);
     const v0 = version;
     el.scrollIntoView({ block: "center", inline: "nearest" });
+    // Kutusu olmayan hedeflerde tıklama yine gönderilir ama ajan etkisiz olabileceği konusunda uyarılır.
+    const noBox = el.getClientRects().length === 0;
     const { cx, cy } = elemCenter(el);
     // Örtülme denetimi tıklamadan önce yapılır; tıklama yine gönderilir, sonuca not düşülür.
     const coveredBy = coveringElement(el, cx, cy);
@@ -765,6 +793,7 @@
     fireMouse(el, "mouseup", cx, cy, true, 0);
     fireMouse(el, "click", cx, cy, true, 0);
     const res = await finishAction(v0);
+    if (noBox) res.warning = "eleman görünür değil (kutusu yok); tıklama etkisiz olabilir";
     if (coveredBy) res.covered_by = coveredBy;
     return res;
   }
@@ -805,6 +834,14 @@
         el.textContent = clear ? text : (el.textContent || "") + text;
         emitInputChange(el, text);
       }
+    } else if (el.tagName === "INPUT" && /^(date|time|datetime-local|month|week|color|range)$/.test((el.type || "").toLowerCase())) {
+      // Tarih, saat, renk ve aralık alanlarında ekleme/temizleme yerine doğrudan biçimli değer atanır.
+      const tp = (el.type || "").toLowerCase();
+      setNativeValue(el, text);
+      emitInputChange(el, text);
+      if (!el.value || (tp !== "range" && el.value !== text)) {
+        throw new Error("geçersiz değer: " + text + " (" + tp + " alanı; örn. date için YYYY-MM-DD)");
+      }
     } else if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
       setNativeValue(el, clear ? text : (el.value || "") + text);
       emitInputChange(el, text);
@@ -836,7 +873,16 @@
     const opts = Array.from(el.options || []);
     const opt = opts.find((o) => o.value === target || o.text.trim() === target.trim())
       || opts.find((o) => o.value.toLowerCase() === tNorm || o.text.trim().toLowerCase() === tNorm);
-    if (!opt) throw new Error("seçenek bulunamadı: " + target);
+    if (!opt) {
+      let msg = "seçenek bulunamadı: " + target;
+      if (!isSecretField(el)) {
+        const avail = opts.slice(0, 15).map((o) => clip(o.text, 30)).filter(Boolean);
+        if (avail.length) {
+          msg += " — mevcut: " + avail.join(" | ") + (opts.length > 15 ? " | +" + (opts.length - 15) : "");
+        }
+      }
+      throw new Error(msg);
+    }
     if (opt.disabled) throw new Error("seçenek devre dışı: " + target);
     const v0 = version;
     const beforeVal = el.value;
@@ -872,6 +918,8 @@
         el.checked = false;
         emitInputChange(el, "");
       } else {
+        // Karışık durum tıklamayla beklenmedik sonuç verebildiğinden önce temizlenir.
+        if (isNative && el.type === "checkbox" && el.indeterminate) el.indeterminate = false;
         el.click();
       }
     }
@@ -879,6 +927,7 @@
     const res = await finishAction(v0);
     const after = isChecked();
     if (after !== before) res.changed = true;
+    if (after !== on) res.warning = "onay durumu değişmedi (site tıklamayı yok saymış olabilir)";
     if (!isSecretField(el)) res.value = after;
     return res;
   }
@@ -1070,7 +1119,22 @@
   }
 
   async function opScroll(args) {
-    if (args.ref) {
+    let container = null;
+    if (args.ref && args.dy !== undefined && args.dy !== null) {
+      // Elemanın içinde bulunduğu en yakın kaydırılabilir kabı hedefle.
+      let cur = resolveRef(args.ref);
+      const win = cur.ownerDocument.defaultView || window;
+      while (cur && cur.nodeType === 1) {
+        const oy = win.getComputedStyle(cur).overflowY;
+        if ((oy === "auto" || oy === "scroll") && cur.scrollHeight > cur.clientHeight) {
+          container = cur;
+          break;
+        }
+        cur = cur.parentElement;
+      }
+      if (container) container.scrollBy(0, numOr(args.dy, 0));
+      else window.scrollBy(0, numOr(args.dy, 0));
+    } else if (args.ref) {
       resolveRef(args.ref).scrollIntoView({ block: "center", inline: "nearest" });
     } else if (args.to === "top") {
       window.scrollTo(window.scrollX, 0);
@@ -1081,7 +1145,14 @@
       window.scrollBy(0, numOr(args.dy, 0));
     }
     await new Promise((r) => setTimeout(r, 30));
-    return scrollInfo();
+    const info = scrollInfo();
+    if (container) {
+      info.container = {
+        y: Math.round(container.scrollTop),
+        max: Math.max(0, container.scrollHeight - container.clientHeight)
+      };
+    }
+    return info;
   }
 
   function opText(args) {
@@ -1091,8 +1162,27 @@
       el = resolveRef(args.ref);
     } else {
       // Ana içerik kökü yeterince metin taşıyorsa gövde yerine onu okuyup gürültüyü azalt.
-      const main = args.all ? null : document.querySelector("main, [role=main], article");
-      el = main && safeInnerText(main).length >= 200 ? main : (document.body || document.documentElement);
+      let main = null;
+      let mainLen = 0;
+      if (!args.all) {
+        const sels = [
+          "article", "main", "[role=main]", "[class*=articleBody]", "[class*=article-body]",
+          "[class*=post-content]", "[class*=entry-content]", "#content", ".content"
+        ];
+        for (const s of sels) {
+          const hits = document.querySelectorAll(s);
+          if (!hits.length) continue;
+          for (const h of hits) {
+            const len = safeInnerText(h).length;
+            if (!main || len > mainLen) {
+              main = h;
+              mainLen = len;
+            }
+          }
+          break;
+        }
+      }
+      el = main && mainLen >= 200 ? main : (document.body || document.documentElement);
     }
     let raw = safeInnerText(el);
     // Çerçeve kümesi (frameset) ya da içeriği tümüyle çerçevede olan sayfa: aynı kaynaklı çerçevelerin metni eklenir.
@@ -1138,9 +1228,17 @@
       }
       full = out.join("\n");
     }
-    const res = { text: full.length > max ? full.slice(0, max) : full, truncated: full.length > max };
-    if (res.truncated) res.total = full.length;
+    const truncated = full.length > max;
+    let text = full;
+    if (truncated) {
+      // Satır ortasından kesmemek için sınır öncesi son satır sonuna hizala.
+      const nl = full.lastIndexOf("\n", max);
+      text = full.slice(0, nl > 0 ? nl : max);
+    }
+    const res = { text, truncated };
+    if (truncated) res.total = full.length;
     if (matches >= 0) res.matches = matches;
+    if (!text.trim()) res.note = "metin yok: sayfa yalnız görsel/canvas içeriyor olabilir";
     return res;
   }
 

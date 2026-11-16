@@ -86,7 +86,7 @@ WEB_RIVALS = ("playwright-mcp", "agent-browser")
 # önceden açılamaz (araç yalnız kendi sekme grubundaki sekmeleri kullanır), ajan sekmeyi kendi açar.
 CIC_SYSTEM = (
     "Bir web otomasyon ölçüm görevindesin. Yalnız Claude in Chrome tarayıcı araçlarını kullan. "
-    "Görev sayfası: {url} — görev metnindeki \"Firefox'ta açık sayfa\" budur; yeni bir sekme açıp bu adrese git. "
+    "Görev sayfası: {url} — görev metnindeki \"Firefox'ta açık sayfa\" budur; önce `tabs_context_mcp` (createIfEmpty: true) ile sekme grubunu oluştur, dönen sekmede bu adrese `navigate` et. "
     "Görevi bitirince sekmeyi kapat ve yanıtının son satırına `CEVAP: <değer>` yaz; sorulan bir değer yoksa "
     "`CEVAP: tamam` yaz."
 )

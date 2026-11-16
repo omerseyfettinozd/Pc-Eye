@@ -1,0 +1,1053 @@
+{
+ "tier": "agent",
+ "started": "20261116-230106-cic-claude-in-chrome",
+ "seed": 905389029,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "5ac2245",
+ "summary": {
+  "tasks": [
+   {
+    "task": "ext-add-remove",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 37986.7,
+    "median_turns": 7,
+    "median_tool_calls": 6,
+    "median_input_tokens": 121030,
+    "median_output_tokens": 876,
+    "cost_usd": 0.0028
+   },
+   {
+    "task": "ext-drag",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 27501.0,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 92644,
+    "median_output_tokens": 636,
+    "cost_usd": 0.0028
+   },
+   {
+    "task": "ext-dynamic-controls",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 35206.5,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 92649,
+    "median_output_tokens": 622,
+    "cost_usd": 0.0028
+   },
+   {
+    "task": "ext-dynamic-loading",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 38049.0,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 91398,
+    "median_output_tokens": 689,
+    "cost_usd": 0.0027
+   },
+   {
+    "task": "ext-hover",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 47886.4,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 112366,
+    "median_output_tokens": 859,
+    "cost_usd": 0.0032
+   },
+   {
+    "task": "ext-js-confirm",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 126053.7,
+    "median_turns": 8,
+    "median_tool_calls": 7,
+    "median_input_tokens": 122301,
+    "median_output_tokens": 1948,
+    "cost_usd": 0.0034
+   },
+   {
+    "task": "ext-js-prompt",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 85186.8,
+    "median_turns": 7,
+    "median_tool_calls": 6,
+    "median_input_tokens": 111012,
+    "median_output_tokens": 1812,
+    "cost_usd": 0.0035
+   },
+   {
+    "task": "ext-large",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 44909.9,
+    "median_turns": 8,
+    "median_tool_calls": 7,
+    "median_input_tokens": 108743,
+    "median_output_tokens": 2080,
+    "cost_usd": 0.0036
+   },
+   {
+    "task": "ext-nested-frames",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 24136.8,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 87209,
+    "median_output_tokens": 1036,
+    "cost_usd": 0.0025
+   },
+   {
+    "task": "ext-table",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 40303.0,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 68270,
+    "median_output_tokens": 425,
+    "cost_usd": 0.0019
+   },
+   {
+    "task": "ext-upload",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 52534.0,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 67143,
+    "median_output_tokens": 743,
+    "cost_usd": 0.0019
+   },
+   {
+    "task": "hard-web-long",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 16880.9,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 70640,
+    "median_output_tokens": 428,
+    "cost_usd": 0.0022
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 41434.1,
+    "median_turns": 7,
+    "median_tool_calls": 6,
+    "median_input_tokens": 141873,
+    "median_output_tokens": 1692,
+    "cost_usd": 0.0045
+   },
+   {
+    "task": "web-console-network",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 35141.8,
+    "median_turns": 8,
+    "median_tool_calls": 7,
+    "median_input_tokens": 140734,
+    "median_output_tokens": 1507,
+    "cost_usd": 0.0034
+   },
+   {
+    "task": "web-cross-frame",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 67756.9,
+    "median_turns": 8,
+    "median_tool_calls": 7,
+    "median_input_tokens": 152945,
+    "median_output_tokens": 1103,
+    "cost_usd": 0.0041
+   },
+   {
+    "task": "web-dialog-accept",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 138666.5,
+    "median_turns": 9,
+    "median_tool_calls": 8,
+    "median_input_tokens": 111062,
+    "median_output_tokens": 1872,
+    "cost_usd": 0.0035
+   },
+   {
+    "task": "web-dialog-policy",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 144122.4,
+    "median_turns": 12,
+    "median_tool_calls": 11,
+    "median_input_tokens": 153548,
+    "median_output_tokens": 2062,
+    "cost_usd": 0.0042
+   },
+   {
+    "task": "web-drag-drop",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 29644.0,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 93084,
+    "median_output_tokens": 786,
+    "cost_usd": 0.0029
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 46720.4,
+    "median_turns": 10,
+    "median_tool_calls": 9,
+    "median_input_tokens": 120504,
+    "median_output_tokens": 1355,
+    "cost_usd": 0.004
+   },
+   {
+    "task": "web-forms-extra",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 47227.4,
+    "median_turns": 4,
+    "median_tool_calls": 3,
+    "median_input_tokens": 66971,
+    "median_output_tokens": 740,
+    "cost_usd": 0.0019
+   },
+   {
+    "task": "web-snapshot-scope",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 35330.3,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 89737,
+    "median_output_tokens": 1048,
+    "cost_usd": 0.0027
+   },
+   {
+    "task": "web-table-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 20419.1,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 67575,
+    "median_output_tokens": 359,
+    "cost_usd": 0.0018
+   },
+   {
+    "task": "web-upload-large",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 24924.9,
+    "median_turns": 8,
+    "median_tool_calls": 7,
+    "median_input_tokens": 107851,
+    "median_output_tokens": 1627,
+    "cost_usd": 0.0032
+   },
+   {
+    "task": "web-upload",
+    "runs": 1,
+    "passed": 0,
+    "setup_errors": 0,
+    "median_ms": 24653.5,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 111621,
+    "median_output_tokens": 1111,
+    "cost_usd": 0.0031
+   }
+  ],
+  "pass_rate": 0.708,
+  "total_cost_usd": 0.0728
+ },
+ "session": "cic",
+ "toolset": "claude-in-chrome",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "ext-add-remove",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/add_remove_elements/",
+    "url": "http://127.0.0.1:33133/add_remove_elements/index.html",
+    "pid": 359490,
+    "word": "3H438X",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-add-remove-0/not-KHRR.txt",
+    "upload_name": "not-KHRR.txt"
+   },
+   "ok": true,
+   "detail": "cevap='3'",
+   "ms": 37986.7,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.00276182,
+   "input_tokens": 121030,
+   "output_tokens": 876,
+   "tool_calls": 6,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 2,
+    "mcp__claude-in-chrome__list_connected_browsers": 1,
+    "mcp__claude-in-chrome__browser_batch": 2,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 803,
+      "y": 1430
+     },
+     {
+      "x": 729,
+      "y": 1176
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-drag",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/drag_and_drop",
+    "url": "http://127.0.0.1:36267/drag_and_drop.html",
+    "pid": 363741,
+    "word": "YR9UTD",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-drag-0/not-NFK4.txt",
+    "upload_name": "not-NFK4.txt"
+   },
+   "ok": true,
+   "detail": "cevap='B'",
+   "ms": 27501.0,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0028035300000000003,
+   "input_tokens": 92644,
+   "output_tokens": 636,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 2,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-dynamic-controls",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/dynamic_controls",
+    "url": "http://127.0.0.1:40129/dynamic_controls.html",
+    "pid": 367428,
+    "word": "T2E7KV",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-dynamic-controls-0/not-RG7F.txt",
+    "upload_name": "not-RG7F.txt"
+   },
+   "ok": true,
+   "detail": "cevap=\"It's gone!\"",
+   "ms": 35206.5,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0027967700000000005,
+   "input_tokens": 92649,
+   "output_tokens": 622,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 2,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 729,
+      "y": 1176
+     },
+     {
+      "x": 1213,
+      "y": 1547
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-dynamic-loading",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/dynamic_loading/2",
+    "url": "http://127.0.0.1:37323/dynamic_loading/2.html",
+    "pid": 371258,
+    "word": "LGW2WE",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-dynamic-loading-0/not-GFCG.txt",
+    "upload_name": "not-GFCG.txt"
+   },
+   "ok": true,
+   "detail": "cevap='Hello World!'",
+   "ms": 38049.0,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00268058,
+   "input_tokens": 91398,
+   "output_tokens": 689,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 2,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-hover",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/hovers",
+    "url": "http://127.0.0.1:44041/hovers.html",
+    "pid": 375870,
+    "word": "A9PYA7",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-hover-0/not-R4V4.txt",
+    "upload_name": "not-R4V4.txt"
+   },
+   "ok": true,
+   "detail": "cevap='name: user2'",
+   "ms": 47886.4,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0031922300000000003,
+   "input_tokens": 112366,
+   "output_tokens": 859,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 3,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": {
+    "cursor": [
+     {
+      "x": 1213,
+      "y": 1547
+     },
+     {
+      "x": 741,
+      "y": 1023
+     }
+    ],
+    "active_class": "com.anthropic.Claude",
+    "active_changed": false,
+    "agent_leak": false
+   }
+  },
+  {
+   "task": "ext-js-confirm",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/javascript_alerts",
+    "url": "http://127.0.0.1:45295/javascript_alerts.html",
+    "pid": 381892,
+    "word": "TGMNY9",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-js-confirm-0/not-6E8N.txt",
+    "upload_name": "not-6E8N.txt"
+   },
+   "ok": false,
+   "detail": "cevap='belirlenemedi (sayfa onay penceresi nedeniyle donmuş durumda; Result değeri okunamadı)'",
+   "ms": 126053.7,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.0034182600000000002,
+   "input_tokens": 122301,
+   "output_tokens": 1948,
+   "tool_calls": 7,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 2,
+    "mcp__claude-in-chrome__list_connected_browsers": 1,
+    "mcp__claude-in-chrome__browser_batch": 1,
+    "mcp__claude-in-chrome__computer": 2,
+    "mcp__claude-in-chrome__javascript_tool": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-js-prompt",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/javascript_alerts",
+    "url": "http://127.0.0.1:42023/javascript_alerts.html",
+    "pid": 391891,
+    "word": "P7MA43",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-js-prompt-0/not-Y8HC.txt",
+    "upload_name": "not-Y8HC.txt"
+   },
+   "ok": false,
+   "detail": "cevap='tamam'",
+   "ms": 85186.8,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.0034729800000000005,
+   "input_tokens": 111012,
+   "output_tokens": 1812,
+   "tool_calls": 6,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 1,
+    "mcp__claude-in-chrome__computer": 3,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-large",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/large",
+    "url": "http://127.0.0.1:45597/large.html",
+    "pid": 400683,
+    "word": "4VA6HC",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-large-0/not-PJP9.txt",
+    "upload_name": "not-PJP9.txt"
+   },
+   "ok": true,
+   "detail": "cevap='37.12'",
+   "ms": 44909.9,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.0035660500000000003,
+   "input_tokens": 108743,
+   "output_tokens": 2080,
+   "tool_calls": 7,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__javascript_tool": 3,
+    "mcp__claude-in-chrome__computer": 1,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-nested-frames",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/nested_frames",
+    "url": "http://127.0.0.1:36263/nested_frames.html",
+    "pid": 402753,
+    "word": "ADYKDV",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-nested-frames-0/not-VGYK.txt",
+    "upload_name": "not-VGYK.txt"
+   },
+   "ok": true,
+   "detail": "cevap='BOTTOM'",
+   "ms": 24136.8,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.00253156,
+   "input_tokens": 87209,
+   "output_tokens": 1036,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__javascript_tool": 2,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-table",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/tables",
+    "url": "http://127.0.0.1:33739/tables.html",
+    "pid": 405543,
+    "word": "87YRGW",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-table-0/not-NJAE.txt",
+    "upload_name": "not-NJAE.txt"
+   },
+   "ok": true,
+   "detail": "cevap='$50.00'",
+   "ms": 40303.0,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0019014000000000001,
+   "input_tokens": 68270,
+   "output_tokens": 425,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__get_page_text": 1,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "ext-upload",
+   "attempt": 0,
+   "vars": {
+    "title": "https://the-internet.herokuapp.com/upload",
+    "url": "http://127.0.0.1:44417/upload.html",
+    "pid": 410016,
+    "word": "WWWCFN",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/ext-upload-0/not-LLFK.txt",
+    "upload_name": "not-LLFK.txt"
+   },
+   "ok": false,
+   "detail": "cevap='tamam değil — tarayıcı eklentisi bağlı olmadığı için başlık okunamadı.'",
+   "ms": 52534.0,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.00193646,
+   "input_tokens": 67143,
+   "output_tokens": 743,
+   "tool_calls": 3,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 2,
+    "mcp__claude-in-chrome__list_connected_browsers": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok R496",
+    "pid": 413125,
+    "code": "JC-7686",
+    "stock": "798"
+   },
+   "ok": true,
+   "detail": "cevap='798'",
+   "ms": 16880.9,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0021563100000000003,
+   "input_tokens": 70640,
+   "output_tokens": 428,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__get_page_text": 1,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim 6JJM",
+    "pid": 414540,
+    "phone_pretty": "0540 628 35 44",
+    "phone": "5406283544",
+    "email": "can59@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 41434.1,
+   "is_error": false,
+   "turns": 7,
+   "cost_usd": 0.00454941,
+   "input_tokens": 141873,
+   "output_tokens": 1692,
+   "tool_calls": 6,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 4,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor RLEA",
+    "pid": 419906,
+    "errtoken": "6DMN67",
+    "inner": "İç düğme TEFL",
+    "pin": "668046",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-console-network-0/belge-XFCF.txt",
+    "upload_name": "belge-XFCF.txt",
+    "upload_content": "içerik 6FXDAVEE",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-console-network-0/buyuk-KUWV.bin",
+    "big_name": "buyuk-KUWV.bin",
+    "big_size": 2406853
+   },
+   "ok": true,
+   "detail": "cevap='6DMN67 hatası'",
+   "ms": 35141.8,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.0034109599999999998,
+   "input_tokens": 140734,
+   "output_tokens": 1507,
+   "tool_calls": 7,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 2,
+    "mcp__claude-in-chrome__list_connected_browsers": 1,
+    "mcp__claude-in-chrome__browser_batch": 3,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-cross-frame",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Çerçeve AX7P",
+    "pid": 422793,
+    "code": "KUPON-P6JAJ"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 67756.9,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.0041176699999999995,
+   "input_tokens": 152945,
+   "output_tokens": 1103,
+   "tool_calls": 7,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 2,
+    "mcp__claude-in-chrome__list_connected_browsers": 1,
+    "mcp__claude-in-chrome__browser_batch": 3,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-accept",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor 2G6D",
+    "pid": 426572,
+    "errtoken": "EXNNE3",
+    "inner": "İç düğme FMH6",
+    "pin": "901034",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-dialog-accept-0/belge-VUEA.txt",
+    "upload_name": "belge-VUEA.txt",
+    "upload_content": "içerik 3EH948VD",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-dialog-accept-0/buyuk-8J9W.bin",
+    "big_name": "buyuk-8J9W.bin",
+    "big_size": 2579799
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 138666.5,
+   "is_error": false,
+   "turns": 9,
+   "cost_usd": 0.00352001,
+   "input_tokens": 111062,
+   "output_tokens": 1872,
+   "tool_calls": 8,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__computer": 5,
+    "mcp__claude-in-chrome__javascript_tool": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor NFTK",
+    "pid": 438435,
+    "errtoken": "3WVEM8",
+    "inner": "İç düğme WG6L",
+    "pin": "955863",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-dialog-policy-0/belge-TYCK.txt",
+    "upload_name": "belge-TYCK.txt",
+    "upload_content": "içerik RVPHL43L",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-dialog-policy-0/buyuk-RUVH.bin",
+    "big_name": "buyuk-RUVH.bin",
+    "big_size": 2549446
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 144122.4,
+   "is_error": false,
+   "turns": 12,
+   "cost_usd": 0.00421313,
+   "input_tokens": 153548,
+   "output_tokens": 2062,
+   "tool_calls": 11,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__computer": 7,
+    "mcp__claude-in-chrome__get_page_text": 1,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-drag-drop",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor AD3W",
+    "pid": 446369,
+    "errtoken": "M7YRDD",
+    "inner": "İç düğme 3A68",
+    "pin": "185397",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-drag-drop-0/belge-WJV8.txt",
+    "upload_name": "belge-WJV8.txt",
+    "upload_content": "içerik EPGCT4GE",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-drag-drop-0/buyuk-RH2T.bin",
+    "big_name": "buyuk-RH2T.bin",
+    "big_size": 2404359
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 29644.0,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.00293385,
+   "input_tokens": 93084,
+   "output_tokens": 786,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 1,
+    "mcp__claude-in-chrome__computer": 2,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Ümit Şahin",
+    "city": "Ankara",
+    "default_city": "Şanlıurfa",
+    "title": "Eval Web Form CP2R",
+    "pid": 449364
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 46720.4,
+   "is_error": false,
+   "turns": 10,
+   "cost_usd": 0.00403081,
+   "input_tokens": 120504,
+   "output_tokens": 1355,
+   "tool_calls": 9,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 1,
+    "mcp__claude-in-chrome__form_input": 3,
+    "mcp__claude-in-chrome__computer": 3,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-forms-extra",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor TCWP",
+    "pid": 453926,
+    "errtoken": "8CCHRU",
+    "inner": "İç düğme KLTU",
+    "pin": "574844",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-forms-extra-0/belge-KJ3D.txt",
+    "upload_name": "belge-KJ3D.txt",
+    "upload_content": "içerik RMNGFNCG",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-forms-extra-0/buyuk-2YUY.bin",
+    "big_name": "buyuk-2YUY.bin",
+    "big_size": 2598358
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 47227.4,
+   "is_error": false,
+   "turns": 4,
+   "cost_usd": 0.0019264000000000002,
+   "input_tokens": 66971,
+   "output_tokens": 740,
+   "tool_calls": 3,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 2,
+    "mcp__claude-in-chrome__list_connected_browsers": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor 98UV",
+    "pid": 457069,
+    "errtoken": "X2JR92",
+    "inner": "İç düğme 6DP9",
+    "pin": "689351",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-snapshot-scope-0/belge-DNFL.txt",
+    "upload_name": "belge-DNFL.txt",
+    "upload_content": "içerik TLKX7EJ7",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-snapshot-scope-0/buyuk-66VT.bin",
+    "big_name": "buyuk-66VT.bin",
+    "big_size": 2404217
+   },
+   "ok": true,
+   "detail": "cevap='İç düğme 6DP9'",
+   "ms": 35330.3,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0027156000000000003,
+   "input_tokens": 89737,
+   "output_tokens": 1048,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__read_page": 1,
+    "mcp__claude-in-chrome__javascript_tool": 1,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Boya",
+    "price": "87,42 TL",
+    "title": "Eval Fiyatlar T3NV",
+    "pid": 458845
+   },
+   "ok": true,
+   "detail": "cevap='87,42 TL'",
+   "ms": 20419.1,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.0017886800000000002,
+   "input_tokens": 67575,
+   "output_tokens": 359,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__get_page_text": 1,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload-large",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor ECXA",
+    "pid": 460415,
+    "errtoken": "T3TXXN",
+    "inner": "İç düğme 3UAA",
+    "pin": "412700",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-upload-large-0/belge-6H3U.txt",
+    "upload_name": "belge-6H3U.txt",
+    "upload_content": "içerik DAGLARJL",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-upload-large-0/buyuk-MXRK.bin",
+    "big_name": "buyuk-MXRK.bin",
+    "big_size": 2522643
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 24924.9,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.0032481700000000003,
+   "input_tokens": 107851,
+   "output_tokens": 1627,
+   "tool_calls": 7,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__navigate": 1,
+    "mcp__claude-in-chrome__read_page": 1,
+    "mcp__claude-in-chrome__javascript_tool": 2,
+    "mcp__claude-in-chrome__file_upload": 1,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor YYNV",
+    "pid": 461980,
+    "errtoken": "3E3CHY",
+    "inner": "İç düğme DPLU",
+    "pin": "545416",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-upload-0/belge-F9U9.txt",
+    "upload_name": "belge-F9U9.txt",
+    "upload_content": "içerik LW7NDVTC",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-230106-cic-claude-in-chrome/web-upload-0/buyuk-G3CL.bin",
+    "big_name": "buyuk-G3CL.bin",
+    "big_size": 2547285
+   },
+   "ok": false,
+   "detail": "uygulama çıktısı yok",
+   "ms": 24653.5,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.00312895,
+   "input_tokens": 111621,
+   "output_tokens": 1111,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__claude-in-chrome__tabs_context_mcp": 1,
+    "mcp__claude-in-chrome__browser_batch": 1,
+    "mcp__claude-in-chrome__find": 1,
+    "mcp__claude-in-chrome__file_upload": 1,
+    "mcp__claude-in-chrome__tabs_close_mcp": 1
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 3,
+ "agent_leak_runs": 0
+}

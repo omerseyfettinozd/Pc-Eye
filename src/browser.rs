@@ -966,7 +966,7 @@ fn diff_snapshot(before: &Value, after: Value) -> Value {
 /// Adım sonucunun ajana gereken kısmı (tam özet yalnız en sonda bir kez döner).
 fn compact_step_result(r: &Value) -> Value {
     let mut out = serde_json::Map::new();
-    for k in ["changed", "navigated", "value", "matched", "idle", "url", "real", "dialogs", "errors", "errors_more", "covered_by", "files"] {
+    for k in ["changed", "navigated", "value", "matched", "line", "warning", "idle", "url", "real", "dialogs", "errors", "errors_more", "covered_by", "files"] {
         if let Some(v) = r.get(k) {
             out.insert(k.to_string(), v.clone());
         }

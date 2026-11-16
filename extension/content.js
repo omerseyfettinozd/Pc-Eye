@@ -448,6 +448,9 @@
   function opSnapshot(args) {
     const max = Math.max(1, numOr(args.max, 150));
     const query = typeof args.query === "string" && args.query.trim() ? args.query.trim().toLowerCase() : "";
+    // "a|b" birden çok seçenek demektir.
+    const queryAlts = query.split("|").map((x) => x.trim()).filter(Boolean);
+    const qHit = (s) => queryAlts.some((x) => s.includes(x));
     const viewportOnly = Boolean(args.viewport);
     const all = Boolean(args.all);
     // Kapsam verilirse yürüyüş o kökten başlar; ref (e12) ya da CSS seçici kabul edilir.
@@ -483,7 +486,7 @@
     const pushLine = (entry, tr) => {
       if (viewportOnly && isOffscreen(tr)) return true;
       if (query) {
-        const hit = entry.search.includes(query);
+        const hit = qHit(entry.search);
         if (entry.headingLevel && sectionLvl && entry.headingLevel <= sectionLvl) sectionLvl = 0;
         if (hit && entry.headingLevel) {
           const par = curNode ? curNode.parentElement : null;
@@ -577,7 +580,7 @@
         for (const c of node.childNodes) if (c.nodeType === 3) own += c.nodeValue;
         own = norm(own);
         if (own.length >= 2) {
-          const hit = query && own.toLowerCase().includes(query);
+          const hit = query && qHit(own.toLowerCase());
           if (all || hit) {
             const line = hit ? `[${getRef(node)}] text ${qStr(own, 120)}` : `text ${qStr(own, 120)}`;
             if (!pushLine({ line, search: `text ${own}`.toLowerCase() }, tr)) return;
@@ -599,6 +602,8 @@
           const idoc = node.contentDocument;
           if (idoc && (idoc.body || idoc.documentElement)) {
             observeRoot(idoc);
+            const fname = norm(node.getAttribute("name") || node.getAttribute("title") || node.id || "");
+            if (all && fname && !pushLine({ line: `frame ${qStr(fname)}`, search: `frame ${fname}`.toLowerCase() }, tr)) return;
             walk(idoc.body || idoc.documentElement, false);
             if (truncated) return;
           }
@@ -629,6 +634,10 @@
     };
     if (scope) res.scope = scope;
     if (document.readyState !== "complete") res.ready = document.readyState;
+    // Yalnız düz metinden oluşan sayfa (çerçeve kümesi, sonuç sayfası) boş görünmesin: metinle yeniden al.
+    if (!lines.length && !all && !query && !scope && document.readyState !== "loading") {
+      return opSnapshot(Object.assign({}, args, { all: true }));
+    }
     return res;
   }
 
@@ -656,6 +665,7 @@
     });
   }
 
+  let busyBeforeAction = false;
   async function finishAction(v0) {
     // Arka plan sekmesinde setTimeout >=1 sn'ye kısıldığından sakinleşmeyi background yürütür.
     if (document.hidden) {
@@ -670,6 +680,13 @@
       };
     }
     await settleDom(150, 1500);
+    // Eylem bir yükleme göstergesi başlattıysa sonuç o bitince oluşur: bitmesini bekle (en çok 6 sn),
+    // böylece eylemin döndürdüğü değişiklikler asıl sonucu içerir ve ajan ayrıca beklemez.
+    if (!busyBeforeAction && pageBusy()) {
+      const tBusy = Date.now();
+      while (Date.now() - tBusy < 6000 && pageBusy()) await new Promise((r) => setTimeout(r, 100));
+      await settleDom(150, 800);
+    }
     return {
       ok: true,
       url: location.href,
@@ -1106,7 +1123,22 @@
     if (!el) throw new Error("odaklanacak eleman yok");
     const v0 = version;
     if (args.ref && typeof el.focus === "function") el.focus({ preventScroll: true });
-    const notPrevented = fireKeySequence(el, args.key);
+    const times = Math.max(1, Math.min(100, Math.floor(numOr(args.times, 1))));
+    let notPrevented = true;
+    for (let i = 0; i < times; i++) {
+      notPrevented = fireKeySequence(el, args.key);
+      // Yapay tuşlar kaydırıcının değerini değiştirmez: ok tuşlarının varsayılan etkisi öykünülür.
+      if (notPrevented && el.tagName === "INPUT" && (el.type || "").toLowerCase() === "range") {
+        const step = Number(el.step) > 0 ? Number(el.step) : 1;
+        const dir = args.key === "ArrowRight" || args.key === "ArrowUp" ? 1
+          : args.key === "ArrowLeft" || args.key === "ArrowDown" ? -1 : 0;
+        if (dir) {
+          const next = String(Number(el.value) + dir * step);
+          setNativeValue(el, next);
+          emitInputChange(el, next);
+        }
+      }
+    }
     if (notPrevented && args.key === "Enter") {
       if (el.form && (el.tagName === "INPUT" || el.tagName === "SELECT")) {
         if (typeof el.form.requestSubmit === "function") el.form.requestSubmit();
@@ -1320,7 +1352,14 @@
         mutWaiters.delete(check);
         clearTimeout(timer);
         clearInterval(tick);
-        resolve({ matched, elapsed_ms: Date.now() - t0, url: location.href });
+        const out = { matched, elapsed_ms: Date.now() - t0, url: location.href };
+        // Beklenen metnin geçtiği satır da döner: ajan ayrıca okumak zorunda kalmaz.
+        if (matched && wantText) {
+          const body = document.body || document.documentElement;
+          const ln = (body ? safeInnerText(body) : "").split("\n").find((l) => l.includes(wantText));
+          if (ln) out.line = clip(ln, 200);
+        }
+        resolve(out);
       };
       const check = () => {
         if (isMatched()) finish(true);
@@ -1395,6 +1434,9 @@
 
   // ---- İleti yönlendirici ----
   async function dispatch(op, args) {
+    if (op === "click" || op === "type" || op === "select" || op === "check" || op === "key") {
+      busyBeforeAction = pageBusy();
+    }
     switch (op) {
       case "version": return version;
       case "ver": return { version, url: location.href, title: document.title || "" };

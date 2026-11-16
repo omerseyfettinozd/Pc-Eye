@@ -109,7 +109,9 @@ LAST_URL = None
 # Tarayıcı algısı: "atspi" masaüstü erişilebilirlik ağacı (önceki ölçümlerle kıyaslanabilir taban),
 # "bridge" Firefox'a Pc-Eye Bridge eklentisi bağlanır ve ajan pc_eye_browser aracını da kullanabilir.
 BROWSER = "atspi"
-BRIDGE_SYSTEM = " Firefox sayfaları için pc_eye_browser köprüsü bağlı (launch/status gerekmez)."
+# Rakip istemleriyle eşit bilgi: sayfa zaten açık, yeniden açmak gerekmez.
+BRIDGE_SYSTEM = (" Firefox sayfaları için pc_eye_browser köprüsü bağlı (launch/status gerekmez). Görev sayfası "
+                 "tarayıcıda ŞU AN açık; yeniden açma (navigate gerekmez).")
 
 AGENT_SYSTEM = (
     "Bir PC-Eye ölçüm görevindesin. Bilgisayarı yalnız pc_eye_* araçlarıyla kullan. "

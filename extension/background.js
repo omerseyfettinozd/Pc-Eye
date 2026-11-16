@@ -375,13 +375,14 @@ function tabInfo(t) {
 
 // ---- İçerik betiği çağrısı ----
 async function injectContent(tab) {
-  await browser.tabs.executeScript(tab.id, { file: "content.js", runAt: "document_start" });
+  // all_frames ile betik çapraz kaynaklı alt çerçevelere de girer; yalnız onlar köprüyü kurar.
+  await browser.tabs.executeScript(tab.id, { file: "content.js", allFrames: true, runAt: "document_start" });
   // Eklenti sayfadan sonra kurulduysa kancalar da (tüm çerçevelere) sonradan eklenir.
   browser.tabs.executeScript(tab.id, { file: "hooks.js", allFrames: true, runAt: "document_start" }).catch(() => {});
 }
 
 // Dönüş: {lost:false,result,seq0} ya da gezinme yüzünden yanıt kaybolduysa {lost:true,seq0}.
-async function pageCall(tab0, op, args) {
+async function pageCall(tab0, op, args, frameId = 0) {
   if (navPending.get(tab0.id)) {
     // Yüklenmekte olan belgeye mesaj göndermek yanıtsız kalabilir.
     await waitLoad(tab0.id, (navSeq.get(tab0.id) || 0) - 1, 3000);
@@ -399,7 +400,8 @@ async function pageCall(tab0, op, args) {
   const navStarted = () => (navSeq.get(tab.id) || 0) !== seq0;
   let reply;
   try {
-    reply = await browser.tabs.sendMessage(tab.id, { op, args });
+    // frameId verilmezse ileti tüm çerçevelere gider ve yanıtlar yarışır; 0 = üst çerçeve.
+    reply = await browser.tabs.sendMessage(tab.id, { op, args }, { frameId });
   } catch (e1) {
     if (navStarted()) return { lost: true, seq0 };
     // Sayfa eklentiden önce açılmış olabilir: betiği enjekte edip bir kez dene.
@@ -410,7 +412,7 @@ async function pageCall(tab0, op, args) {
       throw new Error("bu sayfada içerik betiği çalışmaz: " + (tab.url || "") + " (" + errText(e2) + ")");
     }
     try {
-      reply = await browser.tabs.sendMessage(tab.id, { op, args });
+      reply = await browser.tabs.sendMessage(tab.id, { op, args }, { frameId });
     } catch (e3) {
       if (navStarted()) return { lost: true, seq0 };
       throw new Error("içerik betiği yanıt vermedi: " + errText(e3));
@@ -724,6 +726,57 @@ async function opWait(tab, args) {
   return { matched: false, elapsed_ms: Date.now() - t0, url };
 }
 
+// Çerçeve içi ref'ler ajana "e5f12" biçiminde sunulur; üst çerçeve ref'leri çıplak kalır.
+function splitFrameRef(ref) {
+  const m = typeof ref === "string" ? /^(e\d+)f(\d+)$/.exec(ref) : null;
+  if (m) return { ref: m[1], frameId: Number(m[2]) };
+  return { ref, frameId: 0 };
+}
+
+// Yalnız satır başındaki [eN] kalıbı çerçeve kimliğiyle etiketlenir.
+function tagFrameLines(lines, frameId) {
+  if (!Array.isArray(lines)) return [];
+  return lines.map((l) => String(l).replace(/^\[(e\d+)\]/, "[$1f" + frameId + "]"));
+}
+
+// Alt çerçeve snapshot'ları üst sonuçla birleştirilir; aynı kaynaklı çerçevede betik susar, hata normaldir.
+async function collectFrameSnapshots(tab, a, result) {
+  if (!result || !Array.isArray(result.lines)) return;
+  let frames = [];
+  try {
+    frames = await browser.webNavigation.getAllFrames({ tabId: tab.id });
+  } catch (e) {
+    frames = [];
+  }
+  if (!Array.isArray(frames)) return;
+  const cands = frames.filter((f) => f && f.frameId !== 0 && typeof f.url === "string" &&
+    /^https?:/i.test(f.url) && !deniedHost(f.url)).slice(0, 8);
+  const total = numOr(a.max, 150);
+  for (const f of cands) {
+    const kalan = total - result.lines.length;
+    if (kalan <= 0) return;
+    let reply;
+    try {
+      reply = await Promise.race([
+        browser.tabs.sendMessage(tab.id,
+          { op: "snapshot", args: Object.assign({}, a, { max: Math.min(40, kalan) }) },
+          { frameId: f.frameId }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("çerçeve snapshot zaman aşımı")), 800))
+      ]);
+    } catch (e) {
+      continue;
+    }
+    if (!reply || typeof reply !== "object" || reply.ok === false) continue;
+    const fr = reply.result;
+    if (!fr || !Array.isArray(fr.lines) || !fr.lines.length) continue;
+    result.lines.push("frame f" + f.frameId + " " + JSON.stringify(String(fr.url || f.url || "").slice(0, 80)));
+    for (const line of tagFrameLines(fr.lines, f.frameId)) result.lines.push(line);
+    result.count = result.lines.length;
+    if (fr.truncated) result.truncated = true;
+    if (fr.focused && !result.focused) result.focused = fr.focused + "f" + f.frameId;
+  }
+}
+
 async function opPage(op, args) {
   const tab = await resolveTab(args);
   assertAllowed(tab);
@@ -732,6 +785,32 @@ async function opPage(op, args) {
   if (op === "wait") return opWait(tab, a);
   const isAction = ACTION_OPS.has(op);
   const mark = isAction ? markEvents(tab.id) : null;
+  const fr = splitFrameRef(a.ref);
+  if (fr.frameId !== 0) {
+    if (op === "rect") throw new Error("çerçeve içi eleman için gerçek işaretçi (real) desteklenmez: " + a.ref);
+    a.ref = fr.ref;
+    const rf = await pageCall(tab, op, a, fr.frameId);
+    // Çerçeve gezindiyse ref geçersizdir; ajan yeni snapshot almalı.
+    if (rf.lost) return { ok: true, changed: true, frame_navigated: true };
+    const res = rf.result;
+    delete res.settle;
+    // Çerçevenin kendi adresi ajanı yanıltmasın diye sekmenin url'si ve başlığı döner.
+    const t = await browser.tabs.get(tab.id);
+    res.url = t.url || "";
+    res.title = t.title || "";
+    res.frame = fr.frameId;
+    return isAction ? attachEvents(tab.id, mark, res) : res;
+  }
+  const sf = splitFrameRef(a.scope);
+  if (op === "snapshot" && sf.frameId !== 0) {
+    const scopeRef = a.scope;
+    a.scope = sf.ref;
+    const rs = await pageCall(tab, op, a, sf.frameId);
+    if (rs.lost) throw new Error("çerçeve gezindi, snapshot tamamlanamadı: " + scopeRef);
+    const res = rs.result;
+    res.lines = tagFrameLines(res.lines, sf.frameId);
+    return Object.assign({ tab: tab.id }, res);
+  }
   let r = await pageCall(tab, op, a);
   if (r.lost && !isAction) {
     await waitLoad(tab.id, r.seq0, NAV_WAIT_MS);
@@ -739,7 +818,11 @@ async function opPage(op, args) {
     if (r.lost) throw new Error("sayfa gezindi, işlem tamamlanamadı: " + op);
   }
   if (isAction) return attachEvents(tab.id, mark, await afterAction(tab, r));
-  if (op === "snapshot") return Object.assign({ tab: tab.id }, r.result);
+  if (op === "snapshot") {
+    // Kapsam verilmemişse alt çerçeveler de taranır; kapsam varsa yalnız o kök okunur.
+    if (!a.scope) await collectFrameSnapshots(tab, a, r.result);
+    return Object.assign({ tab: tab.id }, r.result);
+  }
   return r.result;
 }
 

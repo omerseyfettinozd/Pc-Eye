@@ -435,9 +435,11 @@ user_pref("browser.translations.panelShown", true);
 """
 
 
-def serve_page(sb, page_html, out_path):
-    """Sayfayı 127.0.0.1'de sunar; `POST /submit` gövdesini `out_path`e yazar (gerçek durum denetimi)."""
+def serve_page(sb, page_html, out_path, extra=None):
+    """Sayfayı 127.0.0.1'de sunar; `POST /submit` gövdesini `out_path`e yazar (gerçek durum denetimi).
+    `extra`: ek yollar (ör. {"/cerceve": html}) — çapraz kaynak iframe sahnesi için."""
     body = page_html.encode("utf-8")
+    extra = {k: v.encode("utf-8") for k, v in (extra or {}).items()}
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
@@ -448,7 +450,7 @@ def serve_page(sb, page_html, out_path):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(body)
+            self.wfile.write(extra.get(self.path.split("?")[0], body))
 
         def do_POST(self):
             data = self.rfile.read(int(self.headers.get("Content-Length", 0)))
@@ -633,6 +635,17 @@ def scene_web_hard(sb, rng, work):
                   "pin": pin, "upload_path": str(up), "upload_name": up.name, "upload_content": content}, out)
 
 
+def scene_web_frame(sb, rng, work):
+    """Çapraz kaynak iframe: ana sayfa 127.0.0.1'de, çerçeve aynı portta `localhost` adıyla (farklı kaynak)."""
+    title = f"Eval Çerçeve {token(rng, 4)}"
+    code = f"KUPON-{token(rng, 5)}"
+    page = (WEB_DIR / "frame.html").read_text(encoding="utf-8").replace("{title}", title)
+    inner = (WEB_DIR / "frame_inner.html").read_text(encoding="utf-8")
+    out = work / "out.json"
+    window, pid = open_in_firefox(sb, work, serve_page(sb, page, out, {"/cerceve": inner}), "Sepet")
+    return Scene({"title": title, "window": window, "pid": pid, "code": code}, out)
+
+
 def scene_wizard(sb, rng, work):
     packages = rng.sample(["metin-editoru", "goruntu-araci", "yedekleme", "ag-izleyici", "ses-kaydedici",
                            "pdf-okuyucu", "takvim"], 5)
@@ -734,6 +747,7 @@ SCENES = {
     "web_validate": scene_web_validate,
     "web_long": scene_web_long,
     "web_hard": scene_web_hard,
+    "web_frame": scene_web_frame,
     "wizard": scene_wizard,
     "dolphin": scene_dolphin,
     "kate": scene_kate,

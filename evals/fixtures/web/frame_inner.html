@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>Kupon çerçevesi</title>
+<style>body{font:18px sans-serif;margin:12px} label{display:block;margin:8px 0}</style>
+<form id="f">
+  <label>Kupon kodu <input name="kupon" autocomplete="off"></label>
+  <button type="submit">Uygula</button>
+</form>
+<p id="durum" role="status"></p>
+<script>
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const r = await fetch("/submit", { method: "POST", body: JSON.stringify({ coupon: e.target.kupon.value }) });
+  document.getElementById("durum").textContent = r.ok ? "Uygulandı" : "Hata";
+});
+</script>
+</html>

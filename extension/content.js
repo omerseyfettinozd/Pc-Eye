@@ -1,6 +1,16 @@
 (() => {
   "use strict";
-  if (window !== window.top || window.__pcEyeBridge) return;
+  if (window.__pcEyeBridge) return;
+  if (window !== window.top) {
+    let sameOrigin = false;
+    try {
+      sameOrigin = Boolean(window.parent.document);
+    } catch (_) {
+      sameOrigin = false;
+    }
+    // Aynı kaynaklı alt çerçeveyi üst çerçevenin betiği contentDocument ile zaten yürür.
+    if (sameOrigin) return;
+  }
   window.__pcEyeBridge = true;
 
   // ---- Durum ve DOM gözlemcisi ----
@@ -488,7 +498,9 @@
     }
 
     const root = scopeEl || document.body || document.documentElement;
-    if (root) walk(root, false);
+    // İzleme pikseli gibi görünmez alt çerçeveler özeti kirletmesin.
+    const tinyFrame = window !== window.top && (window.innerWidth < 40 || window.innerHeight < 40);
+    if (root && !tinyFrame) walk(root, false);
 
     const active = deepActiveElement();
     const focused = active && elToRef.has(active) ? elToRef.get(active) : null;

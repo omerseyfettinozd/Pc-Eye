@@ -1,0 +1,61 @@
+{
+  "id": "web-cross-frame",
+  "scene": "web_frame",
+  "tags": [
+    "browser",
+    "bridge",
+    "web-hard"
+  ],
+  "prompt": "Firefox'ta açık \"{title}\" sayfasındaki kupon alanına {code} kodunu gir ve Uygula'ya bas.",
+  "probe": [],
+  "check": {
+    "type": "out_json",
+    "expect": {
+      "coupon": "{code}"
+    }
+  },
+  "probe_bridge": [
+    {
+      "args": [
+        "browser",
+        "snapshot"
+      ],
+      "expect_contains": [
+        "Ödemeye geç",
+        "frame f",
+        "Kupon kodu",
+        "Uygula"
+      ],
+      "max_ms": 1200
+    },
+    {
+      "args": [
+        "browser",
+        "type",
+        "--name",
+        "Kupon kodu",
+        "--text",
+        "{code}"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "click",
+        "--name",
+        "Uygula"
+      ]
+    },
+    {
+      "args": [
+        "browser",
+        "snapshot",
+        "--query",
+        "Uygulandı"
+      ],
+      "expect_contains": [
+        "Uygulandı"
+      ]
+    }
+  ]
+}

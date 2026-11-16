@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>{title}</title>
+<style>body{font:18px sans-serif;margin:32px} iframe{width:520px;height:220px;border:1px solid #999}</style>
+<h1>Sepet</h1>
+<p>Toplam: 240,00 TL</p>
+<button id="ode">Ödemeye geç</button>
+<iframe id="cerceve" title="Kupon"></iframe>
+<script>
+// Aynı sunucu, farklı ana makine adı: tarayıcı için farklı kaynak (cross-origin).
+document.getElementById("cerceve").src = "http://localhost:" + location.port + "/cerceve";
+</script>
+</html>

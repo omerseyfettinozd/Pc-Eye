@@ -42,7 +42,7 @@
   const INTERACTIVE_ROLES = new Set([
     "button", "link", "textbox", "searchbox", "combobox", "listbox", "option",
     "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox",
-    "menuitemradio", "slider", "spinbutton", "treeitem", "draggable"
+    "menuitemradio", "slider", "spinbutton", "treeitem", "draggable", "file"
   ]);
   const BLOCK_TEXT_TAGS = new Set(["P", "LI", "BLOCKQUOTE", "PRE", "FIGCAPTION", "DT", "DD"]);
   const LIVE_ROLES = new Set(["alert", "status", "dialog", "alertdialog"]);
@@ -282,7 +282,9 @@
     if (tag === "INPUT") {
       const tp = (el.type || "text").toLowerCase();
       if (tp === "hidden") return "";
-      if (tp === "button" || tp === "submit" || tp === "reset" || tp === "image" || tp === "file") return "button";
+      // Dosya girişi düğme gibi görünürse ajan tıklamaya ya da ayrıca aramaya yönelir.
+      if (tp === "file") return "file";
+      if (tp === "button" || tp === "submit" || tp === "reset" || tp === "image") return "button";
       if (tp === "checkbox") return "checkbox";
       if (tp === "radio") return "radio";
       if (tp === "range") return "slider";
@@ -345,6 +347,30 @@
     return cells.join(" | ");
   }
 
+  // Sorguyla tek satır döndüğünde sütun adları kaybolmasın: "Ürün kodu: X | Stok: 12".
+  const tableHeads = new WeakMap();
+  function labeledRowText(el) {
+    const table = el.closest ? el.closest("table,[role=table],[role=grid]") : null;
+    if (!table) return rowText(el);
+    let heads = tableHeads.get(table);
+    if (heads === undefined) {
+      const hr = table.querySelector("tr");
+      heads = hr && hr.querySelector("th,[role=columnheader]")
+        ? Array.from(hr.children).map((c) => clip(safeInnerText(c), 30))
+        : null;
+      tableHeads.set(table, heads);
+    }
+    const cells = Array.from(el.children).filter((ch) => {
+      const r = (ch.getAttribute("role") || "").toLowerCase();
+      return ch.tagName === "TD" || ch.tagName === "TH" || r === "cell" || r === "rowheader";
+    });
+    if (!heads || heads.length !== cells.length || el.querySelector("th,[role=columnheader]")) return rowText(el);
+    return cells.map((c, i) => {
+      const v = clip(safeInnerText(c), 60);
+      return heads[i] ? heads[i] + ": " + v : v;
+    }).join(" | ");
+  }
+
   function formatInteractive(el, role, tr) {
     const ref = getRef(el);
     const name = accName(el, role);
@@ -370,7 +396,7 @@
       if (href) extra += " -> " + href;
     }
     const flags = statusFlags(el, role, tr);
-    let line = `[${ref}] ${role}`;
+    let line = `[${ref}] ${role || "group"}`;
     if (name) line += " " + qStr(name);
     if (val) line += " = " + qStr(val);
     line += extra;
@@ -407,9 +433,30 @@
     let truncated = false;
     let prev = null;
 
+    // Sorgu bir başlıkla eşleşirse o başlığın bölümündeki satırlar da gelir ("X bölümünde ne var" tek çağrı).
+    // Bölüm: başlığın küçük bir kabı varsa o kap; yoksa aynı/üst düzey sonraki başlığa kadar olan satırlar.
+    let sectionLvl = 0;
+    let sectionRoot = null;
+    let sectionLeft = 0;
+    let curNode = null;
     const pushLine = (entry, tr) => {
       if (viewportOnly && isOffscreen(tr)) return true;
-      if (query && !entry.search.includes(query)) return true;
+      if (query) {
+        const hit = entry.search.includes(query);
+        if (entry.headingLevel && sectionLvl && entry.headingLevel <= sectionLvl) sectionLvl = 0;
+        if (hit && entry.headingLevel) {
+          const par = curNode ? curNode.parentElement : null;
+          const boxed = par && par !== document.body && par.tagName !== "MAIN" && par.tagName !== "HTML" &&
+            par.querySelectorAll("*").length <= 60;
+          sectionRoot = boxed ? par : null;
+          sectionLvl = boxed ? 0 : entry.headingLevel;
+          sectionLeft = 25;
+        } else if (!hit) {
+          const inSection = sectionRoot ? Boolean(curNode && sectionRoot.contains(curNode)) : sectionLvl > 0;
+          if (!inSection || sectionLeft <= 0) return true;
+          sectionLeft--;
+        }
+      }
       // Ardışık aynı rol+adlı satırlarda hedefsiz veya aynı hedefli yinelemeyi ele.
       if (prev && entry.role && entry.name && prev.role === entry.role && prev.name === entry.name) {
         if (!prev.href && entry.href) {
@@ -431,6 +478,7 @@
     function walk(node, skipText) {
       if (truncated || !node || node.nodeType !== 1) return;
       if (SKIP_TAGS.has(node.tagName)) return;
+      curNode = node;
       if (node.getAttribute("aria-hidden") === "true") return;
 
       const win = node.ownerDocument.defaultView || window;
@@ -451,12 +499,15 @@
           const m = /^H([1-6])$/.exec(node.tagName);
           const lvl = node.getAttribute("aria-level") || (m ? m[1] : "2");
           const t = accName(node, role);
-          if (t && !pushLine({ line: `heading(${lvl}) ${qStr(t, 120)}`, search: `heading ${t}`.toLowerCase() }, tr)) return;
+          if (t && !pushLine({ line: `heading(${lvl}) ${qStr(t, 120)}`, search: `heading ${t}`.toLowerCase(), headingLevel: Number(lvl) || 2 }, tr)) return;
           nextSkipText = true;
         } else if (role === "row") {
-          const rt = rowText(node);
+          const rt = query ? labeledRowText(node) : rowText(node);
           if (rt && !pushLine({ line: `row ${qStr(rt, 160)}`, search: `row ${rt}`.toLowerCase() }, tr)) return;
           nextSkipText = true;
+        } else if (node.hasAttribute("tabindex") && node.tabIndex >= 0) {
+          // Rolü etkileşimli olmasa da odaklanabilen kaplar (bırakma hedefi, özel bileşen) ref alır.
+          if (!pushLine(formatInteractive(node, role, tr), tr)) return;
         } else if (LIVE_ROLES.has(role)) {
           const t = role === "dialog" || role === "alertdialog"
             ? (accName(node, role) || clip(safeInnerText(node), 120))
@@ -471,6 +522,21 @@
           const t = clip(safeInnerText(node), 120);
           if (t && !pushLine({ line: `text ${qStr(t, 120)}`, search: `text ${t}`.toLowerCase() }, tr)) return;
           nextSkipText = true;
+        }
+      }
+
+      // Rolsüz kaplardaki düz metin: `all` ile dökülür; sorguyla eşleşirse ref de alır (tıklanabilir, bırakma hedefi olabilir).
+      if ((all || query) && selfVisible && hasBox && !nextSkipText && !role &&
+          !BLOCK_TEXT_TAGS.has(node.tagName) && node.tagName !== "LABEL") {
+        let own = "";
+        for (const c of node.childNodes) if (c.nodeType === 3) own += c.nodeValue;
+        own = norm(own);
+        if (own.length >= 2) {
+          const hit = query && own.toLowerCase().includes(query);
+          if (all || hit) {
+            const line = hit ? `[${getRef(node)}] text ${qStr(own, 120)}` : `text ${qStr(own, 120)}`;
+            if (!pushLine({ line, search: `text ${own}`.toLowerCase() }, tr)) return;
+          }
         }
       }
 
@@ -947,12 +1013,14 @@
     let matches = -1;
     if (query) {
       // Eşleşen satırlar ile birer komşusu döner; yinelenen satır tek kez yazılır.
-      const q = query.toLowerCase();
+      // "a|b" birden çok seçenek demektir (ajanlar düzenli ifade gibi yazıyor).
+      const qs = query.toLowerCase().split("|").map((x) => x.trim()).filter(Boolean);
       const lines = raw.split("\n");
       const keep = new Set();
       matches = 0;
       for (let i = 0; i < lines.length; i++) {
-        if (!lines[i].toLowerCase().includes(q)) continue;
+        const low = lines[i].toLowerCase();
+        if (!qs.some((x) => low.includes(x))) continue;
         matches++;
         keep.add(i - 1);
         keep.add(i);
@@ -1003,6 +1071,8 @@
     const wantText = typeof args.text === "string" && args.text ? args.text : "";
     const wantGone = typeof args.gone === "string" && args.gone ? args.gone : "";
     const wantUrl = typeof args.url === "string" && args.url ? args.url : "";
+    // Sayfa bu kadar süre hiç değişmezse beklenen şey gelmeyecektir: süre dolmadan dönülür (0 = kapalı).
+    const idleMs = Math.max(0, numOr(args.idle_ms, 0));
     const t0 = Date.now();
 
     const isMatched = () => {
@@ -1035,8 +1105,18 @@
       const check = () => {
         if (isMatched()) finish(true);
       };
+      const idleCheck = () => {
+        check();
+        if (done || !idleMs || document.readyState !== "complete") return;
+        if (Date.now() - Math.max(t0, lastMutAt) < idleMs) return;
+        done = true;
+        mutWaiters.delete(check);
+        clearTimeout(timer);
+        clearInterval(tick);
+        resolve({ matched: false, idle: true, elapsed_ms: Date.now() - t0, url: location.href });
+      };
       mutWaiters.add(check);
-      tick = setInterval(check, 100);
+      tick = setInterval(idleCheck, 100);
       timer = setTimeout(() => finish(isMatched()), total);
     });
   }

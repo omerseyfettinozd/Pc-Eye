@@ -946,7 +946,7 @@ fn diff_snapshot(before: &Value, after: Value) -> Value {
 /// Adım sonucunun ajana gereken kısmı (tam özet yalnız en sonda bir kez döner).
 fn compact_step_result(r: &Value) -> Value {
     let mut out = serde_json::Map::new();
-    for k in ["changed", "navigated", "value", "matched", "url", "real", "dialogs", "errors", "errors_more", "covered_by", "files"] {
+    for k in ["changed", "navigated", "value", "matched", "idle", "url", "real", "dialogs", "errors", "errors_more", "covered_by", "files"] {
         if let Some(v) = r.get(k) {
             out.insert(k.to_string(), v.clone());
         }
@@ -1065,6 +1065,7 @@ pub(crate) fn pick_ref_by_name(lines: &[&str], name: &str, op: &str) -> Option<S
             "type" => matches!(role, "textbox" | "searchbox" | "combobox" | "textarea" | "spinbutton"),
             "select" => matches!(role, "combobox" | "listbox"),
             "check" => matches!(role, "checkbox" | "radio" | "switch"),
+            "upload" => role == "file",
             _ => true,
         }
     };
@@ -1087,7 +1088,8 @@ pub(crate) fn pick_ref_by_name(lines: &[&str], name: &str, op: &str) -> Option<S
         } else {
             continue;
         };
-        let role_rank = if fits(role) { 0 } else { 1 };
+        // Düz metin satırı (`text`) yalnız başka aday yoksa seçilir.
+        let role_rank = if role == "text" { 2 } else if fits(role) { 0 } else { 1 };
         let key = (role_rank, name_rank, i);
         if best.as_ref().map_or(true, |(k, _)| key < *k) {
             best = Some((key, format!("e{}", num)));

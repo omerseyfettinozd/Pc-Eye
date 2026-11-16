@@ -733,11 +733,25 @@ async function opDialogs(args) {
 async function opWait(tab, args) {
   const total = Math.max(0, numOr(args.timeout_ms, 5000));
   const t0 = Date.now();
-  let a = Object.assign({}, args, { timeout_ms: total });
-  for (let i = 0; i < 4; i++) {
+  // Sayfa 1,5 sn hiç değişmez ve bekleyen istek de yoksa beklenen şey gelmeyecektir: erken dön.
+  const idleMs = args.idle_ms !== undefined ? numOr(args.idle_ms, 1500) : 1500;
+  let a = Object.assign({}, args, { timeout_ms: total, idle_ms: idleMs });
+  for (let i = 0; i < 8; i++) {
     const r = await pageCall(tab, "wait", a);
     if (!r.lost) {
       const res = r.result;
+      if (res && res.idle && !res.matched) {
+        let pending = false;
+        for (const info of reqMap.values()) {
+          if (info.tabId === tab.id && Date.now() - info.t0 < 30000) pending = true;
+        }
+        const left = total - (Date.now() - t0);
+        if (pending && left > 200) {
+          await sleep(200);
+          a = Object.assign({}, args, { timeout_ms: Math.max(0, total - (Date.now() - t0)), idle_ms: idleMs });
+          continue;
+        }
+      }
       if (i > 0 && res && typeof res === "object") res.elapsed_ms = Date.now() - t0;
       return res;
     }

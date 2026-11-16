@@ -63,6 +63,7 @@ hedef.addEventListener("dragover", (e) => e.preventDefault());
 hedef.addEventListener("drop", (e) => {
   e.preventDefault();
   const v = e.dataTransfer.getData("text/plain");
+  hedef.appendChild(document.getElementById("kart"));
   durum.textContent = "Bırakıldı: " + v;
   out({ drop: v });
 });

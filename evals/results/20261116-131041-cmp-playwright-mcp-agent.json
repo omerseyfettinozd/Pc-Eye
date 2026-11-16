@@ -1,0 +1,516 @@
+{
+ "tier": "agent",
+ "started": "20261116-131041-cmp-playwright-mcp",
+ "seed": 298511105,
+ "model": "claude-haiku-5-5",
+ "pceye_version": "0.3.0",
+ "git_commit": "3d079df",
+ "summary": {
+  "tasks": [
+   {
+    "task": "hard-web-long",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 6328.8,
+    "median_turns": 2,
+    "median_tool_calls": 1,
+    "median_input_tokens": 32862,
+    "median_output_tokens": 213,
+    "cost_usd": 0.003
+   },
+   {
+    "task": "hard-web-validation",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 11782.9,
+    "median_turns": 8,
+    "median_tool_calls": 7,
+    "median_input_tokens": 50427,
+    "median_output_tokens": 900,
+    "cost_usd": 0.0021
+   },
+   {
+    "task": "web-console-network",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 14599.6,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 51625,
+    "median_output_tokens": 909,
+    "cost_usd": 0.0021
+   },
+   {
+    "task": "web-cross-frame",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 19998.3,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 49137,
+    "median_output_tokens": 373,
+    "cost_usd": 0.0016
+   },
+   {
+    "task": "web-dialog-accept",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 14080.7,
+    "median_turns": 5,
+    "median_tool_calls": 4,
+    "median_input_tokens": 65102,
+    "median_output_tokens": 370,
+    "cost_usd": 0.0021
+   },
+   {
+    "task": "web-dialog-policy",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 13989.3,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 65767,
+    "median_output_tokens": 453,
+    "cost_usd": 0.0022
+   },
+   {
+    "task": "web-drag-drop",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 41143.7,
+    "median_turns": 14,
+    "median_tool_calls": 13,
+    "median_input_tokens": 195180,
+    "median_output_tokens": 3873,
+    "cost_usd": 0.0062
+   },
+   {
+    "task": "web-form-fill",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 9919.3,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 62973,
+    "median_output_tokens": 497,
+    "cost_usd": 0.002
+   },
+   {
+    "task": "web-snapshot-scope",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 6648.6,
+    "median_turns": 2,
+    "median_tool_calls": 1,
+    "median_input_tokens": 24382,
+    "median_output_tokens": 274,
+    "cost_usd": 0.0013
+   },
+   {
+    "task": "web-table-read",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 6195.6,
+    "median_turns": 2,
+    "median_tool_calls": 1,
+    "median_input_tokens": 23980,
+    "median_output_tokens": 100,
+    "cost_usd": 0.0011
+   },
+   {
+    "task": "web-upload-large",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 19303.4,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 65235,
+    "median_output_tokens": 671,
+    "cost_usd": 0.0022
+   },
+   {
+    "task": "web-upload",
+    "runs": 1,
+    "passed": 1,
+    "setup_errors": 0,
+    "median_ms": 13746.6,
+    "median_turns": 6,
+    "median_tool_calls": 5,
+    "median_input_tokens": 52264,
+    "median_output_tokens": 643,
+    "cost_usd": 0.0021
+   }
+  ],
+  "pass_rate": 1.0,
+  "total_cost_usd": 0.0278
+ },
+ "session": "cmp",
+ "toolset": "playwright-mcp",
+ "browser": "atspi",
+ "runs": [
+  {
+   "task": "hard-web-long",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Stok VLGU",
+    "pid": 222315,
+    "code": "X6-4500",
+    "stock": "307"
+   },
+   "ok": true,
+   "detail": "cevap='307'",
+   "ms": 6328.8,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.00296343,
+   "input_tokens": 32862,
+   "output_tokens": 213,
+   "tool_calls": 1,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "hard-web-validation",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval İletişim A4AC",
+    "pid": 223776,
+    "phone_pretty": "0543 903 78 49",
+    "phone": "5439037849",
+    "email": "ece62@ornek.com"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 11782.9,
+   "is_error": false,
+   "turns": 8,
+   "cost_usd": 0.00208834,
+   "input_tokens": 50427,
+   "output_tokens": 900,
+   "tool_calls": 7,
+   "tools": {
+    "mcp__rival__browser_snapshot": 3,
+    "mcp__rival__browser_fill_form": 2,
+    "mcp__rival__browser_click": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-console-network",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor M3HF",
+    "pid": 225314,
+    "errtoken": "666LHC",
+    "inner": "İç düğme GRTX",
+    "pin": "682348",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-console-network-0/belge-X46P.txt",
+    "upload_name": "belge-X46P.txt",
+    "upload_content": "içerik FEEC8NFC",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-console-network-0/buyuk-76FD.bin",
+    "big_name": "buyuk-76FD.bin",
+    "big_size": 2505497
+   },
+   "ok": true,
+   "detail": "cevap='666LHC hatası'",
+   "ms": 14599.6,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00208012,
+   "input_tokens": 51625,
+   "output_tokens": 909,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_console_messages": 2
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-cross-frame",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Çerçeve P2AV",
+    "pid": 226936,
+    "code": "KUPON-YRMF4"
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19998.3,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00163258,
+   "input_tokens": 49137,
+   "output_tokens": 373,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__rival__browser_snapshot": 2,
+    "mcp__rival__browser_type": 1,
+    "mcp__rival__browser_click": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-accept",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor LWEN",
+    "pid": 228739,
+    "errtoken": "UCDKMJ",
+    "inner": "İç düğme 8LL6",
+    "pin": "132293",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-dialog-accept-0/belge-N8CG.txt",
+    "upload_name": "belge-N8CG.txt",
+    "upload_content": "içerik TVCTA23W",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-dialog-accept-0/buyuk-C3MM.bin",
+    "big_name": "buyuk-C3MM.bin",
+    "big_size": 2468559
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 14080.7,
+   "is_error": false,
+   "turns": 5,
+   "cost_usd": 0.00206508,
+   "input_tokens": 65102,
+   "output_tokens": 370,
+   "tool_calls": 4,
+   "tools": {
+    "mcp__rival__browser_snapshot": 2,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_handle_dialog": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-dialog-policy",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor U7KE",
+    "pid": 230363,
+    "errtoken": "R8TA7T",
+    "inner": "İç düğme LNH8",
+    "pin": "281942",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-dialog-policy-0/belge-862J.txt",
+    "upload_name": "belge-862J.txt",
+    "upload_content": "içerik 6M3AMY7K",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-dialog-policy-0/buyuk-MV2P.bin",
+    "big_name": "buyuk-MV2P.bin",
+    "big_size": 2596802
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13989.3,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0021523700000000002,
+   "input_tokens": 65767,
+   "output_tokens": 453,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__rival__browser_snapshot": 2,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_console_messages": 1,
+    "mcp__rival__browser_handle_dialog": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-drag-drop",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor 9UAW",
+    "pid": 231937,
+    "errtoken": "CU6UG9",
+    "inner": "İç düğme AXLR",
+    "pin": "500307",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-drag-drop-0/belge-7H4R.txt",
+    "upload_name": "belge-7H4R.txt",
+    "upload_content": "içerik W9LUNCPN",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-drag-drop-0/buyuk-K9VU.bin",
+    "big_name": "buyuk-K9VU.bin",
+    "big_size": 2519173
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 41143.7,
+   "is_error": false,
+   "turns": 14,
+   "cost_usd": 0.00618604,
+   "input_tokens": 195180,
+   "output_tokens": 3873,
+   "tool_calls": 13,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_drag": 2,
+    "mcp__rival__browser_evaluate": 5,
+    "mcp__rival__browser_run_code_unsafe": 1,
+    "mcp__rival__browser_network_requests": 1,
+    "mcp__rival__browser_network_request": 3
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-form-fill",
+   "attempt": 0,
+   "vars": {
+    "name": "Öykü Çelik",
+    "city": "İstanbul",
+    "default_city": "İzmir",
+    "title": "Eval Web Form GAGH",
+    "pid": 234091
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 9919.3,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0019627000000000004,
+   "input_tokens": 62973,
+   "output_tokens": 497,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__rival__browser_snapshot": 3,
+    "mcp__rival__browser_fill_form": 1,
+    "mcp__rival__browser_click": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-snapshot-scope",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor 4J4D",
+    "pid": 235613,
+    "errtoken": "2U7UK4",
+    "inner": "İç düğme V2DH",
+    "pin": "870202",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-snapshot-scope-0/belge-NJCE.txt",
+    "upload_name": "belge-NJCE.txt",
+    "upload_content": "içerik GFC8EMRX",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-snapshot-scope-0/buyuk-XHEH.bin",
+    "big_name": "buyuk-XHEH.bin",
+    "big_size": 2403634
+   },
+   "ok": true,
+   "detail": "cevap='İç düğme V2DH'",
+   "ms": 6648.6,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.00129603,
+   "input_tokens": 24382,
+   "output_tokens": 274,
+   "tool_calls": 1,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-table-read",
+   "attempt": 0,
+   "vars": {
+    "item": "Kalem",
+    "price": "234,21 TL",
+    "title": "Eval Fiyatlar XPYX",
+    "pid": 237058
+   },
+   "ok": true,
+   "detail": "cevap='234,21 TL'",
+   "ms": 6195.6,
+   "is_error": false,
+   "turns": 2,
+   "cost_usd": 0.00112559,
+   "input_tokens": 23980,
+   "output_tokens": 100,
+   "tool_calls": 1,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload-large",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor LKMF",
+    "pid": 238504,
+    "errtoken": "6GH4CP",
+    "inner": "İç düğme JHJE",
+    "pin": "457630",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-upload-large-0/belge-DHRN.txt",
+    "upload_name": "belge-DHRN.txt",
+    "upload_content": "içerik YE49RNUV",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-upload-large-0/buyuk-V8NV.bin",
+    "big_name": "buyuk-V8NV.bin",
+    "big_size": 2551847
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 19303.4,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.00217226,
+   "input_tokens": 65235,
+   "output_tokens": 671,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_file_upload": 1,
+    "mcp__rival__browser_find": 1,
+    "mcp__rival__browser_evaluate": 1
+   },
+   "user_disturbed": false
+  },
+  {
+   "task": "web-upload",
+   "attempt": 0,
+   "vars": {
+    "title": "Eval Zor N3CR",
+    "pid": 240250,
+    "errtoken": "UPUH69",
+    "inner": "İç düğme W8HK",
+    "pin": "361843",
+    "upload_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-upload-0/belge-PJGG.txt",
+    "upload_name": "belge-PJGG.txt",
+    "upload_content": "içerik TLWFXXEG",
+    "big_path": "/run/user/1000/pc-eye-eval/20261116-131041-cmp-playwright-mcp/web-upload-0/buyuk-WGT6.bin",
+    "big_name": "buyuk-WGT6.bin",
+    "big_size": 2543163
+   },
+   "ok": true,
+   "detail": "ok",
+   "ms": 13746.6,
+   "is_error": false,
+   "turns": 6,
+   "cost_usd": 0.0020507900000000003,
+   "input_tokens": 52264,
+   "output_tokens": 643,
+   "tool_calls": 5,
+   "tools": {
+    "mcp__rival__browser_snapshot": 1,
+    "mcp__rival__browser_click": 1,
+    "mcp__rival__browser_file_upload": 1,
+    "mcp__rival__browser_find": 2
+   },
+   "user_disturbed": false
+  }
+ ],
+ "user_disturbed_runs": 0,
+ "agent_leak_runs": 0
+}
